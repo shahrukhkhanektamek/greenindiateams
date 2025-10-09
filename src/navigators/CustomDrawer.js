@@ -11,13 +11,15 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
 import { AppContext } from "../Context/AppContext";
+import { useNavigation } from "@react-navigation/native";
 
 const { width } = Dimensions.get("window");
 const DRAWER_WIDTH = width * 0.75;
 
-export default function CustomDrawer({ navigation, isOpen, onClose }) {
+export default function CustomDrawer({ isOpen, onClose }) {
+  const navigation = useNavigation();
 
-  const { userLoggedIn, setUserLoggedIn } = useContext(AppContext);
+  const { userLoggedIn, setUserLoggedIn, handleLogout } = useContext(AppContext);
 
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -114,6 +116,14 @@ export default function CustomDrawer({ navigation, isOpen, onClose }) {
           }}
         />
         <MenuItem
+          label="Kyc"
+          iconName="person-outline"
+          onPress={() => {
+            navigation.navigate("Kyc");
+            onClose();
+          }}
+        />
+        <MenuItem
           label="Settings"
           iconName="settings-outline"
           onPress={() => {
@@ -125,7 +135,8 @@ export default function CustomDrawer({ navigation, isOpen, onClose }) {
           label="Logout"
           iconName="log-out-outline"
           onPress={() => {
-            setUserLoggedIn(false)
+            // setUserLoggedIn(false)
+            handleLogout()
             // handle logout
             onClose();
           }}

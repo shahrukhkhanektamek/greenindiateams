@@ -25,19 +25,29 @@ import { useNavigation } from "@react-navigation/native";
 
 const LoginScreen = () => {
 
-  // const { navigation } = useContext(AppContext);
+  const { Toast, postData, Urls } = useContext(AppContext);
   const navigation = useNavigation();
   
 
-  const [email, setEmail] = useState("");
+  const [mobile, setmobile] = useState("");
+  const handleLogin = async () => {
+    if (!mobile) {
+      Toast.show({ type: "error", text1: 'Please enter mobile' })
+      return;
+    }
+    const filedata = {
+      "mobile":mobile,
+    };
+  const response = await postData(filedata, Urls.login,"POST");
+  if(response.success)
+  {
+    navigation.navigate('Otp',{mobile:mobile});
+  }
+};
 
-  const handleLogin = () => {
-    console.log("Email:", email);
-    navigation.navigate('Otp');
-  };
 
   return (
-    // <View style={[appstyles.container, { flex: 1 }]}>
+    <View style={[appstyles.container, { flex: 1 }]}> 
 
 
       
@@ -112,10 +122,10 @@ const LoginScreen = () => {
               placeholder="Enter Mobile"
               placeholderTextColor="#888"
               keyboardType="decimal-pad"
-              value={email}
-              onChangeText={setEmail}
+              value={mobile}
+              onChangeText={setmobile}
             />
-
+ 
             {/* Login Button */}
             <TouchableOpacity
               style={[appstyles.loginBtn, { width: "100%" }]}
@@ -126,7 +136,7 @@ const LoginScreen = () => {
           </View> 
         </ScrollView>
      
-    // </View>
+    </View>
   );
 };
 

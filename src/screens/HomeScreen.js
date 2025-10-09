@@ -8,7 +8,7 @@ const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
 
-   const { handleLogout } = useContext(AppContext);
+   const { handleLogout, setDrawerOpen } = useContext(AppContext);
 
   // Dummy static data
   const [modalVisible, setModalVisible] = useState(false);
@@ -59,8 +59,8 @@ export default function HomeScreen() {
             <Text style={styles.statusText}>{isOnline ? "Online" : "Offline"}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={handleLogout}>
-            <Icon name="log-out-outline" style={styles.menu} />
+          <TouchableOpacity onPress={() => setDrawerOpen(true)}>
+            <Icon name="menu" style={styles.menu} />
           </TouchableOpacity>
         </View>
       </View>
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.black,
+    backgroundColor: 'white',
     paddingVertical: 5,
     paddingHorizontal: 16,
     borderBottomWidth: 2,
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   headerLeft: { flexDirection: 'row', alignItems: 'center' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   logo: { width: 150, height: 45, resizeMode: 'contain' },
-  menu: { fontSize: 28, color: colors.white },
+  menu: { fontSize: 28, color: colors.primary },
   statusBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   statusDotContainer: { width: 10, height: 10, marginRight: 6, alignItems: 'center', justifyContent: 'center' },
   statusDot: { width: 10, height: 10, borderRadius: 5 },

@@ -11,7 +11,7 @@ export const AppContext = createContext();
 export const AppProvider = ({ children }) => {
 
   // App states
-  const mainUrl = "https://knowledgewaveindia.com/";
+  const mainUrl = "http://192.168.1.61:8080/";
   const [theme, setTheme] = useState("light"); 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [userLoggedIn, setUserLoggedIn] = useState(false);
@@ -26,16 +26,34 @@ export const AppProvider = ({ children }) => {
 
   // Base API URLs
   const apiUrl = () => {
-    const apiUrl = mainUrl+"api/";
+    const apiUrl = mainUrl+"api/v1/";
     const commurl = apiUrl + "common/";
-    const userUrl = apiUrl + "sales/";
+    const serviceManUrl = apiUrl + "serviceman/";
     return {
-      login: `${userUrl}login`, 
-      logout: `${userUrl}logout`,
-      online_offline: `${userUrl}online_offline`,
 
-      lead: `${userUrl}lead`,
-      leadScretch: `${userUrl}lead-scretch`,
+
+      login: `${serviceManUrl}auth/login`,
+      verifyOtp: `${serviceManUrl}auth/verify-otp`,
+      kycDetail: `${serviceManUrl}kyc/detail`,
+      kycUpdate: `${serviceManUrl}kyc`,
+
+      ProfileDetail: `${serviceManUrl}profile/detail`,
+      ProfileUpdate: `${serviceManUrl}profile`,
+
+      Review: `${serviceManUrl}review`,
+
+      Booking: `${serviceManUrl}booking`,
+      BookingAccept: `${serviceManUrl}booking/accept`,
+      BookingOtp: `${serviceManUrl}booking/booking-start-otp`,
+      BookingOtpVerify: `${serviceManUrl}booking/booking-start-otp-verify`,
+
+
+      // login: `${userUrl}login`, 
+      // logout: `${userUrl}logout`,
+      // online_offline: `${userUrl}online_offline`,
+
+      // lead: `${userUrl}lead`,
+      // leadScretch: `${userUrl}lead-scretch`,
     };
   };
   const Urls = apiUrl();
@@ -268,7 +286,6 @@ export const AppProvider = ({ children }) => {
     storage.delete('user');
     setUserLoggedIn(false);
     setUser(null);
-    console.log(userLoggedIn)
   };
 
   return (

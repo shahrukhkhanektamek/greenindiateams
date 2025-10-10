@@ -12,6 +12,7 @@ import {
 import { AppContext } from "../../Context/AppContext"
 import appstyles, { colors } from "../../assets/app";
 import { launchImageLibrary } from "react-native-image-picker";
+import PageHeader from "../../components/PageHeader";
 
 const KycScreen = () => {
   const { Urls, postData, generateUniqueId, imageCheck } =
@@ -40,7 +41,7 @@ const KycScreen = () => {
 
   const fetchData = async () => {
     try {
-      const response = await postData({}, Urls.serviceMankycDetail, "GET", 1, 1);
+      const response = await postData({}, Urls.kycDetail, "GET", 1, 1);
       if (response.success) {
         setFormData((prev) => ({
           ...prev,
@@ -97,18 +98,18 @@ const KycScreen = () => {
   };
 
   const handleSubmit = async () => {
-    if (!formData.bankName || !formData.accountNumber) {
-      Alert.alert("Error", "Please fill in all required fields");
-      return;
-    }
+    // if (!formData.bankName || !formData.accountNumber) {
+    //   Alert.alert("Error", "Please fill in all required fields");
+    //   return;
+    // }
 
     try {
       const response = await postData(
         formData,
-        Urls.serviceMankycUpdate,
+        Urls.kycUpdate,
         "POST",
-        0,
-        0,
+        1,
+        1,
         1
       );
       if (response.success) {
@@ -120,11 +121,11 @@ const KycScreen = () => {
   };
 
   return (
+    <>
+    <PageHeader data={{title:'KYC Verification'}} />
     <ScrollView style={appstyles.container}>
-      <Text style={[appstyles.brand, { fontSize: 22, marginVertical: 15 }]}>
-        KYC Verification
-      </Text>
-
+      
+      <View style={[appstyles.card,{marginTop:10}]}>
       {/* Bank Details */}
       <Text style={appstyles.label}>Bank Name</Text>
       <TextInput
@@ -225,6 +226,7 @@ const KycScreen = () => {
           )}
         </View>
       ))}
+      </View>
 
       <TouchableOpacity style={appstyles.loginBtn} onPress={handleSubmit}>
         <Text style={appstyles.loginBtnText}>Submit Verification</Text>
@@ -232,6 +234,7 @@ const KycScreen = () => {
 
       <View style={{ height: 40 }} />
     </ScrollView>
+    </>
   );
 };
 

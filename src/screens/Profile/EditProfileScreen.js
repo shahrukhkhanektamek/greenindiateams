@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useCallback, useContext, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,62 +6,71 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert, 
-} from "react-native"; 
+  Alert,
+  RefreshControl,
+} from "react-native";
 import { AppContext } from "../../Context/AppContext";
 import appstyles, { colors } from "../../assets/app";
 import { launchImageLibrary } from "react-native-image-picker";
 import Select2Multiple from "../../components/Select/Select2Multiple ";
+import PageHeader from "../../components/PageHeader";
 
 const EditProfileScreen = () => {
-  const { 
-    Urls, 
-    postData, 
-    generateUniqueId, 
-    imageCheck, 
-    formatDate, 
-    categoryListData 
+  const {
+    Urls,
+    postData,
+    generateUniqueId,
+    imageCheck,
+    formatDate,
+    categoryListData,
+    Toast,
+    storage,
   } = useContext(AppContext);
 
-  const [formData, setFormData] = useState({
-    categoryIds: [],
-    name: "",
-    email: "", 
-    dob: "",
-    experienceLevel: "",
-    companyName: "",
-    yearOfExperience: "",
-    permanentAddress: "",
-    currentAddress: "",
-    referenceName1: "",
-    referenceMobile1: "",
-    referenceName2: "",
-    referenceMobile2: "",
-    profileImage: null,
-    profileImagePreview: "",        
-  });
+  // ---------- Individual States ----------
+  const [categoryIds, setCategoryIds] = useState([]);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [dob, setDob] = useState("");
+  const [experienceLevel, setExperienceLevel] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [yearOfExperience, setYearOfExperience] = useState("");
+  const [permanentAddress, setPermanentAddress] = useState("");
+  const [currentAddress, setCurrentAddress] = useState("");
+  const [referenceName1, setReferenceName1] = useState("");
+  const [referenceMobile1, setReferenceMobile1] = useState("");
+  const [referenceName2, setReferenceName2] = useState("");
+  const [referenceMobile2, setReferenceMobile2] = useState("");
+  const [profileImage, setProfileImage] = useState(null);
+  const [profileImagePreview, setProfileImagePreview] = useState("");
 
+  // ---------- Refresh ----------
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchData().finally(() => setRefreshing(false));
+  }, []);
+
+  // ---------- Fetch Profile Data ----------
   const fetchData = async () => {
     try {
-      const response = await postData({}, Urls.serviceManProfileDetail, "GET", 1, 1);
+      const response = await postData({}, Urls.ProfileDetail, "GET", 1, 1);
       if (response.success) {
-        setFormData((prev) => ({
-          ...prev,
-          profileImagePreview: imageCheck(response.data.profileImage),
-          categoryIds: response.data.categoryIds,
-          name: response.data.name,
-          email: response.data.email,
-          dob: response.data.dob,
-          experienceLevel: response.data.experienceLevel,
-          companyName: response.data.companyName,
-          yearOfExperience: response.data.yearOfExperience,
-          permanentAddress: response.data.permanentAddress,
-          currentAddress: response.data.currentAddress,
-          referenceName1: response.data.referenceName1,
-          referenceMobile1: response.data.referenceMobile1,
-          referenceName2: response.data.referenceName2,
-          referenceMobile2: response.data.referenceMobile2,
-        }));
+        const d = response.data;
+        setCategoryIds(d.categoryIds || []);
+        setName(d.name || "");
+        setEmail(d.email || "");
+        setDob(d.dob || "");
+        setExperienceLevel(d.experienceLevel || "");
+        setCompanyName(d.companyName || "");
+        setYearOfExperience(d.yearOfExperience || "");
+        setPermanentAddress(d.permanentAddress || "");
+        setCurrentAddress(d.currentAddress || "");
+        setReferenceName1(d.referenceName1 || "");
+        setReferenceMobile1(d.referenceMobile1 || "");
+        setReferenceName2(d.referenceName2 || "");
+        setReferenceMobile2(d.referenceMobile2 || "");
+        setProfileImagePreview();
       }
     } catch (error) {
       console.error("Profile fetch error:", error);
@@ -72,15 +81,8 @@ const EditProfileScreen = () => {
     fetchData();
   }, []);
 
-  const handleChange = (key, value) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleCategoryChange = (selectedIds) => {
-    setFormData((prev) => ({ ...prev, categoryIds: selectedIds }));
-  };
-
-  const handlePickImage = (key) => {
+  // ---------- Image Picker ----------
+  const handlePickImage = () => {
     launchImageLibrary(
       {
         mediaType: "photo",
@@ -93,110 +95,191 @@ const EditProfileScreen = () => {
           console.error("ImagePicker Error: ", response.errorMessage);
         } else if (response.assets && response.assets.length > 0) {
           const asset = response.assets[0];
-          setFormData((prev) => ({
-            ...prev,
-            [key]: asset,
-            [`${key}Preview`]: asset.uri,
-          }));
+          setProfileImage(asset);
+          setProfileImagePreview(asset.uri);
         }
       }
     );
   };
 
+  // ---------- Submit ----------
   const handleSubmit = async () => {
-    // Simple validation
-    if (!formData.name || !formData.email) {
-      Alert.alert("Error", "Please fill in all required fields");
-      return;
-    }
-
     try {
+      const filedata = {
+        categoryIds,
+        name,
+        email,
+        dob,
+        experienceLevel,
+        companyName,
+        yearOfExperience,
+        permanentAddress,
+        currentAddress,
+        referenceName1,
+        referenceMobile1,
+        referenceName2,
+        referenceMobile2,
+        profileImage,
+      };
+
       const response = await postData(
-        formData,
-        Urls.serviceManProfileUpdate,
+        filedata,
+        Urls.ProfileUpdate,
         "POST",
         0,
         0,
         1
       );
+
       if (response.success) {
-        Alert.alert("Success", "Profile Updated Successfully!");
+        // Alert.alert("Success", "Profile Updated Successfully!");
       }
     } catch (error) {
       console.error("Profile submit error:", error);
     }
   };
 
+
+
+
+
+  // const updateProfile = async () => {
+  //   // if (!file) {
+  //   //   Toast.show({ type: "error", text1: "Please select a profile image!" });
+  //   //   return;
+  //   // }
+
+  //   // setLoading(true);
+
+  //   const formData = new FormData();
+  //   formData.append("categoryIds", "68c261a6bf22c75618817f7d");
+  //   formData.append("name", "Shahrukhfasfsaf");
+  //   formData.append("email", "shahrukh@gmail.com");
+  //   formData.append("dob", "2000-01-01");
+  //   formData.append("experienceLevel", "Experience");
+  //   formData.append("companyName", "XYZ PVT LTD");
+  //   formData.append("yearOfExperience", "3"); 
+  //   formData.append("permanentAddress", "Delhi");
+  //   formData.append("currentAddress", "Delhi");
+  //   formData.append("referenceName1", "xyx");
+  //   formData.append("referenceMobile1", "12345567890");
+  //   formData.append("referenceName2", "abc");
+  //   formData.append("referenceMobile2", "0987654321");
+
+  //   // formData.append("profileImage", {
+  //   //   uri: Platform.OS === "ios" ? file.uri.replace("file://", "") : file.uri,
+  //   //   type: file.type,
+  //   //   name: file.fileName,
+  //   // });
+
+  //   try {
+  //     const token = await storage.get("token");
+  //     const response = await fetch("http://192.168.1.61:8080/api/v1/serviceman/profile", {
+  //       method: "POST",
+  //       headers: {
+  //         Authorization: `Bearer ${token}`,
+  //         "Content-Type": "multipart/form-data",
+  //       },
+  //       body: formData,
+  //     });
+
+  //     const data = await response.json();
+  //     console.log("Profile Update Response:", data);
+
+  //     if (data.status === 200) {
+  //       Toast.show({ type: "success", text1: data.message || "Profile updated successfully!" });
+  //     } else {
+  //       Toast.show({ type: "error", text1: data.message || "Profile update failed!" });
+  //     }
+  //   } catch (error) {
+  //     console.error("Error:", error);
+  //     Toast.show({ type: "error", text1: "Something went wrong!" });
+  //   } finally {
+  //     // setLoading(false);
+  //   }
+  // };
+
+  // ---------- Render ----------
   return (
-    <ScrollView style={appstyles.container}>
-      <Text style={[appstyles.brand, { fontSize: 22, marginVertical: 15 }]}>
-        Profile
-      </Text>
+    <>
+      <PageHeader data={{ title: "Edit Profile" }} />
 
-      {/* Category Select */}
-      <Text style={appstyles.label}>Category</Text>
-      <Select2Multiple
-        optionsList={categoryListData}
-        value={formData.categoryIds}
-        onChange={handleCategoryChange}
-      />
-
-      {/* Text Inputs */}
-      {[
-        { key: "name", label: "Name", keyboard: "default" },
-        { key: "email", label: "Email", keyboard: "email-address" },
-        { key: "dob", label: "Date of Birth", keyboard: "default" },
-        { key: "experienceLevel", label: "Experience Level", keyboard: "default" },
-        { key: "companyName", label: "Company Name", keyboard: "default" },
-        { key: "yearOfExperience", label: "Year Of Experience", keyboard: "numeric" },
-        { key: "permanentAddress", label: "Permanent Address", keyboard: "default" },
-        { key: "currentAddress", label: "Current Address", keyboard: "default" },
-        { key: "referenceName1", label: "Reference Name 1", keyboard: "default" },
-        { key: "referenceMobile1", label: "Reference Mobile 1", keyboard: "phone-pad" },
-        { key: "referenceName2", label: "Reference Name 2", keyboard: "default" },
-        { key: "referenceMobile2", label: "Reference Mobile 2", keyboard: "phone-pad" },
-      ].map((field) => (
-        <View key={field.key} style={{ marginVertical: 8 }}>
-          <Text style={appstyles.label}>{field.label}</Text>
-          <TextInput
-            style={appstyles.input}
-            placeholder={`Enter ${field.label}`}
-            value={
-              field.key === "dob"
-                ? (formData[field.key])
-                : formData[field.key]
-            }
-            onChangeText={(v) => handleChange(field.key, v)}
-            keyboardType={field.keyboard}
+      <ScrollView
+        style={[appstyles.container, { marginTop: 10 }]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <View style={[appstyles.card]}>
+          {/* Category Select */}
+          <Text style={appstyles.label}>Category</Text>
+          <Select2Multiple
+            optionsList={categoryListData}
+            value={categoryIds}
+            onChange={setCategoryIds}
           />
+
+          {/* Text Inputs */}
+          {[
+            { label: "Name", value: name, setter: setName, keyboard: "default" },
+            { label: "Email", value: email, setter: setEmail, keyboard: "email-address" },
+            { label: "Date of Birth", value: dob, setter: setDob, keyboard: "default" },
+            { label: "Experience Level", value: experienceLevel, setter: setExperienceLevel, keyboard: "default" },
+            { label: "Company Name", value: companyName, setter: setCompanyName, keyboard: "default" },
+            { label: "Year Of Experience", value: yearOfExperience, setter: setYearOfExperience, keyboard: "numeric" },
+            { label: "Permanent Address", value: permanentAddress, setter: setPermanentAddress, keyboard: "default" },
+            { label: "Current Address", value: currentAddress, setter: setCurrentAddress, keyboard: "default" },
+            { label: "Reference Name 1", value: referenceName1, setter: setReferenceName1, keyboard: "default" },
+            { label: "Reference Mobile 1", value: referenceMobile1, setter: setReferenceMobile1, keyboard: "phone-pad" },
+            { label: "Reference Name 2", value: referenceName2, setter: setReferenceName2, keyboard: "default" },
+            { label: "Reference Mobile 2", value: referenceMobile2, setter: setReferenceMobile2, keyboard: "phone-pad" },
+          ].map((field, index) => (
+            <View key={index} style={{ marginVertical: 0 }}>
+              <Text style={appstyles.label}>{field.label}</Text>
+              <TextInput
+                style={appstyles.input}
+                placeholder={`Enter ${field.label}`}
+                value={field.value}
+                onChangeText={field.setter}
+                keyboardType={field.keyboard}
+              />
+            </View>
+          ))}
+
+          {/* Profile Image */}
+          <View style={{ marginVertical: 10 }}>
+            <Text style={appstyles.label}>Profile Image</Text>
+            <TouchableOpacity
+              style={[appstyles.card, { padding: 20, alignItems: "center" }]}
+              onPress={handlePickImage}
+            >
+              <Text style={{ color: colors.primary }}>
+                Tap to Select Profile Image
+              </Text>
+            </TouchableOpacity>
+            {profileImagePreview ? (
+              <Image
+                source={{ uri: profileImagePreview }}
+                style={{
+                  width: "100%",
+                  height: 150,
+                  marginTop: 10,
+                  borderRadius: 8,
+                }}
+                resizeMode="contain"
+              />
+            ) : null} 
+          </View>
         </View>
-      ))}
 
-      {/* Profile Image */}
-      <View style={{ marginVertical: 10 }}>
-        <Text style={appstyles.label}>Profile Image</Text>
-        <TouchableOpacity
-          style={[appstyles.card, { padding: 20, alignItems: "center" }]}
-          onPress={() => handlePickImage("profileImage")}
-        >
-          <Text style={{ color: colors.primary }}>Tap to Select Profile Image</Text>
+        {/* Submit Button */}
+        <TouchableOpacity style={appstyles.loginBtn} onPress={handleSubmit}>
+          <Text style={appstyles.loginBtnText}>Submit Profile</Text>
         </TouchableOpacity>
-        {formData.profileImagePreview && (
-          <Image
-            source={{ uri: formData.profileImagePreview }}
-            style={{ width: "100%", height: 150, marginTop: 10, borderRadius: 8 }}
-            resizeMode="contain"
-          />
-        )}
-      </View>
 
-      {/* Submit Button */}
-      <TouchableOpacity style={appstyles.loginBtn} onPress={handleSubmit}>
-        <Text style={appstyles.loginBtnText}>Submit Profile</Text>
-      </TouchableOpacity>
-
-      <View style={{ height: 40 }} />
-    </ScrollView>
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </>
   );
 };
 

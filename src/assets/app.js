@@ -69,7 +69,7 @@ const appstyles = StyleSheet.create({
     borderColor: "#ddd",
     borderRadius: 10,
     padding: 12,
-    marginBottom: 12,
+    marginBottom: 10,
     backgroundColor: "#fff",
     fontSize: 15,
     color: colors.black,
@@ -152,7 +152,7 @@ const appstyles = StyleSheet.create({
   label: {
     fontWeight: "600",
     color: colors.grey,
-    width: 70,
+    width: '100%',
   },
   value: {
     flex: 1,

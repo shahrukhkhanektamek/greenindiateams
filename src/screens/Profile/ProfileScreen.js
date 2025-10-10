@@ -14,25 +14,23 @@ import { useNavigation } from "@react-navigation/native";
 import { AppContext } from "../../Context/AppContext";
 import appstyles, { colors } from "../../assets/app";
 
+import PageHeader from '../../components/PageHeader';
+
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const { userLoggedIn, setUserLoggedIn } = useContext(AppContext);
 
   return (
+    <>
+    <PageHeader data={{title:'My Profile'}} />
     <ScrollView
-      style={[{ backgroundColor: colors.background }]}
-      contentContainerStyle={{ paddingBottom: 30 }}
+      style={[appstyles.container,{marginTop:10}]}
     >
-      {/* 🔹 Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Profile</Text>
-        <TouchableOpacity onPress={() => navigation.navigate("Setting")}>
-          <Icon name="settings-outline" size={24} color={colors.black} />
-        </TouchableOpacity>
-      </View>
+
+
 
       {/* 🔹 User Info */}
-      <View style={styles.userCard}>
+      <View style={[appstyles.card,{alignItems: "center"}]}>
         <Image
           source={require("../../assets/img/user.png")}
           style={styles.userImage}
@@ -49,7 +47,7 @@ export default function ProfileScreen() {
       </View>
 
       {/* 🔹 Menu / Actions */}
-      <View style={styles.actionCard}>
+      <View style={appstyles.card}>
         <MenuItem
           icon="cart-outline"
           label="My Orders"
@@ -78,6 +76,7 @@ export default function ProfileScreen() {
         />
       </View>
     </ScrollView>
+    </>
   );
 }
 
@@ -114,25 +113,7 @@ function MenuItem({ icon, label, onPress, isLogout }) {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 15,
-    paddingVertical: 15,
-    backgroundColor: colors.white,
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    borderBottomWidth: 2,
-    borderBottomColor: colors.primary,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: colors.primary,
-  },
+  
 
   userCard: {
     ...appstyles.card,

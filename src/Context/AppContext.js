@@ -11,7 +11,7 @@ export const AppContext = createContext();
 export const AppProvider = ({ children }) => {
 
   // App states
-  const mainUrl = "http://192.168.1.61:8080/";
+  const mainUrl = "http://192.168.1.61:8080/"; 
   const [theme, setTheme] = useState("light"); 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [userLoggedIn, setUserLoggedIn] = useState(false);
@@ -22,6 +22,8 @@ export const AppProvider = ({ children }) => {
   const [deviceInfo, setDeviceInfo] = useState({});
   const [deviceId, setdeviceId] = useState('');
 
+  const [categoryListData, setcategoryListData] = useState('');
+
   const toggleTheme = () => setTheme(prev => (prev === "light" ? "dark" : "light"));
 
   // Base API URLs
@@ -30,6 +32,19 @@ export const AppProvider = ({ children }) => {
     const commurl = apiUrl + "common/";
     const serviceManUrl = apiUrl + "serviceman/";
     return {
+
+      homeDetail: `${commurl}home`,
+
+      categoryList: `${commurl}category`,
+      subCategoryList: `${commurl}sub-category`,
+      subSubCategoryList: `${commurl}sub-sub-category`,
+      subSubSubCategoryList: `${commurl}sub-sub-sub-category`,
+      serviceList: `${commurl}service`,
+
+      timeSlot: `${commurl}time-slot/available/by-date`,
+      addRemoveCart: `${commurl}cart/create-cart`,
+      createTransaction: `${commurl}payment/create-order`,
+      verifyTransaction: `${commurl}payment/verify-payment`,
 
 
       login: `${serviceManUrl}auth/login`,
@@ -48,12 +63,7 @@ export const AppProvider = ({ children }) => {
       BookingOtpVerify: `${serviceManUrl}booking/booking-start-otp-verify`,
 
 
-      // login: `${userUrl}login`, 
-      // logout: `${userUrl}logout`,
-      // online_offline: `${userUrl}online_offline`,
-
-      // lead: `${userUrl}lead`,
-      // leadScretch: `${userUrl}lead-scretch`,
+      
     };
   };
   const Urls = apiUrl();
@@ -121,31 +131,45 @@ export const AppProvider = ({ children }) => {
   const postData = async (filedata, url, method, loaderShowHide = null, messageAlert = null, isFileUpload = false) => {
     
     
-    // const deviceInfoJson = JSON.stringify(getDeviceInfo());
-    // let bodyData = null;
-    // if (isFileUpload) {
-    //   bodyData = new FormData();
-    //   for (const key in filedata) bodyData.append(key, filedata[key]);
-    //   bodyData.append("device_detail", deviceInfoJson);
-    //   bodyData.append("device_id", deviceId);
-    // } else {
-    //   if (method === "POST") bodyData = { ...filedata, device_detail: deviceInfoJson, device_id:deviceId };
-    //   if ((method === "GET" || method === "DELETE") && filedata) {
-    //     const params = new URLSearchParams({ ...filedata, device_detail: deviceInfoJson, device_id:deviceId }).toString();
-    //     url += `?${params}`;
-    //   }
-    // }
+    
  
     const deviceInfo = getDeviceInfo(); 
     let data = '';
-    if(method=='POST' || method=='post')  data = JSON.stringify(Object.assign(filedata, { employee_id:user?.id,device_id: deviceId,device_detail:deviceInfo}));
-    if(method=='GET' || method=='get') data = '';
+    // if(method=='POST' || method=='post')  data = JSON.stringify(Object.assign(filedata, { userId:user?.id,device_id: deviceId,device_detail:deviceInfo}));
+    
+
     if (method === 'get' || method === 'GET' && filedata) {
-      const params = new URLSearchParams({ ...filedata, employee_id:user?.id,device_id: deviceId,device_detail:deviceInfo }).toString();
+      const params = new URLSearchParams({ ...filedata, userId:user?.id,device_id: deviceId,device_detail:deviceInfo }).toString();
       url += `?${params}`; // Append query parameters
     }
+    else if(method=='POST'){
+      const formData = new FormData();
 
-    // console.log(data);
+      Object.entries(filedata).forEach(([key, value]) => {
+        if (value && value.uri && value.type && value.fileName) {
+          // Ye file hai
+          formData.append(key, value);
+        } else if (value !== undefined && value !== null) {
+          // Ye normal text value hai
+          formData.append(key, value);
+        }
+      });
+
+      // formData.append("userId", user?.id?user?.id:'');
+      formData.append("deviceId", deviceId);
+      // formData.append("device_detail", JSON.stringify(deviceInfo));
+      
+
+      data = formData;
+
+    }
+
+  
+
+
+ 
+
+    console.log(data);
  
 
     if (!loaderShowHide) setshowHideLoader(true);    
@@ -153,7 +177,8 @@ export const AppProvider = ({ children }) => {
       const response = await fetch(url, {
         method,
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": method=='POST'?"multipart/form-data":"application/json",
+          // "Content-Type": "multipart/form-data",
           Authorization: "Bearer " + (await storage.get("token")),
         },
         body: data,
@@ -230,7 +255,8 @@ export const AppProvider = ({ children }) => {
       } 
       else { 
         if (result.responseJSON) result = result.responseJSON;
-        Toast.show({ type: "error", text1: result.message });
+        if (!messageAlert && result.message) 
+          Toast.show({ type: "error", text1: result.message });
     
         if (result.status === 400) {
           return result;          
@@ -241,6 +267,9 @@ export const AppProvider = ({ children }) => {
           setUserLoggedIn(false);
           setUser(null);         
             return result;
+        } 
+        else if (result.status === 201) {
+          return result;
         } 
         else if (result.status === 419) {
           return result;
@@ -279,6 +308,39 @@ export const AppProvider = ({ children }) => {
     return uniqueId;
   };
 
+
+  const imageCheck  =  (path, defaultImg = null) => {
+    const baseUrl = mainUrl;
+    let image = '';
+  
+    if (!path) {
+      image = defaultImg
+        ? `${baseUrl}uploads/${defaultImg}`
+        : `${baseUrl}uploads/default.jpg`;
+    } else {
+      image = `${baseUrl}${path}`;
+    }
+  
+    try {
+      const decoded = JSON.parse(path);
+  
+      if (Array.isArray(decoded) || typeof decoded === 'object') {
+        if (decoded?.[0]?.image_path) {
+          image = `${baseUrl}${decoded[0].image_path}`;
+        }
+      } else if (path && typeof path === 'string') {
+        image = `${baseUrl}${path}`;
+      }
+    } catch (e) {
+      if (path && typeof path === 'string') {
+        image = `${baseUrl}${path}`;
+      }
+    }
+  
+    // Return in React Native Image-friendly format
+    return image;
+  };
+
   const handleLogout = async () => {     
     // const response = await postData({}, Urls.logout,"GET");
     console.log('fasfsa');
@@ -288,6 +350,23 @@ export const AppProvider = ({ children }) => {
     setUser(null);
   };
 
+
+  const handleHome = async () => {
+    try {
+      const response = await postData({}, Urls.homeDetail, "GET", 1, 1);
+      if(response.success)
+      {
+        let data = response.data;
+        setcategoryListData(data.category);
+      }
+    } catch (error) {
+      console.error("Profile fetch error:", error);
+    }
+  };
+  useEffect(() => {
+    handleHome();
+  }, []); 
+ 
   return (
     <AppContext.Provider
       value={{
@@ -297,6 +376,7 @@ export const AppProvider = ({ children }) => {
         setDrawerOpen,
         userLoggedIn,
         setUserLoggedIn,
+        imageCheck,
         handleLogout,
 
         user, setUser,
@@ -305,7 +385,13 @@ export const AppProvider = ({ children }) => {
         storage,
         showHidePageLoading, setshowHidePageLoading,
         PriceFormat, generateUniqueId, Toast,
-        showHideLoader, setshowHideLoader
+        showHideLoader, setshowHideLoader,
+
+
+        categoryListData,
+        setcategoryListData,
+
+
 
       }}
     >

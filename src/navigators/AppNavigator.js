@@ -5,11 +5,11 @@ import HomeScreen from "../screens/HomeScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import CustomDrawer from "./CustomDrawer";
 import { createNavigationContainerRef } from "@react-navigation/native";
-
+ 
 // Create navigation ref
 export const navigationRef = createNavigationContainerRef();
 
-const Stack = createStackNavigator();
+const Stack = createStackNavigator();   
 
 export default function AppNavigator() {
   const [drawerOpen, setDrawerOpen] = useState(false);

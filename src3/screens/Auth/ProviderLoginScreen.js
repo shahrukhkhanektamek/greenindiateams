@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,22 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../styles/globalStyles';
 import { colors } from '../../styles/colors';
+import { AppContext } from '../../../src/Context/AppContext';
 
 const ProviderLoginScreen = ({ navigation }) => {
+
+  const {
+      userLoggedIn, 
+      setUserLoggedIn,
+    } = useContext(AppContext);
+
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+
+  
 
   const validateForm = () => {
     const newErrors = {};
@@ -40,6 +49,13 @@ const ProviderLoginScreen = ({ navigation }) => {
   };
 
   const handleLogin = () => {
+    setUserLoggedIn(true)
+    // navigation.reset({
+    //   index: 0,
+    //   routes: [{ name: 'ProviderDashboard' }],
+    // });
+    return false;
+
     if (validateForm()) {
       setIsLoading(true);
       // Simulate API call

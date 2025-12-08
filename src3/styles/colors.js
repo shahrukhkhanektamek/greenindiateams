@@ -1,40 +1,40 @@
-// Color Palette - Centralized colors
+// Color Palette
 export const colors = {
   // Primary colors
-  primary: '#FF6B6B',       // Main brand color
-  primaryLight: '#FFE6E6',  // Light variant
-  primaryDark: '#D64545',   // Dark variant
+  primary: '#FF6B6B',
+  primaryLight: '#FFE6E6',
+  primaryDark: '#D64545',
   
   // Secondary colors
-  secondary: '#4ECDC4',     // Secondary color
-  secondaryLight: '#A7E6E1',// Light variant
-  secondaryDark: '#2DA69C', // Dark variant
-  
-  // Neutral colors
-  background: '#FFFFFF',    // Background color
-  surface: '#F8F8F8',       // Surface color
-  card: '#FFFFFF',          // Card background
-  
-  // Text colors
-  text: '#333333',          // Primary text
-  textLight: '#666666',     // Secondary text
-  textMuted: '#999999',     // Muted text
-  textDisabled: '#CCCCCC',  // Disabled text
-  
-  // Border colors
-  border: '#E0E0E0',        // Border color
-  borderLight: '#F0F0F0',   // Light border
-  borderDark: '#CCCCCC',    // Dark border
+  secondary: '#4ECDC4',
+  secondaryLight: '#A7E6E1',
+  secondaryDark: '#2DA69C',
   
   // Status colors
-  success: '#4CAF50',       // Success color
-  successLight: '#E8F5E9',  // Success light
-  warning: '#FF9800',       // Warning color
-  warningLight: '#FFF3E0',  // Warning light
-  error: '#F44336',         // Error color
-  errorLight: '#FFEBEE',    // Error light
-  info: '#2196F3',          // Info color
-  infoLight: '#E3F2FD',     // Info light
+  success: '#4CAF50',
+  successLight: '#E8F5E9',
+  warning: '#FF9800',
+  warningLight: '#FFF3E0',
+  error: '#F44336',
+  errorLight: '#FFEBEE',
+  info: '#2196F3',
+  infoLight: '#E3F2FD',
+  
+  // Neutral colors
+  background: '#FFFFFF',
+  surface: '#F8F8F8',
+  card: '#FFFFFF',
+  
+  // Text colors
+  text: '#333333',
+  textLight: '#666666',
+  textMuted: '#999999',
+  textDisabled: '#CCCCCC',
+  
+  // Border colors
+  border: '#E0E0E0',
+  borderLight: '#F0F0F0',
+  borderDark: '#CCCCCC',
   
   // Grayscale
   white: '#FFFFFF',
@@ -53,8 +53,6 @@ export const colors = {
   // Social colors
   facebook: '#1877F2',
   google: '#DB4437',
-  twitter: '#1DA1F2',
-  instagram: '#E4405F',
   
   // Transparent
   transparent: 'transparent',
@@ -63,25 +61,6 @@ export const colors = {
   // Gradients
   gradientPrimary: ['#FF6B6B', '#FF8E53'],
   gradientSecondary: ['#4ECDC4', '#44A08D'],
-  gradientSuccess: ['#4CAF50', '#8BC34A'],
 };
 
-// Export color palettes for different themes
-export const lightTheme = {
-  ...colors,
-  background: '#FFFFFF',
-  surface: '#F8F8F8',
-  text: '#333333',
-  textLight: '#666666',
-};
-
-export const darkTheme = {
-  ...colors,
-  background: '#121212',
-  surface: '#1E1E1E',
-  text: '#FFFFFF',
-  textLight: '#CCCCCC',
-  border: '#333333',
-};
-
-export default colors;
+export default colors; 

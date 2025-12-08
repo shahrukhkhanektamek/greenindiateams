@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../styles/globalStyles';
-import responsive from '../../utils/responsive';
 import { colors } from '../../styles/colors';
 
 const DashboardScreen = ({ navigation }) => {
@@ -69,13 +68,32 @@ const DashboardScreen = ({ navigation }) => {
     }, 1500);
   };
 
+  // Custom inline styles for missing utility classes
+  const customStyles = {
+    // Width percentages for quick actions grid
+    quickActionCard: {
+      width: '48%',
+      marginBottom: 16,
+    },
+    // Progress bar for earnings
+    progressBar: {
+      height: 8,
+      width: '75%',
+    },
+    // Profile image
+    profileImage: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+    },
+  };
+
   return (
     <View style={clsx(styles.flex1, styles.bgSurface)}>
-      <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
       
       {/* Header with Profile */}
-      <View style={clsx(styles.bgPrimary, styles.px4, styles.pt6, styles.pb4)}>
-        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4)}>
+      <View style={clsx(styles.bgPrimary, styles.px4, styles.pt12, styles.pb8)}>
+        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb6)}>
           <View>
             <Text style={clsx(styles.textWhite, styles.textBase, styles.opacity75)}>
               Welcome back,
@@ -93,7 +111,7 @@ const DashboardScreen = ({ navigation }) => {
           >
             <Image
               source={{ uri: 'https://picsum.photos/200?random=provider' }}
-              style={clsx(styles.roundedFull, { width: 40, height: 40 })}
+              style={customStyles.profileImage}
             />
           </TouchableOpacity>
         </View>
@@ -130,30 +148,42 @@ const DashboardScreen = ({ navigation }) => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
         }
         contentContainerStyle={clsx(styles.pb6)}
       >
         {/* Quick Actions */}
-        <View style={clsx(styles.mx4, styles.mt4)}>
+        <View style={clsx(styles.px4, styles.mt4)}>
           <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
             Quick Actions
           </Text>
-          <View style={clsx(styles.flexRow, styles.flexWrap, styles.justifyBetween)}>
+          <View style={[clsx(styles.flexRow, styles.flexWrap, styles.justifyBetween)]}>
             {quickActions.map((action) => (
               <TouchableOpacity
                 key={action.id}
-                style={clsx(
-                  styles.bgWhite,
-                  styles.roundedLg,
-                  styles.itemsCenter,
-                  styles.justifyCenter,
-                  styles.p3,
-                  styles.mb3,
-                  { width: responsive.wp(48) }
-                )}
+                style={[
+                  clsx(
+                    styles.bgWhite,
+                    styles.roundedLg,
+                    styles.itemsCenter,
+                    styles.justifyCenter,
+                    styles.p3,
+                    styles.shadowSm
+                  ),
+                  customStyles.quickActionCard
+                ]}
               >
-                <View style={clsx(styles.roundedFull, styles.p3, { backgroundColor: `${action.color}20` })}>
+                <View 
+                  style={[
+                    clsx(styles.roundedFull, styles.p3),
+                    { backgroundColor: `${action.color}20` }
+                  ]}
+                >
                   <Icon name={action.icon} size={24} color={action.color} />
                 </View>
                 <Text style={clsx(styles.fontMedium, styles.textBase, styles.textBlack, styles.mt2)}>
@@ -165,7 +195,7 @@ const DashboardScreen = ({ navigation }) => {
         </View>
 
         {/* Today's Jobs */}
-        <View style={clsx(styles.mx4, styles.mt4)}>
+        <View style={clsx(styles.px4, styles.mt6)}>
           <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
               Today's Jobs
@@ -187,7 +217,7 @@ const DashboardScreen = ({ navigation }) => {
                 styles.roundedLg,
                 styles.p4,
                 styles.mb3,
-                styles.shadow
+                styles.shadowSm
               )}
               onPress={() => navigation.navigate('JobDetails', { job })}
             >
@@ -245,7 +275,9 @@ const DashboardScreen = ({ navigation }) => {
                   styles.itemsCenter,
                   styles.px3,
                   styles.py2,
-                  job.status === 'upcoming' ? styles.bgPrimary : styles.bgSuccess,
+                  job.status === 'upcoming' ? styles.bgPrimary : 
+                  job.status === 'in-progress' ? styles.bgSuccess : 
+                  styles.bgSecondary,
                   styles.roundedFull
                 )}>
                   <Text style={clsx(styles.textWhite, styles.fontMedium, styles.mr1)}>
@@ -265,11 +297,11 @@ const DashboardScreen = ({ navigation }) => {
         </View>
 
         {/* Performance Overview */}
-        <View style={clsx(styles.mx4, styles.mt4)}>
+        <View style={clsx(styles.px4, styles.mt6)}>
           <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
             Performance Overview
           </Text>
-          <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p4, styles.shadow)}>
+          <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p4, styles.shadowSm)}>
             <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb4)}>
               <View style={clsx(styles.itemsCenter)}>
                 <Text style={clsx(styles.text3xl, styles.fontBold, styles.textPrimary)}>
@@ -309,7 +341,7 @@ const DashboardScreen = ({ navigation }) => {
         </View>
 
         {/* Earnings Summary */}
-        <View style={clsx(styles.mx4, styles.mt4)}>
+        <View style={clsx(styles.px4, styles.mt6)}>
           <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
               Earnings Summary
@@ -323,7 +355,7 @@ const DashboardScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
           
-          <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p4, styles.shadow)}>
+          <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p4, styles.shadowSm)}>
             <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb3)}>
               <View>
                 <Text style={clsx(styles.textSm, styles.textMuted)}>
@@ -343,19 +375,64 @@ const DashboardScreen = ({ navigation }) => {
               </View>
             </View>
             
-            <View style={clsx(styles.bgGray, styles.roundedFull, styles.overflowHidden)}>
+            {/* Progress Bar */}
+            <View style={[clsx(styles.bgGray200, styles.roundedFull, styles.overflowHidden, styles.mb2), { height: 8 }]}>
               <View 
-                style={clsx(
-                  styles.bgPrimary, 
-                  styles.h2, 
-                  styles.roundedFull,
-                  { width: '75%' }
-                )} 
+                style={[clsx(styles.bgPrimary, styles.hFull, styles.roundedFull), customStyles.progressBar]} 
               />
             </View>
-            <Text style={clsx(styles.textSm, styles.textMuted, styles.mt2)}>
+            
+            <Text style={clsx(styles.textSm, styles.textMuted)}>
               ₹38,000 weekly target (75% achieved)
             </Text>
+          </View>
+        </View>
+
+        {/* Upcoming Services */}
+        <View style={clsx(styles.px4, styles.mt6)}>
+          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
+            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
+              Upcoming Services
+            </Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Services')}
+            >
+              <Text style={clsx(styles.textPrimary, styles.fontMedium)}>
+                View All
+              </Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p4, styles.shadowSm)}>
+            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
+              <View style={[clsx(styles.bgPrimaryLight, styles.roundedFull, styles.p3), { marginRight: 12 }]}>
+                <Icon name="ac-unit" size={24} color={colors.primary} />
+              </View>
+              <View style={clsx(styles.flex1)}>
+                <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
+                  AC Installation
+                </Text>
+                <Text style={clsx(styles.textSm, styles.textMuted)}>
+                  Tomorrow • 2:00 PM
+                </Text>
+              </View>
+              <Icon name="chevron-right" size={20} color={colors.textLight} />
+            </View>
+            
+            <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+              <View style={[clsx(styles.bgSecondaryLight, styles.roundedFull, styles.p3), { marginRight: 12 }]}>
+                <Icon name="plumbing" size={24} color={colors.secondary} />
+              </View>
+              <View style={clsx(styles.flex1)}>
+                <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
+                  Pipe Repair
+                </Text>
+                <Text style={clsx(styles.textSm, styles.textMuted)}>
+                  Day after • 10:00 AM
+                </Text>
+              </View>
+              <Icon name="chevron-right" size={20} color={colors.textLight} />
+            </View>
           </View>
         </View>
       </ScrollView>

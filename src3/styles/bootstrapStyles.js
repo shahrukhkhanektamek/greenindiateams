@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
 import responsive from '../utils/responsive';
 import normalize, { fontSizes, spacingScale, borderRadiusScale } from '../utils/normalize';
-import { colors } from './globalStyles';
+import { colors } from './colors';
 
 // Bootstrap-like Utility Classes
 const bootstrapStyles = StyleSheet.create({

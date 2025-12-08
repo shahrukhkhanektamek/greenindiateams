@@ -13,8 +13,8 @@ const { width, height } = Dimensions.get('window');
 
 const SplashScreen = () => {
   const [progress, setProgress] = useState(0);
-  const fadeAnim = new Animated.Value(0);
-  const scaleAnim = new Animated.Value(0.8);
+  const fadeAnim = new Animated.Value(1);
+  const scaleAnim = new Animated.Value(1);
 
   useEffect(() => {
     // Start fade in animation
@@ -52,10 +52,9 @@ const SplashScreen = () => {
       backgroundColor: colors.primary,
       justifyContent: 'center',
       alignItems: 'center',
-    }}>
-      <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
+    }}>  
       
-      {/* Background Circles */}
+      {/* Background Circles */} 
       <View style={{
         position: 'absolute',
         width: width * 1.5,
@@ -101,7 +100,7 @@ const SplashScreen = () => {
           elevation: 8,
         }}>
           <Image
-            source={{ uri: 'https://cdn-icons-png.flaticon.com/512/3067/3067256.png' }}
+            source={require('../../assets/img/favicon.png')}
             style={{ width: 80, height: 80 }}
             resizeMode="contain"
           />

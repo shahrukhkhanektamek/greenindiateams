@@ -1,98 +1,155 @@
-import React, { createContext, useEffect, useState } from "react";
+import React, { createContext, useEffect, useState, useCallback, useMemo } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
 import DeviceInfo from "react-native-device-info";
-import PageLoading from "../components/Loader/PageLoding";
-import Loader from "../components/Loader/Loader";
-import SplashScreen from "../screens/SplashScreen";
+import NetInfo from '@react-native-community/netinfo';
+import PageLoading from '../components/Common/Loader/PageLoding';
+import Loader from '../components/Common/Loader/Loader';
+import CustomSidebar from '../components/Provider/CustomSidebar';
 
 export const AppContext = createContext();
 
+// API URLs configuration - Consider moving to environment variables
+const BASE_URLS = {
+  development: "http://192.168.1.17:8080/",
+  // staging: "https://staging-api.example.com/",
+  // production: "https://api.example.com/"
+};
+
 export const AppProvider = ({ children }) => {
-
+  const ENVIRONMENT = "development"; // Change based on build configuration
+  const mainUrl = BASE_URLS[ENVIRONMENT];
+  
   // App states
-  // const mainUrl = "http://192.168.1.61:8080/"; 
-  const mainUrl = "http://192.168.1.17:8080/";
-  const [theme, setTheme] = useState("light"); 
+  const [theme, setTheme] = useState("light");
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [userLoggedIn, setUserLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
-  const [showHidePageLoading, setshowHidePageLoading] = useState(false);
-  const [showHideLoader, setshowHideLoader] = useState(false);
-  const [pagination, setPagination] = useState([]);
+  const [loadingStates, setLoadingStates] = useState({
+    page: false,
+    loader: false,
+    global: false,
+    api: false,
+    sideBar: false,
+  });
   const [deviceInfo, setDeviceInfo] = useState({});
-  const [deviceId, setdeviceId] = useState('');
+  const [deviceId, setDeviceId] = useState('');
+  const [categoryListData, setCategoryListData] = useState([]);
+  const [isConnected, setIsConnected] = useState(true);
 
-  const [categoryListData, setcategoryListData] = useState('');
+  // Check network connectivity
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsConnected(state.isConnected);
+      if (!state.isConnected) {
+        Toast.show({
+          type: 'error',
+          text1: 'No Internet Connection',
+          text2: 'Please check your network settings'
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
-  const toggleTheme = () => setTheme(prev => (prev === "light" ? "dark" : "light"));
-
-  // Base API URLs
-  const apiUrl = () => {
-    const apiUrl = mainUrl+"api/v1/";
-    const commurl = apiUrl + "common/";
+  // API URLs with useMemo to prevent recreation
+  const Urls = useMemo(() => {
+    const apiUrl = mainUrl + "api/v1/";
+    const commUrl = apiUrl + "common/";
     const serviceManUrl = apiUrl + "serviceman/";
+
     return {
-
-      homeDetail: `${commurl}home`,
-
-      categoryList: `${commurl}category`,
-      subCategoryList: `${commurl}sub-category`,
-      subSubCategoryList: `${commurl}sub-sub-category`,
-      subSubSubCategoryList: `${commurl}sub-sub-sub-category`,
-      serviceList: `${commurl}service`,
-
-      timeSlot: `${commurl}time-slot/available/by-date`,
-      addRemoveCart: `${commurl}cart/create-cart`,
-      createTransaction: `${commurl}payment/create-order`,
-      verifyTransaction: `${commurl}payment/verify-payment`,
-
-
+      homeDetail: `${commUrl}home`,
+      categoryList: `${commUrl}category`,
+      subCategoryList: `${commUrl}sub-category`,
+      subSubCategoryList: `${commUrl}sub-sub-category`,
+      subSubSubCategoryList: `${commUrl}sub-sub-sub-category`,
+      serviceList: `${commUrl}service`,
+      timeSlot: `${commUrl}time-slot/available/by-date`,
+      addRemoveCart: `${commUrl}cart/create-cart`,
+      createTransaction: `${commUrl}payment/create-order`,
+      verifyTransaction: `${commUrl}payment/verify-payment`,
       login: `${serviceManUrl}auth/login`,
       verifyOtp: `${serviceManUrl}auth/verify-otp`,
       kycDetail: `${serviceManUrl}kyc/detail`,
       kycUpdate: `${serviceManUrl}kyc`,
-
-      ProfileDetail: `${serviceManUrl}profile/detail`,
-      ProfileUpdate: `${serviceManUrl}profile`,
-
-      Review: `${serviceManUrl}review`,
-
-      Booking: `${serviceManUrl}booking`,
-      BookingAccept: `${serviceManUrl}booking/accept`,
-      BookingOtp: `${serviceManUrl}booking/booking-start-otp`,
-      BookingOtpVerify: `${serviceManUrl}booking/booking-start-otp-verify`,
-
-
-      
+      profileDetail: `${serviceManUrl}profile/detail`,
+      profileUpdate: `${serviceManUrl}profile`,
+      review: `${serviceManUrl}review`,
+      booking: `${serviceManUrl}booking`,
+      bookingAccept: `${serviceManUrl}booking/accept`,
+      bookingOtp: `${serviceManUrl}booking/booking-start-otp`,
+      bookingOtpVerify: `${serviceManUrl}booking/booking-start-otp-verify`,
+      logout: `${serviceManUrl}auth/logout`
     };
-  };
-  const Urls = apiUrl();
+  }, [mainUrl]);
 
-  // Modals
+  // Modals state management
   const [modals, setModals] = useState({
     homeCategoryModal: false,
     loginModal: false,
     serviceManJoinModal: false,
   });
-  const toggleModal = (modalName, isOpen) => {
+
+  const toggleModal = useCallback((modalName, isOpen) => {
     setModals(prev => ({ ...prev, [modalName]: isOpen }));
-  };
+  }, []);
 
-  // AsyncStorage helpers
-  const storage = {
-    set: async (key, value) => await AsyncStorage.setItem(key, value),
-    get: async (key) => await AsyncStorage.getItem(key),
-    delete: async (key) => await AsyncStorage.removeItem(key),
-  };
+  // AsyncStorage helper with error handling
+  const storage = useMemo(() => ({
+    set: async (key, value) => {
+      try {
+        const stringValue = typeof value === 'object' ? JSON.stringify(value) : value;
+        await AsyncStorage.setItem(key, stringValue);
+      } catch (error) {
+        console.error('AsyncStorage set error:', error);
+        throw error;
+      }
+    },
+    get: async (key) => {
+      try {
+        const value = await AsyncStorage.getItem(key);
+        if (!value) return null;
+        try {
+          return JSON.parse(value);
+        } catch {
+          return value;
+        }
+      } catch (error) {
+        console.error('AsyncStorage get error:', error);
+        return null;
+      }
+    },
+    delete: async (key) => {
+      try {
+        await AsyncStorage.removeItem(key);
+      } catch (error) {
+        console.error('AsyncStorage delete error:', error);
+        throw error;
+      }
+    },
+    clear: async () => {
+      try {
+        await AsyncStorage.clear();
+      } catch (error) {
+        console.error('AsyncStorage clear error:', error);
+        throw error;
+      }
+    }
+  }), []);
 
-  // Device info on mount
+  // Device info initialization
   useEffect(() => {
-    (async () => {
+    initializeDeviceInfo();
+    loadUserData();
+  }, []);
+
+  const initializeDeviceInfo = async () => {
+    try {
       const deviceIdTemp = await DeviceInfo.getUniqueId();
-      setdeviceId(deviceIdTemp);
+      setDeviceId(deviceIdTemp);
+      
       const info = {
-        deviceId,
+        deviceId: deviceIdTemp,
         brand: DeviceInfo.getBrand(),
         model: DeviceInfo.getModel(),
         systemName: DeviceInfo.getSystemName(),
@@ -102,309 +159,397 @@ export const AppProvider = ({ children }) => {
         appVersion: DeviceInfo.getVersion(),
         readableVersion: DeviceInfo.getReadableVersion(),
         deviceName: await DeviceInfo.getDeviceName(),
-        uniqueId: deviceId,
+        uniqueId: deviceIdTemp,
         manufacturer: await DeviceInfo.getManufacturer(),
-        ipAddress: await DeviceInfo.getIpAddress(),
-        batteryLevel: await DeviceInfo.getBatteryLevel(),
+        ipAddress: await DeviceInfo.getIpAddress().catch(() => 'Unknown'),
+        batteryLevel: await DeviceInfo.getBatteryLevel().catch(() => -1),
         isEmulator: await DeviceInfo.isEmulator(),
         isTablet: DeviceInfo.isTablet(),
       };
       setDeviceInfo(info);
+    } catch (error) {
+      console.error('Failed to initialize device info:', error);
+    }
+  };
 
-      // Load user from storage
-      const storedUser = await storage.get("user");
-      if (storedUser)
-      {
-        setUser(JSON.parse(storedUser));
-        setUserLoggedIn(true);
+  const loadUserData = async () => {
+    try {
+      const [token, storedUser] = await Promise.all([
+        storage.get("token"),
+        storage.get("user")
+      ]);
+      
+      if (token && storedUser) {
+        setUser(storedUser);
       }
-      else{
-        setUserLoggedIn(false);        
-      }
-    })();
+    } catch (error) {
+      console.error('Failed to load user data:', error);
+    }
+  };
+
+  // Loading state management
+  const setLoading = useCallback((type, value) => {
+    setLoadingStates(prev => ({
+      ...prev,
+      [type]: value
+    }));
   }, []);
 
-  const getDeviceInfo = () => deviceInfo;
+  // Enhanced API request handler
+  const postData = useCallback(async (
+    data,
+    url,
+    method = 'POST',
+    options = {}
+  ) => {
+    const {
+      showLoader = true,
+      showErrorMessage = true,
+      isFileUpload = false,
+      contentType = null
+    } = options;
 
-  
-
-  // Post API request
-  const postData = async (filedata, url, method, loaderShowHide = null, messageAlert = null, isFileUpload = false) => {
-    
-    
-    
- 
-    const deviceInfo = getDeviceInfo(); 
-    let data = '';
-    // if(method=='POST' || method=='post')  data = JSON.stringify(Object.assign(filedata, { userId:user?.id,device_id: deviceId,device_detail:deviceInfo}));
-    
-
-    if (method === 'get' || method === 'GET' && filedata) {
-      const params = new URLSearchParams({ ...filedata, userId:user?.id,device_id: deviceId,device_detail:deviceInfo }).toString();
-      url += `?${params}`; // Append query parameters
-    }
-    // else if(method=='POST'){
-    //   const formData = new FormData();
-
-    //   Object.entries(filedata).forEach(([key, value]) => {
-    //     if (value && value.uri && value.type && value.fileName) {
-    //       // Ye file hai
-    //       formData.append(key, value);
-    //     } else if (value !== undefined && value !== null) {
-    //       // Ye normal text value hai
-    //       formData.append(key, value);
-    //     }
-    //   });
-
-    //   // formData.append("userId", user?.id?user?.id:'');
-    //   // formData.append("deviceId", deviceId);
-    //   // formData.append("device_detail", JSON.stringify(deviceInfo));
-      
-
-    //   data = formData;
-
-    // }
-
-    if(method=='POST')  data = JSON.stringify(Object.assign(filedata, { device_id: deviceId}));
-
-  
-
-
- 
-
-    console.log(data);
- 
-
-    if (!loaderShowHide) setshowHideLoader(true);    
-    try {
-      const response = await fetch(url, {
-        method,
-        headers: {
-          // "Content-Type": method=='POST'?"multipart/form-data":"application/json",
-          "Content-Type": "application/json",
-          // "Content-Type": "multipart/form-data",
-          Authorization: "Bearer " + (await storage.get("token")),
-        },
-        body: data,
+    // Check network connectivity
+    if (!isConnected) {
+      Toast.show({
+        type: 'error',
+        text1: 'Network Error',
+        text2: 'Please check your internet connection'
       });
-      return await responseCheck(response, messageAlert);
-    } catch (error) {
-      setshowHideLoader(false);
-      console.error("API Error:", error);
-      return error;
+      throw new Error('No internet connection');
     }
-  };
 
+    if (showLoader) setLoading('api', true);
 
-
-  const responseCheck = async (response, messageAlert) => {
     try {
-  
-      let result = [];
-      if(response.status==200 || response.status==400 || response.status==401) 
-      {
-        result = await response.json();      
-      } 
-      else{
-        result = response; 
-      }
-      console.log("Response:", result); 
-      setshowHideLoader(false);
-  
-      if (result.status === 200) {
-        if (!messageAlert && result.message) Toast.show({ type: "success", text1: result.message });
-        switch (result.action) {
-          case "add":
-            return result;
-    
-          case "login": 
-            await storage.set("token", result?.token);
-            await storage.set("user", JSON.stringify(result?.data));
-            setUser(result?.data);
-            setUserLoggedIn(true);
-            return result;             
-  
-            case "tokenUpdate":
-              await storage.set("token", result?.token);
-              await storage.set("user", JSON.stringify(result?.data));
-              setUser(result?.data);
-              return result;  
-            
-            case "register":
-              await storage.set("token", result?.token);
-              await storage.set("user", JSON.stringify(result?.data));
-              setUserLoggedIn(true);
-              setUser(result?.data);
-              return result;  
-              
-              case "logout":
-                storage.delete('token'); 
-                storage.delete('user');
-                setUserLoggedIn(false);
-                setUser(null);
-            return result;
-                 
-          case "return": 
-            return result; 
-    
-          case "detail":  
-            return result;  
-   
-          case "list":
-            return result;
-    
-          default:
-            return result;
+      const token = await storage.get("token");
+      const headers = {
+        'Authorization': token ? `Bearer ${token}` : '',
+      };
+
+      let body;
+      let finalUrl = url;
+
+      // Handle GET requests with query params
+      if (method.toUpperCase() === 'GET' && data) {
+        const params = new URLSearchParams({
+          ...data,
+          device_id: deviceId,
+          timestamp: Date.now()
+        }).toString();
+        finalUrl += `?${params}`;
+      } else {
+        // Handle other methods
+        if (isFileUpload) {
+          const formData = new FormData();
+          Object.entries(data || {}).forEach(([key, value]) => {
+            if (value !== null && value !== undefined) {
+              formData.append(key, value);
+            }
+          });
+          formData.append('device_id', deviceId);
+          body = formData;
+        } else {
+          headers['Content-Type'] = contentType || 'application/json';
+          body = JSON.stringify({
+            ...data,
+            device_id: deviceId
+          });
         }
-      } 
-      else { 
-        if (result.responseJSON) result = result.responseJSON;
-        if (!messageAlert && result.message) 
-          Toast.show({ type: "error", text1: result.message });
-    
-        if (result.status === 400) {
-          return result;          
-        } 
-        else if (result.status === 401) {
-          storage.delete('token'); 
-          storage.delete('user');
-          setUserLoggedIn(false);
-          setUser(null);         
-            return result;
-        } 
-        else if (result.status === 201) {
-          return result;
-        } 
-        else if (result.status === 419) {
-          return result;
-        } 
-        else if (result.status === 403) {
-          return result;
-        } 
-        else {
-          return result;
-        } 
       }
+
+      // Request timeout handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+      const response = await fetch(finalUrl, {
+        method,
+        headers,
+        body: method.toUpperCase() === 'GET' ? undefined : body,
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      return await handleResponse(response, showErrorMessage);
     } catch (error) {
-      setshowHidePageLoading(false);
-      console.error("Invalid JSON response:", error);
-      return error; // Return null if JSON parsing fails
-    }
-  };
-  
-
-
-
-
-  const PriceFormat = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(value);
-
-  const generateUniqueId = async () => {
-    let uniqueId = await storage.get("uniqueId");
-    let userStorage = await storage.get("user");
-    if (!uniqueId) {
-      uniqueId = Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
-      await storage.set("uniqueId", uniqueId);
-    }
-    if (userStorage) {
-      const userObj = JSON.parse(userStorage);
-      uniqueId = userObj._id;
-    }
-    return uniqueId;
-  };
-
-
-  const imageCheck  =  (path, defaultImg = null) => {
-    const baseUrl = mainUrl;
-    let image = '';
-  
-    if (!path) {
-      image = defaultImg
-        ? `${baseUrl}uploads/${defaultImg}`
-        : `${baseUrl}uploads/default.jpg`;
-    } else {
-      image = `${baseUrl}${path}`;
-    }
-  
-    try {
-      const decoded = JSON.parse(path);
-  
-      if (Array.isArray(decoded) || typeof decoded === 'object') {
-        if (decoded?.[0]?.image_path) {
-          image = `${baseUrl}${decoded[0].image_path}`;
+      if (error.name === 'AbortError') {
+        Toast.show({
+          type: 'error',
+          text1: 'Request Timeout',
+          text2: 'Please try again'
+        });
+      } else {
+        console.error('API Error:', error);
+        if (showErrorMessage) {
+          Toast.show({
+            type: 'error',
+            text1: 'Network Error',
+            text2: 'Something went wrong. Please try again.'
+          });
         }
-      } else if (path && typeof path === 'string') {
-        image = `${baseUrl}${path}`;
       }
-    } catch (e) {
-      if (path && typeof path === 'string') {
-        image = `${baseUrl}${path}`;
-      }
+      throw error;
+    } finally {
+      if (showLoader) setLoading('api', false);
     }
-  
-    // Return in React Native Image-friendly format
-    return image;
-  };
+  }, [deviceId, isConnected, storage, setLoading]);
 
-  const handleLogout = async () => {     
-    // const response = await postData({}, Urls.logout,"GET");
-    console.log('fasfsa');
-    storage.delete('token'); 
-    storage.delete('user');
-    setUserLoggedIn(false);
-    setUser(null);
-  };
-
-
-  const handleHome = async () => {
+  // Enhanced response handler
+  const handleResponse = async (response, showErrorMessage) => {
+    let result;
+    
     try {
-      const response = await postData({}, Urls.homeDetail, "GET", 1, 1);
-      if(response.success)
-      {
-        let data = response.data;
-        setcategoryListData(data.category);
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        result = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(`Invalid response format: ${text.substring(0, 100)}`);
       }
     } catch (error) {
-      console.error("Profile fetch error:", error);
+      console.error('Response parsing error:', error);
+      throw new Error('Invalid server response');
+    }
+
+    // Handle different status codes
+    switch (response.status) {
+      case 200:
+        if (result.success && result.message && !showErrorMessage) {
+          Toast.show({
+            type: 'success',
+            text1: result.message
+          });
+        }
+        return result;
+
+      case 201:
+        // Created
+        return result;
+
+      case 400:
+        // Bad Request
+        if (result.message && showErrorMessage) {
+          Toast.show({
+            type: 'error',
+            text1: 'Validation Error',
+            text2: result.message
+          });
+        }
+        return result;
+
+      case 401:
+        // Unauthorized - Trigger logout
+        await handleLogout();
+        if (showErrorMessage) {
+          Toast.show({
+            type: 'error',
+            text1: 'Session Expired',
+            text2: 'Please login again'
+          });
+        }
+        return result;
+
+      case 403:
+        // Forbidden
+        if (showErrorMessage) {
+          Toast.show({
+            type: 'error',
+            text1: 'Access Denied',
+            text2: result.message || 'You do not have permission'
+          });
+        }
+        return result;
+
+      case 404:
+        // Not Found
+        if (showErrorMessage) {
+          Toast.show({
+            type: 'error',
+            text1: 'Not Found',
+            text2: 'The requested resource was not found'
+          });
+        }
+        return result;
+
+      case 500:
+        // Server Error
+        if (showErrorMessage) {
+          Toast.show({
+            type: 'error',
+            text1: 'Server Error',
+            text2: 'Please try again later'
+          });
+        }
+        return result;
+
+      default:
+        return result;
     }
   };
-  useEffect(() => {
-    handleHome();
-  }, []); 
- 
-  return (
-    <AppContext.Provider
-      value={{
-        toggleTheme,
-        drawerOpen,
-        deviceId, setdeviceId,
-        setDrawerOpen,
-        userLoggedIn,
-        setUserLoggedIn,
-        imageCheck,
-        handleLogout,
 
-        user, setUser,
-        modals, toggleModal,
-        Urls, postData, 
-        storage,
-        showHidePageLoading, setshowHidePageLoading,
-        PriceFormat, generateUniqueId, Toast,
-        showHideLoader, setshowHideLoader,
+  // Helper functions
+  const priceFormat = useCallback((value) => {
+    if (!value && value !== 0) return '';
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    }).format(value);
+  }, []);
 
+  const imageCheck = useCallback((path, defaultImg = 'default.jpg') => {
+    if (!path) return `${mainUrl}uploads/${defaultImg}`;
+    
+    try {
+      // Check if path is JSON string
+      const parsed = JSON.parse(path);
+      if (Array.isArray(parsed) && parsed[0]?.image_path) {
+        return `${mainUrl}${parsed[0].image_path}`;
+      }
+    } catch {
+      // Not JSON, treat as string path
+      if (path.startsWith('http')) return path;
+      return `${mainUrl}${path}`;
+    }
+    
+    return `${mainUrl}uploads/${defaultImg}`;
+  }, [mainUrl]);
 
-        categoryListData,
-        setcategoryListData,
+  // Authentication handlers
+  const handleLogin = useCallback(async (userData, token) => {
+    try {
+      await Promise.all([
+        storage.set('token', token),
+        storage.set('user', userData)
+      ]);
+      setUser(userData);
+      Toast.show({
+        type: 'success',
+        text1: 'Login Successful'
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+  }, [storage]);
 
-
-
-      }}
-    >
-
-      {showHidePageLoading ? <PageLoading /> : children}
-      {showHideLoader && <Loader showHideLoader={showHideLoader} setshowHideLoader={setshowHideLoader} />}
-      <Toast />
-      {/* <SplashScreen/> */}
+  const handleLogout = useCallback(async () => {
+    try {
+      // Call logout API if needed
+      if (user) {
+        await postData({}, Urls.logout, 'POST', { showLoader: false, showErrorMessage: false });
+      }
       
-    </AppContext.Provider>
+      // Clear storage and state
+      await Promise.all([
+        storage.delete('token'),
+        storage.delete('user')
+      ]);
+      
+      setUser(null);
+      Toast.show({
+        type: 'success',
+        text1: 'Logged out successfully'
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still clear local data even if API call fails
+      await storage.clear();
+      setUser(null);
+    }
+  }, [user, storage, postData, Urls.logout]);
+
+  // Data fetching
+  const fetchHomeData = useCallback(async () => {
+    try {
+      setLoading('page', true);
+      const response = await postData({}, Urls.homeDetail, 'GET', { showErrorMessage: false });
+      
+      if (response?.success) {
+        setCategoryListData(response.data?.category || []);
+      }
+    } catch (error) {
+      console.error('Home data fetch error:', error);
+    } finally {
+      setLoading('page', false);
+    }
+  }, [Urls.homeDetail, postData, setLoading]);
+
+  // Initial data load 
+  // useEffect(() => {
+  //   fetchHomeData();
+  // }, [fetchHomeData]);
+
+  // Context value
+  const contextValue = useMemo(() => ({
+    // State
+    theme,
+    drawerOpen,
+    user,
+    deviceId,
+    deviceInfo,
+    modals,
+    categoryListData,
+    loadingStates,
+    isConnected,
+    
+    // Setters
+    setDrawerOpen,
+    setTheme: (theme) => setTheme(theme),
+    setUser,
+    setDeviceId,
+    setLoading,
+    
+    // Actions
+    toggleModal,
+    postData,
+    handleLogin,
+    handleLogout,
+    priceFormat,
+    imageCheck,
+    
+    // Data
+    Urls,
+    storage,
+    mainUrl,
+    
+    // Derived state
+    isLoggedIn: !!user,
+    userToken: user?.token
+  }), [
+    theme,
+    drawerOpen,
+    user,
+    deviceId,
+    deviceInfo,
+    modals,
+    categoryListData,
+    loadingStates,
+    isConnected,
+    toggleModal,
+    postData,
+    handleLogin,
+    handleLogout,
+    priceFormat,
+    imageCheck,
+    Urls,
+    storage,
+    mainUrl,
+    loadingStates,
+    setLoading,
+  ]);
+
+ 
+
+  return (
+    <AppContext.Provider value={contextValue}>
+      {loadingStates.page ? <PageLoading /> : children}
+      {loadingStates.api && <Loader showHideLoader={loadingStates.api} setLoading={setLoading} />}
+      {loadingStates.sideBar && <CustomSidebar isVisible={loadingStates.sideBar} setLoading={setLoading} />}
+
+      <Toast />
+    </AppContext.Provider> 
   );
 };

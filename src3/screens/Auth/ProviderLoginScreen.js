@@ -12,13 +12,14 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../styles/globalStyles';
 import { colors } from '../../styles/colors';
-import { AppContext } from '../../../src/Context/AppContext';
+import { AppContext } from '../../Context/AppContext';
 
 const ProviderLoginScreen = ({ navigation }) => {
 
   const {
       userLoggedIn, 
       setUserLoggedIn,
+      setUser,
     } = useContext(AppContext);
 
   const [phone, setPhone] = useState('');
@@ -49,7 +50,7 @@ const ProviderLoginScreen = ({ navigation }) => {
   };
 
   const handleLogin = () => {
-    setUserLoggedIn(true)
+    setUser(true)
     // navigation.reset({
     //   index: 0,
     //   routes: [{ name: 'ProviderDashboard' }],

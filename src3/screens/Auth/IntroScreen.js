@@ -120,7 +120,7 @@ const IntroScreen = ({ navigation }) => {
             flatListRef.current.scrollToIndex({ index: currentIndex + 1 });
             setCurrentIndex(currentIndex + 1);
           } else {
-            navigation.replace('ProviderLogin');
+            navigation.replace('ProviderOTPLogin');
           }
         }}
       >
@@ -139,7 +139,7 @@ const IntroScreen = ({ navigation }) => {
     return (
       <TouchableOpacity
         style={clsx(styles.p4)}
-        onPress={() => navigation.replace('ProviderLogin')}
+        onPress={() => navigation.replace('ProviderOTPLogin')}
       >
         <Text style={clsx(styles.textPrimary, styles.fontMedium)}>
           Skip

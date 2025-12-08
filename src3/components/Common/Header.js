@@ -208,28 +208,7 @@ export const DashboardHeader = ({
             {rating} ⭐
           </Text>
         </View>
-        <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-          <TouchableOpacity
-            onPress={onNotificationPress}
-            style={clsx(styles.mr3, styles.positionRelative)}
-          >
-            <Icon name="notifications" size={24} color={colors.white} />
-            <View style={clsx(
-              styles.positionAbsolute,
-              styles.top0,
-              styles.right0,
-              styles.bgError,
-              styles.roundedFull,
-              { width: 8, height: 8 }
-            )} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={onProfilePress}
-            style={clsx(styles.bgWhite, styles.roundedFull, styles.p2)}
-          >
-            <Icon name="person" size={20} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
+        
       </View>
     </View>
   );

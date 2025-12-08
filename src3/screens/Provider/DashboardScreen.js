@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import {
   View,
   Text,
@@ -11,8 +11,16 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../styles/globalStyles';
 import { colors } from '../../styles/colors';
+import { AppContext } from '../../Context/AppContext';
 
 const DashboardScreen = ({ navigation }) => {
+
+  const {
+        setUser,
+        setLoading,
+      } = useContext(AppContext);
+
+
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({
     todayJobs: 8,
@@ -92,8 +100,8 @@ const DashboardScreen = ({ navigation }) => {
     <View style={clsx(styles.flex1, styles.bgSurface)}>
       
       {/* Header with Profile */}
-      <View style={clsx(styles.bgPrimary, styles.px4, styles.pt12, styles.pb8)}>
-        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb6)}>
+      <View style={clsx(styles.bgPrimary, styles.px4, styles.pt2, styles.pb2)}>
+        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb0)}>
           <View>
             <Text style={clsx(styles.textWhite, styles.textBase, styles.opacity75)}>
               Welcome back,
@@ -107,7 +115,8 @@ const DashboardScreen = ({ navigation }) => {
           </View>
           <TouchableOpacity 
             style={clsx(styles.bgWhite, styles.roundedFull, styles.p2)}
-            onPress={() => navigation.navigate('Profile')}
+            // onPress={() => navigation.navigate('Profile')}
+            onPress={() => setLoading('sideBar', true)}
           >
             <Image
               source={{ uri: 'https://picsum.photos/200?random=provider' }}
@@ -116,33 +125,6 @@ const DashboardScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Stats Bar */}
-        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mt4)}>
-          <View style={clsx(styles.itemsCenter)}>
-            <Text style={clsx(styles.textWhite, styles.text2xl, styles.fontBold)}>
-              {stats.todayJobs}
-            </Text>
-            <Text style={clsx(styles.textWhite, styles.textSm, styles.opacity75)}>
-              Today's Jobs
-            </Text>
-          </View>
-          <View style={clsx(styles.itemsCenter)}>
-            <Text style={clsx(styles.textWhite, styles.text2xl, styles.fontBold)}>
-              ₹{stats.earningsToday}
-            </Text>
-            <Text style={clsx(styles.textWhite, styles.textSm, styles.opacity75)}>
-              Today's Earnings
-            </Text>
-          </View>
-          <View style={clsx(styles.itemsCenter)}>
-            <Text style={clsx(styles.textWhite, styles.text2xl, styles.fontBold)}>
-              {stats.rating}
-            </Text>
-            <Text style={clsx(styles.textWhite, styles.textSm, styles.opacity75)}>
-              Your Rating
-            </Text>
-          </View>
-        </View>
       </View>
 
       <ScrollView

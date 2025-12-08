@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useContext } from 'react';
 import {
   View,
   Text,
@@ -12,8 +12,16 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../styles/globalStyles';
 import { colors } from '../../styles/colors';
+import { AppContext } from '../../Context/AppContext';
 
 const ProviderOTPLoginScreen = ({ navigation, route }) => {
+
+
+  const {
+    setUser,
+  } = useContext(AppContext);
+
+  
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isOtpSent, setIsOtpSent] = useState(false);
@@ -107,14 +115,15 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
   const handleVerifyOTP = () => {
     if (validateOTP()) {
       setIsLoading(true);
+      setUser(true)
       
       // Simulate OTP verification API call
       setTimeout(() => {
-        setIsLoading(false);
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'ProviderDashboard' }],
-        });
+      //   setIsLoading(false);
+      //   navigation.reset({
+      //     index: 0,
+      //     routes: [{ name: 'ProviderDashboard' }],
+      //   });
       }, 1500);
     }
   };
@@ -247,24 +256,24 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                 </View>
               </View>
               
-              <View style={clsx(styles.ml4)}>
+              {/* <View style={clsx(styles.ml4)}>
                 <Text style={clsx(styles.textBase, styles.fontMedium)}>
                   {isOtpSent ? 'Step 2 of 2' : 'Step 1 of 2'}
                 </Text>
                 <Text style={clsx(styles.textSm, styles.textMuted)}>
                   {isOtpSent ? 'Enter OTP' : 'Enter Phone Number'}
                 </Text>
-              </View>
+              </View> */}
             </View>
 
             {!isOtpSent ? (
               /* Phone Input Section */
               <View>
-                <View style={clsx(styles.mb6)}>
-                  <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb1)}>
+                <View style={clsx(styles.mb6, styles.mt2)}>
+                  <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb1,styles.textCenter)}>
                     Enter Your Phone Number
                   </Text>
-                  <Text style={clsx(styles.textBase, styles.textMuted)}>
+                  <Text style={clsx(styles.textBase, styles.textMuted, styles.textCenter)}>
                     We'll send a 6-digit OTP to this number
                   </Text>
                 </View>
@@ -483,22 +492,20 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
             )}
 
             {/* Divider */}
-            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.my6)}>
+            {/* <View style={clsx(styles.flexRow, styles.itemsCenter, styles.my6)}>
               <View style={clsx(styles.flex1, styles.hPx, styles.bgBorder)} />
               <Text style={clsx(styles.px4, styles.textBase, styles.textMuted)}>
                 OR
               </Text>
               <View style={clsx(styles.flex1, styles.hPx, styles.bgBorder)} />
-            </View>
+            </View> */}
 
             {/* Alternative Login Options */}
-            <View>
+            {/* <View>
               <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb4, styles.textCenter)}>
                 Other login options
-              </Text>
-              
+              </Text>              
               <View style={clsx(styles.flexRow, styles.justifyCenter, styles.gap4)}>
-                {/* Password Login */}
                 <TouchableOpacity
                   style={clsx(
                     styles.border,
@@ -519,7 +526,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                   </View>
                 </TouchableOpacity>
               </View>
-            </View>
+            </View> */}
 
             {/* Support Info */}
             <View style={clsx(styles.itemsCenter, styles.mt8)}>

@@ -81,6 +81,8 @@ const globalStyles = StyleSheet.create({
   pt8: { paddingTop: scaleSize(32) },
   pt12: { paddingTop: scaleSize(48) },
   
+  pt2: { paddingTop: scaleSize(10) },
+  pb2: { paddingBottom: scaleSize(10) },
   pb6: { paddingBottom: scaleSize(24) },
   pb8: { paddingBottom: scaleSize(32) },
   
@@ -236,6 +238,7 @@ const globalStyles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+    marginBottom:10,
   },
   shadow: {
     shadowColor: colors.black,

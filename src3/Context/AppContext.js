@@ -517,7 +517,8 @@ export const AppProvider = ({ children }) => {
     
     // Derived state
     isLoggedIn: !!user,
-    userToken: user?.token
+    userToken: user?.token,
+    Toast
   }), [
     theme,
     drawerOpen,

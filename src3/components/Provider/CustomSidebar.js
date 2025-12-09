@@ -36,14 +36,17 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', screen: 'MainTabs' },
-    { id: 'bookings', label: 'Bookings', icon: 'list-alt', screen: 'Bookings' },
-    { id: 'todayJobs', label: "Today's Jobs", icon: 'today', screen: 'TodayJobs' },
-    { id: 'earnings', label: 'Earnings', icon: 'attach-money', screen: 'EarningsTab' },
-    { id: 'performance', label: 'Performance', icon: 'trending-up', screen: 'Performance' },
-    { id: 'tools', label: 'Tools & Equipment', icon: 'handyman', screen: 'Tools' },
+    { id: 'profile', label: 'Profile', icon: 'person', screen: 'ProviderProfile' },
+    { id: 'kyc', label: 'KYC', icon: 'verified', screen: 'KycScreen' },
     { id: 'training', label: 'Training', icon: 'school', screen: 'Training' },
+    { id: 'bookings', label: 'Bookings', icon: 'list-alt', screen: 'Bookings' },
+    // { id: 'todayJobs', label: "Today's Jobs", icon: 'today', screen: 'TodayJobs' },
+    { id: 'earnings', label: 'Earnings', icon: 'attach-money', screen: 'Earnings' },
+    { id: 'transaction', label: 'Transaction History', icon: 'history', screen: 'TransactionHistory' },
+    // { id: 'performance', label: 'Performance', icon: 'trending-up', screen: 'Performance' },
+    // { id: 'tools', label: 'Tools & Equipment', icon: 'handyman', screen: 'Tools' },
     { id: 'support', label: 'Help & Support', icon: 'support-agent', screen: 'Support' },
-    { id: 'settings', label: 'Settings', icon: 'settings', screen: 'Settings' },
+    // { id: 'settings', label: 'Settings', icon: 'settings', screen: 'Settings' },
   ];
 
   // Open animation
@@ -220,7 +223,7 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
             ))}
 
             {/* Divider */}
-            <View style={styles.divider} />
+            {/* <View style={styles.divider} /> */}
 
             {/* Logout Button */}
             <TouchableOpacity
@@ -237,11 +240,6 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
             </TouchableOpacity>
           </ScrollView>
 
-          {/* Footer */}
-          <View style={styles.footer}>
-            <Text style={styles.version}>Version 1.0.0</Text>
-            <Text style={styles.copyright}>© 2024 ServiceProvider Pvt. Ltd.</Text>
-          </View>
         </Animated.View>
       </View>
     </Modal>

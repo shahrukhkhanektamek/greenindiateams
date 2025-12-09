@@ -82,7 +82,11 @@ const globalStyles = StyleSheet.create({
   pt12: { paddingTop: scaleSize(48) },
   
   pt2: { paddingTop: scaleSize(10) },
+  pt3: { paddingTop: scaleSize(12) },
   pb2: { paddingBottom: scaleSize(10) },
+  pb3: { paddingBottom: scaleSize(12) },
+  pb4: { paddingBottom: scaleSize(14) },
+  pb5: { paddingBottom: scaleSize(16) },
   pb6: { paddingBottom: scaleSize(24) },
   pb8: { paddingBottom: scaleSize(32) },
   
@@ -101,8 +105,15 @@ const globalStyles = StyleSheet.create({
   
   mb1: { marginBottom: scaleSize(4) },
   mb2: { marginBottom: scaleSize(8) },
+  mb3: { marginBottom: scaleSize(8) },
   mb4: { marginBottom: scaleSize(16) },
   mb6: { marginBottom: scaleSize(24) },
+
+  mr1: { marginRight: scaleSize(4) },
+  mr2: { marginRight: scaleSize(8) },
+  mr3: { marginRight: scaleSize(12) },
+  mr4: { marginRight: scaleSize(16) },
+  mr6: { marginRight: scaleSize(24) },
   
   mx0: { marginHorizontal: 0 },
   mx2: { marginHorizontal: scaleSize(8) },

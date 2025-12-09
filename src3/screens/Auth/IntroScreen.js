@@ -201,44 +201,12 @@ const IntroScreen = ({ navigation }) => {
 
           <NextButton />
 
-          {currentIndex === slides.length - 1 ? (
-            <TouchableOpacity
-              style={clsx(
-                styles.border,
-                styles.borderPrimary,
-                styles.roundedFull,
-                styles.px6,
-                styles.py3
-              )}
-              onPress={() => navigation.replace('ProviderSignup')}
-            >
-              <Text style={clsx(styles.textPrimary, styles.fontBold)}>
-                Sign Up
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={{ width: 60 }} />
-          )}
+          
+          
+          
         </View>
 
-        {/* Get Started Button (Only on last slide) */}
-        {currentIndex === slides.length - 1 && (
-          <TouchableOpacity
-            style={clsx(
-              styles.bgPrimary,
-              styles.roundedLg,
-              styles.p4,
-              styles.itemsCenter,
-              styles.justifyCenter,
-              styles.mt6
-            )}
-            onPress={() => navigation.replace('ProviderSignup')}
-          >
-            <Text style={clsx(styles.textWhite, styles.textLg, styles.fontBold)}>
-              Get Started
-            </Text>
-          </TouchableOpacity>
-        )}
+        
       </View>
     </View>
   );

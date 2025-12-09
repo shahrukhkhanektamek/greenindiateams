@@ -12,14 +12,14 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Icon2 from 'react-native-vector-icons/MaterialCommunityIcons';
-import styles, { clsx } from '../../styles/globalStyles';
-import { colors } from '../../styles/colors';
+import styles, { clsx } from '../../../styles/globalStyles';
+import { colors } from '../../../styles/colors';
 
 const BookingDetailScreen = ({ navigation, route }) => {
   const { booking } = route.params || {};
   
   // Sample booking data if not provided
-  const bookingData = booking || {
+  const bookingData = {
     id: 'BK001',
     customerName: 'Rahul Sharma',
     service: 'AC Service & Repair',
@@ -234,10 +234,9 @@ const BookingDetailScreen = ({ navigation, route }) => {
 
   return (
     <View style={clsx(styles.flex1, styles.bgSurface)}>
-      <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
       
       {/* Header */}
-      <View style={clsx(styles.bgPrimary, styles.px4, styles.pt12, styles.pb4)}>
+      <View style={clsx(styles.bgPrimary, styles.px4, styles.pt3, styles.pb4)}>
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4)}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Icon name="arrow-back" size={24} color={colors.white} />
@@ -281,7 +280,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
         contentContainerStyle={clsx(styles.pb24)}
       >
         {/* Service Card */}
-        <View style={clsx(styles.px4, styles.pt6)}>
+        <View style={clsx(styles.px4, styles.pt, styles.mt4)}>
           <View style={clsx(
             styles.bgWhite,
             styles.roundedLg,

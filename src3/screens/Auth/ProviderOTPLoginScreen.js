@@ -19,6 +19,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
 
   const {
     setUser,
+    Toast,
   } = useContext(AppContext);
 
   
@@ -77,8 +78,12 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
         if (otpInputs.current[0]) {
           otpInputs.current[0].focus();
         }
-        
-        Alert.alert('OTP Sent', `OTP has been sent to +91 ${phone}`);
+        Toast.show({
+            type: 'error',
+            text1: 'Otp sent',
+            text2: `OTP has been sent to +91 ${phone}`
+          });
+        // Alert.alert('OTP Sent', `OTP has been sent to +91 ${phone}`);
       }, 1000);
     }
   };
@@ -199,14 +204,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
         keyboardShouldPersistTaps="handled"
       >
         {/* Header */}
-        <View style={clsx(styles.bgPrimary, styles.px4, styles.pt12, styles.pb8)}>
-          <TouchableOpacity
-            style={clsx(styles.positionAbsolute, styles.top4, styles.left4, styles.z10)}
-            onPress={() => navigation.goBack()}
-          >
-            <Icon name="arrow-back" size={24} color={colors.white} />
-          </TouchableOpacity>
-          
+        <View style={clsx(styles.bgPrimary, styles.px4, styles.pt12, styles.pb8)}>                    
           <View style={clsx(styles.itemsCenter)}>
             <View style={clsx(styles.bgWhite, styles.roundedFull, styles.p3, styles.mb4)}>
               <Icon name="sms" size={48} color={colors.primary} />
@@ -255,15 +253,6 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                   </Text>
                 </View>
               </View>
-              
-              {/* <View style={clsx(styles.ml4)}>
-                <Text style={clsx(styles.textBase, styles.fontMedium)}>
-                  {isOtpSent ? 'Step 2 of 2' : 'Step 1 of 2'}
-                </Text>
-                <Text style={clsx(styles.textSm, styles.textMuted)}>
-                  {isOtpSent ? 'Enter OTP' : 'Enter Phone Number'}
-                </Text>
-              </View> */}
             </View>
 
             {!isOtpSent ? (
@@ -279,7 +268,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                 </View>
 
                 {/* Phone Input */}
-                <View style={clsx(styles.mb6)}>
+                <View style={clsx(styles.mb4)}>
                   <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
                     Phone Number
                   </Text>
@@ -322,7 +311,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                 </View>
 
                 {/* Terms and Conditions */}
-                <View style={clsx(styles.mb8)}>
+                <View style={clsx(styles.mb2)}>
                   <Text style={clsx(styles.textSm, styles.textMuted, styles.textCenter)}>
                     By continuing, you agree to our{' '}
                     <Text style={clsx(styles.textPrimary, styles.fontMedium)}>
@@ -402,7 +391,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                           style={clsx(
                             styles.text2xl,
                             styles.fontBold,
-                            styles.textBlack,
+                            styles.textWhite,
                             styles.textCenter,
                             { width: '100%', height: '100%', textAlign: 'center' }
                           )}
@@ -425,7 +414,11 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                       </Text>
                     </TouchableOpacity>
                     
-                    <TouchableOpacity onPress={() => phoneInputRef.current?.focus()}>
+                    <TouchableOpacity onPress={() => {
+                        setIsOtpSent(false);
+                        setOtp(['', '', '', '', '', '']);
+                      }}
+                    >
                       <Text style={clsx(styles.textPrimary, styles.fontMedium)}>
                         Change Number
                       </Text>
@@ -434,7 +427,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                 </View>
 
                 {/* Resend OTP */}
-                <View style={clsx(styles.itemsCenter, styles.mb8)}>
+                <View style={clsx(styles.itemsCenter, styles.mb2)}>
                   {timerActive ? (
                     <Text style={clsx(styles.textBase, styles.textMuted)}>
                       Resend OTP in {countdown} seconds

@@ -4,14 +4,14 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  StatusBar,
   TextInput,
   RefreshControl,
   Modal,
+  FlatList,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import styles, { clsx } from '../../styles/globalStyles';
-import { colors } from '../../styles/colors';
+import styles, { clsx } from '../../../styles/globalStyles';
+import { colors } from '../../../styles/colors';
 
 const BookingListScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
@@ -189,11 +189,11 @@ const BookingListScreen = ({ navigation }) => {
 
   const getStatusBgColor = (status) => {
     switch (status) {
-      case 'completed': return colors.successLight;
-      case 'confirmed': return colors.primaryLight;
-      case 'upcoming': return colors.warningLight;
-      case 'cancelled': return colors.errorLight;
-      default: return colors.gray100;
+      case 'completed': return colors.success + '20';
+      case 'confirmed': return colors.primary + '20';
+      case 'upcoming': return colors.warning + '20';
+      case 'cancelled': return colors.error + '20';
+      default: return colors.gray + '20';
     }
   };
 
@@ -208,7 +208,7 @@ const BookingListScreen = ({ navigation }) => {
     }
   };
 
-  const renderBookingCard = (booking) => (
+  const renderBookingCard = ({ item: booking }) => (
     <TouchableOpacity
       key={booking.id}
       style={clsx(
@@ -218,7 +218,7 @@ const BookingListScreen = ({ navigation }) => {
         styles.mb3,
         styles.shadowSm
       )}
-      onPress={() => navigation.navigate('BookingDetails', { booking })}
+      onPress={() => navigation.navigate('BookingDetail', { booking })}
     >
       <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
         <View style={clsx(styles.flexRow, styles.itemsCenter)}>
@@ -288,7 +288,7 @@ const BookingListScreen = ({ navigation }) => {
           </Text>
         </View>
         
-        <View style={clsx(styles.flexRow, styles.gap2)}>
+        <View style={clsx(styles.flexRow)}>
           {booking.status === 'confirmed' && (
             <TouchableOpacity 
               style={clsx(
@@ -297,7 +297,8 @@ const BookingListScreen = ({ navigation }) => {
                 styles.px3,
                 styles.py2,
                 styles.bgSuccess,
-                styles.roundedFull
+                styles.roundedFull,
+                styles.mr2
               )}
               onPress={(e) => {
                 e.stopPropagation();
@@ -306,7 +307,7 @@ const BookingListScreen = ({ navigation }) => {
             >
               <Icon name="check" size={16} color={colors.white} />
               <Text style={clsx(styles.textWhite, styles.fontMedium, styles.ml1)}>
-                Mark Complete
+                Complete
               </Text>
             </TouchableOpacity>
           )}
@@ -319,7 +320,8 @@ const BookingListScreen = ({ navigation }) => {
                 styles.px3,
                 styles.py2,
                 styles.bgPrimary,
-                styles.roundedFull
+                styles.roundedFull,
+                styles.mr2
               )}
               onPress={(e) => {
                 e.stopPropagation();
@@ -346,7 +348,7 @@ const BookingListScreen = ({ navigation }) => {
             )}
             onPress={(e) => {
               e.stopPropagation();
-              navigation.navigate('BookingDetails', { booking });
+              navigation.navigate('BookingDetail', { booking });
             }}
           >
             <Text style={clsx(styles.textPrimary, styles.fontMedium, styles.mr1)}>
@@ -359,12 +361,84 @@ const BookingListScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
+  const renderTabItem = (tab) => (
+    <TouchableOpacity
+      key={tab.id}
+      style={clsx(
+        styles.px4,
+        styles.py2,
+        styles.mr3,
+        styles.roundedFull,
+        activeTab === tab.id ? styles.bgPrimary : styles.bgGray100
+      )}
+      onPress={() => setActiveTab(tab.id)}
+    >
+      <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+        <Text style={clsx(
+          styles.fontMedium,
+          activeTab === tab.id ? styles.textWhite : styles.textBlack
+        )}>
+          {tab.label}
+        </Text>
+        <View style={clsx(
+          styles.ml2,
+          styles.px2,
+          styles.py1,
+          styles.roundedFull,
+          activeTab === tab.id ? styles.bgWhite : styles.bgGray200
+        )}>
+          <Text style={clsx(
+            styles.textXs,
+            styles.fontBold,
+            activeTab === tab.id ? styles.textPrimary : styles.textBlack
+          )}>
+            {tab.count}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const renderFilterOption = (filterType, options) => (
+    <View style={clsx(styles.mb6)}>
+      <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb3)}>
+        {filterType === 'serviceType' ? 'Service Type' : 
+         filterType === 'dateRange' ? 'Date Range' : 'Price Range'}
+      </Text>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={clsx(styles.pb2)}
+      >
+        {options.map((option) => (
+          <TouchableOpacity
+            key={option.id}
+            style={clsx(
+              styles.px4,
+              styles.py2,
+              styles.mr3,
+              styles.roundedFull,
+              selectedFilters[filterType] === option.id ? styles.bgPrimary : styles.bgGray100
+            )}
+            onPress={() => setSelectedFilters({...selectedFilters, [filterType]: option.id})}
+          >
+            <Text style={clsx(
+              styles.fontMedium,
+              selectedFilters[filterType] === option.id ? styles.textWhite : styles.textBlack
+            )}>
+              {option.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+
   return (
     <View style={clsx(styles.flex1, styles.bgSurface)}>
-      <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
       
       {/* Header */}
-      <View style={clsx(styles.bgPrimary, styles.px4, styles.pt12, styles.pb4)}>
+      <View style={clsx(styles.bgPrimary, styles.px4, styles.pt2, styles.pb1)}>
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4)}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Icon name="arrow-back" size={24} color={colors.white} />
@@ -378,7 +452,15 @@ const BookingListScreen = ({ navigation }) => {
         </View>
 
         {/* Search Bar */}
-        <View style={clsx(styles.bgWhite, styles.roundedLg, styles.px3, styles.py2, styles.flexRow, styles.itemsCenter)}>
+        <View style={clsx(
+          styles.bgWhite, 
+          styles.roundedLg, 
+          styles.px3, 
+          styles.py2, 
+          styles.flexRow, 
+          styles.itemsCenter,
+          styles.shadowSm
+        )}>
           <Icon name="search" size={20} color={colors.textMuted} />
           <TextInput
             style={clsx(styles.flex1, styles.textBase, styles.textBlack, styles.ml2)}
@@ -386,6 +468,7 @@ const BookingListScreen = ({ navigation }) => {
             placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            returnKeyType="search"
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
@@ -396,57 +479,21 @@ const BookingListScreen = ({ navigation }) => {
       </View>
 
       {/* Tab Navigation */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={clsx(styles.bgWhite, styles.px4, styles.py2, styles.shadowSm)}
-        contentContainerStyle={clsx(styles.flexRow)}
-      >
-        {tabs.map((tab) => (
-          <TouchableOpacity
-            key={tab.id}
-            style={clsx(
-              styles.px4,
-              styles.py2,
-              styles.mr3,
-              styles.roundedFull,
-              activeTab === tab.id ? styles.bgPrimary : styles.bgGray100
-            )}
-            onPress={() => setActiveTab(tab.id)}
-          >
-            <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-              <Text style={clsx(
-                styles.fontMedium,
-                activeTab === tab.id ? styles.textWhite : styles.textBlack
-              )}>
-                {tab.label}
-              </Text>
-              {tab.count > 0 && (
-                <View style={clsx(
-                  styles.ml2,
-                  styles.px1,
-                  styles.py0,
-                  styles.roundedFull,
-                  activeTab === tab.id ? styles.bgWhite : styles.bgPrimary,
-                  { minWidth: 24, height: 20 }
-                )}>
-                  <Text style={clsx(
-                    styles.textXs,
-                    styles.fontBold,
-                    styles.textCenter,
-                    activeTab === tab.id ? styles.textPrimary : styles.textWhite
-                  )}>
-                    {tab.count}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={clsx(styles.bgWhite, styles.px4, styles.py3, styles.shadowSm)}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={clsx(styles.flexRow)}
+        >
+          {tabs.map(renderTabItem)}
+        </ScrollView>
+      </View>
 
       {/* Bookings List */}
-      <ScrollView
+      <FlatList
+        data={filteredBookings}
+        renderItem={renderBookingCard}
+        keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl 
@@ -457,15 +504,7 @@ const BookingListScreen = ({ navigation }) => {
           />
         }
         contentContainerStyle={clsx(styles.px4, styles.py4)}
-      >
-        {filteredBookings.length > 0 ? (
-          <>
-            <Text style={clsx(styles.textBase, styles.textMuted, styles.mb3)}>
-              Showing {filteredBookings.length} booking{filteredBookings.length !== 1 ? 's' : ''}
-            </Text>
-            {filteredBookings.map(renderBookingCard)}
-          </>
-        ) : (
+        ListEmptyComponent={
           <View style={clsx(styles.itemsCenter, styles.justifyCenter, styles.p8)}>
             <Icon name="inbox" size={80} color={colors.gray300} />
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mt4)}>
@@ -501,8 +540,15 @@ const BookingListScreen = ({ navigation }) => {
               </TouchableOpacity>
             )}
           </View>
-        )}
-      </ScrollView>
+        }
+        ListHeaderComponent={
+          filteredBookings.length > 0 ? (
+            <Text style={clsx(styles.textBase, styles.textMuted, styles.mb3)}>
+              Showing {filteredBookings.length} booking{filteredBookings.length !== 1 ? 's' : ''}
+            </Text>
+          ) : null
+        }
+      />
 
       {/* Filter Modal */}
       <Modal
@@ -511,7 +557,7 @@ const BookingListScreen = ({ navigation }) => {
         visible={filterModalVisible}
         onRequestClose={() => setFilterModalVisible(false)}
       >
-        <View style={clsx(styles.flex1, styles.justifyEnd)}>
+        <View style={clsx(styles.flex1, styles.justifyEnd, styles.bgBlack50)}>
           <View style={clsx(styles.bgWhite, styles.roundedT3xl, styles.p6)}>
             <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb6)}>
               <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)}>
@@ -523,70 +569,13 @@ const BookingListScreen = ({ navigation }) => {
             </View>
 
             {/* Service Type Filter */}
-            <View style={clsx(styles.mb6)}>
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb3)}>
-                Service Type
-              </Text>
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                style={clsx(styles.flexRow)}
-              >
-                {serviceTypes.map((type) => (
-                  <TouchableOpacity
-                    key={type.id}
-                    style={clsx(
-                      styles.px4,
-                      styles.py2,
-                      styles.mr3,
-                      styles.roundedFull,
-                      selectedFilters.serviceType === type.id ? styles.bgPrimary : styles.bgGray100
-                    )}
-                    onPress={() => setSelectedFilters({...selectedFilters, serviceType: type.id})}
-                  >
-                    <Text style={clsx(
-                      styles.fontMedium,
-                      selectedFilters.serviceType === type.id ? styles.textWhite : styles.textBlack
-                    )}>
-                      {type.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
+            {renderFilterOption('serviceType', serviceTypes)}
 
             {/* Price Range Filter */}
-            <View style={clsx(styles.mb6)}>
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb3)}>
-                Price Range
-              </Text>
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                style={clsx(styles.flexRow)}
-              >
-                {priceRanges.map((range) => (
-                  <TouchableOpacity
-                    key={range.id}
-                    style={clsx(
-                      styles.px4,
-                      styles.py2,
-                      styles.mr3,
-                      styles.roundedFull,
-                      selectedFilters.priceRange === range.id ? styles.bgPrimary : styles.bgGray100
-                    )}
-                    onPress={() => setSelectedFilters({...selectedFilters, priceRange: range.id})}
-                  >
-                    <Text style={clsx(
-                      styles.fontMedium,
-                      selectedFilters.priceRange === range.id ? styles.textWhite : styles.textBlack
-                    )}>
-                      {range.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
+            {renderFilterOption('priceRange', priceRanges)}
+
+            {/* Date Range Filter */}
+            {renderFilterOption('dateRange', dateRanges)}
 
             {/* Action Buttons */}
             <View style={clsx(styles.flexRow, styles.gap3)}>
@@ -649,6 +638,11 @@ const BookingListScreen = ({ navigation }) => {
             right: 20,
             width: 56,
             height: 56,
+            elevation: 5,
+            shadowColor: colors.black,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.25,
+            shadowRadius: 4,
           }
         ]}
         onPress={() => navigation.navigate('NewBooking')}

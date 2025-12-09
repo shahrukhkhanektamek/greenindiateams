@@ -60,68 +60,35 @@ const Header = ({
 
   return (
     <View>
-      <StatusBar 
-        backgroundColor={getBackgroundColor()} 
-        barStyle={getStatusBarStyle()} 
-      />
-      <View style={clsx(
-        type !== 'transparent' && styles.shadowSm,
-        { backgroundColor: getBackgroundColor() }
-      )}>
-        <View style={clsx(
-          styles.flexRow,
-          styles.itemsCenter,
-          styles.justifyBetween,
-          styles.px4,
-          Platform.OS === 'ios' ? styles.pt12 : styles.pt6,
-          styles.pb4
-        )}>
-          {/* Left Section */}
-          <View style={clsx(styles.flexRow, styles.itemsCenter, { flex: 1 })}>
-            {showBack && (
-              <TouchableOpacity
-                onPress={onBackPress}
-                style={clsx(styles.mr3)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Icon 
-                  name="arrow-back" 
-                  size={24} 
-                  color={getTextColor()} 
-                />
-              </TouchableOpacity>
-            )}
-            
-            <View style={clsx(styles.flex1)}>
-              {title && (
-                <Text 
-                  style={clsx(
-                    styles.textXl,
-                    styles.fontBold,
-                    { color: getTextColor() },
-                    subtitle && styles.mb1
-                  )}
-                  numberOfLines={1}
-                >
-                  {title}
-                </Text>
-              )}
-              
-              {subtitle && (
-                <Text 
-                  style={clsx(
-                    styles.textSm,
-                    { color: getTextColor(), opacity: 0.8 }
-                  )}
-                  numberOfLines={1}
-                >
-                  {subtitle}
-                </Text>
-              )}
-            </View>
-          </View>
 
-          {/* Right Section */}
+      <View style={clsx(styles.bgPrimary, styles.px4, styles.pt3, styles.pb0)}>
+        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4)}>
+          {showBack && (
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Icon name="arrow-back" size={24} color={colors.white} />
+          </TouchableOpacity>
+          )}
+          <View style={clsx(styles.flexCol, styles.textCenter)}>
+            {title && (
+              <Text style={clsx(styles.textWhite, styles.textXl, styles.fontBold)}>
+                {title}
+              </Text>
+            )}
+            {subtitle && (
+              <Text 
+                style={clsx(
+                  styles.textSm,
+                  styles.textCenter,
+                  styles.textWhite,
+                  // { color: getTextColor(), opacity: 0.8 }
+                )}
+                numberOfLines={1}
+              >
+                {subtitle}
+              </Text>
+            )}
+          </View>
+          
           <View style={clsx(styles.flexRow, styles.itemsCenter)}>
             {rightAction && (
               <TouchableOpacity
@@ -132,7 +99,7 @@ const Header = ({
                 <Icon 
                   name={rightActionIcon || 'more-vert'} 
                   size={24} 
-                  color={getTextColor()} 
+                  color={colors.white}
                 />
               </TouchableOpacity>
             )}
@@ -146,7 +113,7 @@ const Header = ({
                 <Icon 
                   name="notifications" 
                   size={24} 
-                  color={getTextColor()} 
+                  color={colors.white}
                 />
                 {/* Notification Badge */}
                 <View style={clsx(
@@ -168,6 +135,8 @@ const Header = ({
                 <View style={clsx(
                   styles.bgWhite,
                   styles.roundedFull,
+                  styles.itemsCenter,
+                  styles.centerAll,
                   { width: 36, height: 36 },
                   type !== 'default' && styles.border,
                   type !== 'default' && { borderColor: colors.border }
@@ -182,7 +151,7 @@ const Header = ({
             )}
           </View>
         </View>
-      </View>
+      </View>    
     </View>
   );
 };

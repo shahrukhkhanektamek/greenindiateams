@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../styles/globalStyles';
@@ -24,7 +25,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
 
   
   const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otp, setOtp] = useState(['', '', '', '']);
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [countdown, setCountdown] = useState(60);
@@ -50,12 +51,12 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
   const validateOTP = () => {
     const otpString = otp.join('');
     
-    if (otpString.length !== 6) {
-      Alert.alert('Error', 'Please enter all 6 digits of OTP');
+    if (otpString.length !== 4) {
+      Alert.alert('Error', 'Please enter all 4 digits of OTP');
       return false;
     }
     
-    if (!/^\d{6}$/.test(otpString)) {
+    if (!/^\d{4}$/.test(otpString)) {
       Alert.alert('Error', 'OTP must contain only numbers');
       return false;
     }
@@ -120,15 +121,15 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
   const handleVerifyOTP = () => {
     if (validateOTP()) {
       setIsLoading(true);
-      setUser(true)
       
       // Simulate OTP verification API call
       setTimeout(() => {
-      //   setIsLoading(false);
-      //   navigation.reset({
-      //     index: 0,
-      //     routes: [{ name: 'ProviderDashboard' }],
-      //   });
+        setIsLoading(false);
+        setUser(true)
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'ProfileUpdate' }],
+          });
       }, 1500);
     }
   };
@@ -136,11 +137,11 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
   const handleOtpChange = (text, index) => {
     if (text.length > 1) {
       // Handle paste
-      const otpArray = text.split('').slice(0, 6);
+      const otpArray = text.split('').slice(0, 4);
       const newOtp = [...otp];
       
       otpArray.forEach((digit, idx) => {
-        if (idx < 6) {
+        if (idx < 4) {
           newOtp[idx] = digit;
         }
       });
@@ -148,7 +149,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
       setOtp(newOtp);
       
       // Focus last input
-      const lastIndex = Math.min(otpArray.length - 1, 5);
+      const lastIndex = Math.min(otpArray.length - 1, 4);
       if (otpInputs.current[lastIndex]) {
         otpInputs.current[lastIndex].focus();
       }
@@ -161,7 +162,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
     setOtp(newOtp);
 
     // Auto focus next input
-    if (text && index < 5 && otpInputs.current[index + 1]) {
+    if (text && index < 4 && otpInputs.current[index + 1]) {
       otpInputs.current[index + 1].focus();
     }
   };
@@ -187,7 +188,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
   };
 
   const clearOTP = () => {
-    setOtp(['', '', '', '', '', '']);
+    setOtp(['', '', '', '']);
     if (otpInputs.current[0]) {
       otpInputs.current[0].focus();
     }
@@ -205,11 +206,16 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
       >
         {/* Header */}
         <View style={clsx(styles.bgPrimary, styles.px4, styles.pt12, styles.pb8)}>                    
-          <View style={clsx(styles.itemsCenter)}>
-            <View style={clsx(styles.bgWhite, styles.roundedFull, styles.p3, styles.mb4)}>
-              <Icon name="sms" size={48} color={colors.primary} />
+          <View style={clsx(styles.itemsStretch)}>
+            <View style={clsx(styles.bgWhite, styles.roundedMd, styles.p3, styles.mb4)}>
+              {/* <Icon name="sms" size={48} color={colors.primary} /> */}
+              <Image
+                  source={require('../../assets/img/logo.png')}
+                  style={{ width: 250, height: 80, alignItems:'center', margin:'auto' }}
+                  resizeMode="contain"
+                />
             </View>
-            <Text style={clsx(styles.text2xl, styles.fontBold, styles.textWhite, styles.mb2)}>
+            <Text style={clsx(styles.text2xl, styles.fontBold, styles.textWhite, styles.mb2, styles.textCenter)}>
               OTP Login
             </Text>
             <Text style={clsx(styles.textBase, styles.textWhite, styles.opacity75, styles.textCenter)}>
@@ -263,7 +269,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                     Enter Your Phone Number
                   </Text>
                   <Text style={clsx(styles.textBase, styles.textMuted, styles.textCenter)}>
-                    We'll send a 6-digit OTP to this number
+                    We'll send a 4-digit OTP to this number
                   </Text>
                 </View>
 
@@ -357,7 +363,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                     Enter OTP
                   </Text>
                   <Text style={clsx(styles.textBase, styles.textMuted)}>
-                    Enter the 6-digit OTP sent to{' '}
+                    Enter the 4-digit OTP sent to{' '}
                     <Text style={clsx(styles.fontMedium, styles.textPrimary)}>
                       +91 {phone}
                     </Text>
@@ -366,11 +372,11 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
 
                 {/* OTP Input Fields */}
                 <View style={clsx(styles.mb8)}>
-                  <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb4)}>
-                    Enter 6-digit OTP
-                  </Text>
+                  {/* <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb4)}>
+                    Enter 4-digit OTP
+                  </Text> */}
                   
-                  <View style={clsx(styles.flexRow, styles.justifyBetween)}>
+                  <View style={clsx(styles.flexRow, styles.justifyCenter)}>
                     {otp.map((digit, index) => (
                       <View
                         key={index}
@@ -416,7 +422,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                     
                     <TouchableOpacity onPress={() => {
                         setIsOtpSent(false);
-                        setOtp(['', '', '', '', '', '']);
+                        setOtp(['', '', '', '']);
                       }}
                     >
                       <Text style={clsx(styles.textPrimary, styles.fontMedium)}>
@@ -474,7 +480,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                   style={clsx(styles.itemsCenter, styles.mt4)}
                   onPress={() => {
                     setIsOtpSent(false);
-                    setOtp(['', '', '', '', '', '']);
+                    setOtp(['', '', '', '']);
                   }}
                 >
                   <Text style={clsx(styles.textPrimary, styles.fontMedium)}>

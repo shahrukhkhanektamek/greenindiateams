@@ -74,7 +74,7 @@ function ProviderNavigator() {
   return (
     // NavigationContainer removed from here
     <Stack.Navigator
-      initialRouteName={user ? "Dashboard" : "Intro"}
+      initialRouteName={user ? "ProviderProfile" : "Intro"}
       screenOptions={{
         headerStyle: {
           backgroundColor: '#FF6B6B',
@@ -98,14 +98,15 @@ function ProviderNavigator() {
           <Stack.Screen name="ProviderSignup" component={ProviderSignupScreen}/>            
           <Stack.Screen name="Verification" component={VerificationScreen}/>            
           <Stack.Screen name="ProviderDashboard" component={DashboardScreen}/>
-        </>
+          <Stack.Screen name="ProfileUpdate" component={ProfileUpdateScreen} />
+        </> 
       ) : (
         // =========== MAIN APP SCREENS ===========
         <>
           <Stack.Screen name="Dashboard" component={DashboardScreen}/>
 
           <Stack.Screen name="Bookings" component={BookingListScreen}/>
-          <Stack.Screen name="BookingDetail" component={BookingDetailScreen}/>
+          <Stack.Screen name="BookingDetail" component={BookingDetailScreen}/> 
 
           <Stack.Screen name="ProviderProfile" component={ProviderProfileScreen}/>
           <Stack.Screen name="ProfileUpdate" component={ProfileUpdateScreen} />

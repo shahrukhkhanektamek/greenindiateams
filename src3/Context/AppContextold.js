@@ -394,6 +394,9 @@ export const AppProvider = ({ children }) => {
         setcategoryListData,
       }}
     >
+      {loadingStates.page ? <PageLoading /> : children}
+      {loadingStates.api && <Loader showHideLoader={loadingStates.api} setLoading={setLoading} />}
+      {loadingStates.sideBar && <CustomSidebar isVisible={loadingStates.sideBar} setLoading={setLoading} />}
       {children}
       <Toast />      
     </AppContext.Provider>

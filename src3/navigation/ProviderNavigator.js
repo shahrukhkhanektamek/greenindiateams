@@ -51,30 +51,63 @@ import VerificationScreen from '../screens/Auth/VerificationScreen';
 // Import Splash Screen
 import SplashScreen from '../screens/Common/SplashScreen';
 
-const Stack = createStackNavigator();
+const Stack = createStackNavigator(); 
 
 function ProviderNavigator() {
-  const { user, setUser } = useContext(AppContext);
+  const { user, setUser, storage } = useContext(AppContext);
   const [isSplashVisible, setIsSplashVisible] = useState(true);
+  const [rootScreen, setrootScreen] = useState('Intro');
 
-  useEffect(() => {
+
+  useEffect(() => { 
     const initializeApp = async () => {
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      setUser(null); // For demo, set to false to see auth flow
+      // setUser(null); // For demo, set to false to see auth flow
       setIsSplashVisible(false);
     };
 
+
+      const checkRootAccess = async () => {
+        if(user)
+        {
+          if(!user.profile)
+          {
+            setrootScreen('ProfileUpdate');
+          }
+          else if(!user.kyc)
+          {
+            setrootScreen('KycScreen');
+          }
+          else
+          {
+            setrootScreen('ProviderDashboard');
+          }
+        }
+        else
+        {
+          setrootScreen('Intro');
+        }
+        console.log(rootScreen)
+        // setrootScreen('ProviderDashboard');
+     };
+
+
+    checkRootAccess()
     initializeApp();
-  }, []);
+  }, [user]);
 
   if (isSplashVisible) {
     return <SplashScreen />;
   }
 
+  console.log(user)
+
+ 
+
   return (
     // NavigationContainer removed from here
     <Stack.Navigator
-      initialRouteName={user ? "ProviderProfile" : "Intro"}
+      initialRouteName={rootScreen}
       screenOptions={{
         headerStyle: {
           backgroundColor: '#FF6B6B',
@@ -103,7 +136,8 @@ function ProviderNavigator() {
       ) : (
         // =========== MAIN APP SCREENS ===========
         <>
-          <Stack.Screen name="Dashboard" component={DashboardScreen}/>
+          <Stack.Screen name="ProviderOTPLogin" component={ProviderOTPLoginScreen}/>            
+          <Stack.Screen name="ProviderDashboard" component={DashboardScreen}/>
 
           <Stack.Screen name="Bookings" component={BookingListScreen}/>
           <Stack.Screen name="BookingDetail" component={BookingDetailScreen}/> 

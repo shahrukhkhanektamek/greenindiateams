@@ -21,7 +21,13 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
   const {
     setUser,
     Toast,
+    Urls,
+    postData,
+    storage,
   } = useContext(AppContext);
+
+  // const urls = Urls();
+  // console.log(Urls)
 
   
   const [phone, setPhone] = useState('');
@@ -64,28 +70,51 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
     return true;
   };
 
-  const handleSendOTP = () => {
+  const handleSendOTP = async () => {
     if (validatePhone()) {
       setIsLoading(true);
       
-      // Simulate API call to send OTP
-      setTimeout(() => {
-        setIsLoading(false);
-        setIsOtpSent(true);
-        setTimerActive(true);
-        startCountdown();
+      try {
+        // API call to send OTP
+        const response = await postData({ 
+          mobile: phone 
+        }, Urls.login, 'POST');
         
-        // Auto focus first OTP input
-        if (otpInputs.current[0]) {
-          otpInputs.current[0].focus();
-        }
-        Toast.show({
-            type: 'error',
-            text1: 'Otp sent',
+        console.log('Login response:', response);
+        
+        if (response?.success) {
+          setIsOtpSent(true);
+          setTimerActive(true);
+          startCountdown();
+          
+          // Auto focus first OTP input
+          if (otpInputs.current[0]) {
+            otpInputs.current[0].focus();
+          }
+          
+          Toast.show({
+            type: 'success',
+            text1: response.message,
             text2: `OTP has been sent to +91 ${phone}`
           });
-        // Alert.alert('OTP Sent', `OTP has been sent to +91 ${phone}`);
-      }, 1000);
+        } else {
+          // Handle API error response
+          Toast.show({
+            type: 'error',
+            text1: 'Failed to send OTP',
+            text2: response?.message || 'Please try again'
+          });
+        }
+      } catch (error) {
+        console.error('Send OTP error:', error);
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Failed to send OTP. Please try again.'
+        });
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -104,33 +133,104 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
     }, 1000);
   };
 
-  const handleResendOTP = () => {
+  const handleResendOTP = async () => {
     if (timerActive) return;
     
     setIsLoading(true);
     
-    // Simulate resend OTP API call
-    setTimeout(() => {
+    try {
+      // API call to resend OTP
+      const response = await postData({ 
+        mobile: phone 
+      }, Urls.login, 'POST');
+      
+      console.log('Resend OTP response:', response);
+      
+      if (response?.success) {
+        setTimerActive(true);
+        startCountdown();
+        
+        Toast.show({
+          type: 'success',
+          text1: 'OTP resent successfully',
+        });
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Failed to Resend OTP',
+          text2: response?.message || 'Please try again'
+        });
+      }
+    } catch (error) {
+      console.error('Resend OTP error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to resend OTP. Please try again.'
+      });
+    } finally {
       setIsLoading(false);
-      setTimerActive(true);
-      startCountdown();
-      Alert.alert('OTP Resent', 'New OTP has been sent to your phone');
-    }, 1000);
+    }
   };
 
-  const handleVerifyOTP = () => {
+  const handleVerifyOTP = async () => {
     if (validateOTP()) {
       setIsLoading(true);
       
-      // Simulate OTP verification API call
-      setTimeout(() => {
-        setIsLoading(false);
-        setUser(true)
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'ProfileUpdate' }],
+      try {
+        const otpString = otp.join('');
+        
+        // API call to verify OTP
+        const response = await postData({
+          mobile: phone,
+          otp: otpString
+        }, Urls.verifyOtp, 'POST');
+        
+        console.log('Verify OTP response:', response);
+        
+        if (response?.success) {
+          // Store user data and token
+          const userData = response?.user || {};
+          const token = response?.token || '';
+          
+          if (token) {
+            await storage.set('token', token);
+          }
+          
+          if (userData) {
+            await storage.set('user', userData);
+            setUser(userData);
+          }
+          
+          Toast.show({
+            type: 'success',
+            text1: response.message,
+            text2: 'OTP verified successfully'
           });
-      }, 1500);
+          
+          // Navigate to ProfileUpdate screen
+          // navigation.reset({
+          //   index: 0,
+          //   routes: [{ name: 'ProfileUpdate' }],
+          // });
+
+        } else {
+          Toast.show({
+            type: 'error',
+            text1: 'Verification Failed',
+            text2: response?.message || 'Invalid OTP. Please try again.'
+          });
+        }
+      } catch (error) {
+        console.error('Verify OTP error:', error);
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Failed to verify OTP. Please try again.'
+        });
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 

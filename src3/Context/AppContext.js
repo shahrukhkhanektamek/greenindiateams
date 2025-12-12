@@ -11,7 +11,7 @@ export const AppContext = createContext();
 
 // API URLs configuration - Consider moving to environment variables
 const BASE_URLS = {
-  development: "http://192.168.1.17:8080/",
+  development: "http://192.168.1.25:8080/",
   // staging: "https://staging-api.example.com/",
   // production: "https://api.example.com/"
 };
@@ -179,9 +179,12 @@ export const AppProvider = ({ children }) => {
         storage.get("user")
       ]);
       
-      if (token && storedUser) {
+      if (token) {
         setUser(storedUser);
       }
+      console.log(storedUser)
+      console.log(token)
+
     } catch (error) {
       console.error('Failed to load user data:', error);
     }

@@ -19,7 +19,7 @@ import { navigate, reset } from '../../navigation/navigationService';
 const { width, height } = Dimensions.get('window');
 
 const CustomSidebar = ({ state, isVisible, onClose }) => {
-  const { setUser, setLoading } = useContext(AppContext);
+  const { setUser, setLoading, storage } = useContext(AppContext);
   
   const slideAnim = useRef(new Animated.Value(-width)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -91,8 +91,12 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
 
   const handleLogout = () => {
     setUser(null);
-    reset('Intro');
+    storage.delete('token');
+    storage.delete('user');
     closeSidebar();
+    
+    reset('ProviderOTPLogin')
+
   };
 
   const isActiveRoute = (routeName) => {

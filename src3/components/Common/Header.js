@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../styles/globalStyles';
 import { colors } from '../../styles/colors';
+import { AppContext } from '../../Context/AppContext';
 
 const Header = ({
   title,
@@ -26,6 +27,9 @@ const Header = ({
   textColor = colors.white,
   type = 'default', // 'default', 'transparent', 'white'
 }) => {
+  
+  const { setisheaderback, isheaderback } = useContext(AppContext);
+
   const getBackgroundColor = () => {
     switch (type) {
       case 'transparent':
@@ -64,9 +68,13 @@ const Header = ({
       <View style={clsx(styles.bgPrimary, styles.px4, styles.pt3, styles.pb0)}>
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4)}>
           {showBack && (
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Icon name="arrow-back" size={24} color={colors.white} />
-          </TouchableOpacity>
+            <>
+              {isheaderback?
+                <TouchableOpacity onPress={() => navigation.goBack()}>
+                  <Icon name="arrow-back" size={24} color={colors.white} />
+                </TouchableOpacity>
+              :null}
+            </>
           )}
           <View style={clsx(styles.flexCol, styles.textCenter)}>
             {title && (

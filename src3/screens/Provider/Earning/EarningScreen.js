@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -12,8 +12,16 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import Header from '../../../components/Common/Header';
+import { AppContext } from '../../../Context/AppContext';
+import { navigate } from '../../../navigation/navigationService';
 
 const EarningScreen = ({ navigation }) => {
+  const {
+    Toast,
+    Urls,
+    postData,
+  } = useContext(AppContext);
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [earnings, setEarnings] = useState([]);
@@ -24,90 +32,45 @@ const EarningScreen = ({ navigation }) => {
     total: 0,
   });
 
-  // Sample earning data from API
-  const sampleEarningData = [
-    {
-      "_id": "692a9733dd95ad94ee8a9d4d",
-      "categoryId": "691c1bfae53e3e7330a90928",
-      "earningHour1": 4,
-      "earningPrice1": 5000,
-      "earningHour2": 6,
-      "earningPrice2": 8000,
-      "earningHour3": 8,
-      "earningPrice3": 12000,
-      "earningHour4": 12,
-      "earningPrice4": 25000,
-      "status": true,
-      "createdBy": "68e617f638867a5a737b161f",
-      "updatedBy": null,
-      "createdAt": "2025-11-29T06:48:19.784Z",
-      "updatedAt": "2025-11-29T06:48:19.784Z",
-      "__v": 0,
-      "category": {
-        "_id": "691c1bfae53e3e7330a90928",
-        "name": "Kitchen Appliances Repair & Services",
-        "image": "uploads/category/1763449850546-392715050.jpg",
-        "icon": "uploads/category/1763449850547-106991991.svg",
-        "fullDescription": "Kitchen Appliances Repair & Services",
-        "status": true,
-        "createdBy": "68e617f638867a5a737b161f",
-        "updatedBy": null,
-        "createdAt": "2025-11-18T07:10:50.550Z",
-        "updatedAt": "2025-11-18T07:10:50.669Z",
-        "__v": 0,
-        "slug": "kitchen-appliances-repair-services"
-      }
-    },
-    {
-      "_id": "69159e53760d365effa921ec",
-      "categoryId": "691c1abfe53e3e7330a908fa",
-      "earningHour1": 4,
-      "earningPrice1": 6000,
-      "earningHour2": 6,
-      "earningPrice2": 8000,
-      "earningHour3": 8,
-      "earningPrice3": 15000,
-      "earningHour4": 12,
-      "earningPrice4": 25000,
-      "status": true,
-      "createdBy": "68e617f638867a5a737b161f",
-      "updatedBy": "68e617f638867a5a737b161f",
-      "createdAt": "2025-11-13T09:01:07.202Z",
-      "updatedAt": "2025-11-20T11:47:27.680Z",
-      "__v": 0,
-      "category": {
-        "_id": "691c1abfe53e3e7330a908fa",
-        "name": "AC Home Appliance Repair & Services",
-        "image": "uploads/category/1764762961931-852835782.svg",
-        "icon": "uploads/category/1763449535084-626930616.svg",
-        "fullDescription": "AC Home Appliance Repair & Services",
-        "status": true,
-        "createdBy": "68e617f638867a5a737b161f",
-        "updatedBy": "68e617f638867a5a737b161f",
-        "createdAt": "2025-11-18T07:05:35.091Z",
-        "updatedAt": "2025-12-03T11:56:01.935Z",
-        "__v": 0,
-        "slug": "ac-home-appliance-repair-services"
-      }
-    }
-  ];
-
+  // Fetch earnings data
   const fetchEarnings = async () => {
     try {
       setLoading(true);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await postData({}, Urls.earnings, 'GET', { 
+        showErrorMessage: false 
+      });
       
-      // Use sample data
-      setEarnings(sampleEarningData);
-      
-      // Calculate total earnings
-      calculateTotalEarnings(sampleEarningData);
+      if (response?.success) {
+        console.log('Earnings API Response:', response);
+        
+        const earningsData = response.data || [];
+        setEarnings(earningsData);
+        
+        // Calculate total earnings
+        calculateTotalEarnings(earningsData);
+        
+        // Show success message if data loaded
+        if (earningsData.length > 0) {
+          Toast.show({
+            type: 'success',
+            text1: 'Success',
+            text2: 'Earnings data loaded successfully',
+          });
+        }
+      } else {
+        Alert.alert('Error', response?.message || 'Failed to fetch earnings data');
+        setEarnings([]);
+      }
       
     } catch (error) {
-      Alert.alert('Error', 'Failed to fetch earnings data');
       console.error('Fetch earnings error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to fetch earnings data',
+      });
+      setEarnings([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -115,28 +78,54 @@ const EarningScreen = ({ navigation }) => {
   };
 
   const calculateTotalEarnings = (earningsData) => {
-    // Calculate totals based on your business logic
-    // This is a sample calculation - adjust according to your needs
-    let dailyTotal = 0;
-    let weeklyTotal = 0;
-    let monthlyTotal = 0;
+    if (!earningsData || earningsData.length === 0) {
+      setTotalEarnings({
+        daily: 0,
+        weekly: 0,
+        monthly: 0,
+        total: 0,
+      });
+      return;
+    }
+
     let overallTotal = 0;
+    let maxPrice = 0;
+    let minHours = Infinity;
+    let totalHours = 0;
 
     earningsData.forEach(item => {
-      // Example: Sum of all earning prices for different time periods
-      overallTotal += item.earningPrice1 + item.earningPrice2 + item.earningPrice3 + item.earningPrice4;
+      // Calculate total potential earnings for this category
+      const categoryTotal = item.earningPrice1 + item.earningPrice2 + item.earningPrice3 + item.earningPrice4;
+      overallTotal += categoryTotal;
+      
+      // Find maximum earning price
+      const categoryMaxPrice = Math.max(item.earningPrice1, item.earningPrice2, item.earningPrice3, item.earningPrice4);
+      maxPrice = Math.max(maxPrice, categoryMaxPrice);
+      
+      // Find minimum service hours
+      const categoryMinHours = Math.min(item.earningHour1, item.earningHour2, item.earningHour3, item.earningHour4);
+      minHours = Math.min(minHours, categoryMinHours);
+      
+      // Calculate total hours for average rate calculation
+      totalHours += item.earningHour1 + item.earningHour2 + item.earningHour3 + item.earningHour4;
     });
 
-    // For demo purposes, set some sample values
-    dailyTotal = overallTotal * 0.1; // 10% of total as daily
-    weeklyTotal = overallTotal * 0.3; // 30% of total as weekly
-    monthlyTotal = overallTotal * 0.6; // 60% of total as monthly
+    // Calculate average per hour rate
+    const averageRate = totalHours > 0 ? overallTotal / totalHours : 0;
+
+    // For demo purposes, set time-based earnings
+    const dailyTotal = overallTotal * 0.1; // 10% of total as daily
+    const weeklyTotal = overallTotal * 0.3; // 30% of total as weekly
+    const monthlyTotal = overallTotal * 0.6; // 60% of total as monthly
 
     setTotalEarnings({
       daily: dailyTotal,
       weekly: weeklyTotal,
       monthly: monthlyTotal,
       total: overallTotal,
+      maxPrice: maxPrice,
+      minHours: minHours === Infinity ? 0 : minHours,
+      averageRate: averageRate,
     });
   };
 
@@ -150,10 +139,13 @@ const EarningScreen = ({ navigation }) => {
   }, []);
 
   const formatCurrency = (amount) => {
+    if (!amount || isNaN(amount)) return '₹0';
+    
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
       minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(amount);
   };
 
@@ -161,19 +153,24 @@ const EarningScreen = ({ navigation }) => {
     return (
       <View key={earning._id} style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm, styles.mb4)}>
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
-            {earning.category.name}
-          </Text>
-          <View style={clsx(styles.px2, styles.py1, styles.bgSuccessLight, styles.roundedFull)}>
-            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textSuccess)}>
-              Active
+          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.flex1)}>
+            <Icon name="category" size={20} color={colors.primary} style={clsx(styles.mr2)} />
+            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.flex1)} numberOfLines={2}>
+              {earning.category?.name || 'Category'}
+            </Text>
+          </View>
+          <View style={clsx(styles.px2, styles.py1, styles.roundedFull, 
+            earning.status ? styles.bgSuccessLight : styles.bgErrorLight)}>
+            <Text style={clsx(styles.textSm, styles.fontMedium, 
+              earning.status ? styles.textSuccess : styles.textError)}>
+              {earning.status ? 'Active' : 'Inactive'}
             </Text>
           </View>
         </View>
 
         <View style={clsx(styles.mb4)}>
           <Text style={clsx(styles.textBase, styles.fontMedium, styles.textMuted, styles.mb2)}>
-            Earning Structure
+            Earning Structure (per job)
           </Text>
           
           <View style={clsx(styles.bgGray, styles.p3, styles.roundedLg)}>
@@ -221,7 +218,7 @@ const EarningScreen = ({ navigation }) => {
               Updated
             </Text>
             <Text style={clsx(styles.textXs, styles.textBlack)}>
-              {new Date(earning.updatedAt).toLocaleDateString('en-IN')}
+              {new Date(earning.updatedAt || earning.createdAt).toLocaleDateString('en-IN')}
             </Text>
           </View>
           
@@ -243,23 +240,17 @@ const EarningScreen = ({ navigation }) => {
   };
 
   const handleWithdraw = () => {
-    Alert.alert(
-      'Withdraw Earnings',
-      'Are you sure you want to withdraw your earnings?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Withdraw',
-          onPress: () => {
-            // Handle withdrawal logic
-            Alert.alert('Success', 'Withdrawal request submitted successfully!');
-          },
-        },
-      ]
-    );
+    navigate('ProviderDashboard')
+    // Alert.alert(
+    //   'Withdraw Earnings',
+    //   'This feature is coming soon!',
+    //   [
+    //     {
+    //       text: 'OK',
+    //       style: 'default',
+    //     },
+    //   ]
+    // );
   };
 
   if (loading && !refreshing) {
@@ -275,18 +266,16 @@ const EarningScreen = ({ navigation }) => {
 
   return (
     <View style={clsx(styles.flex1, styles.bgSurface)}>
-
       <Header
-          title="Earning"
-          showBack
-          showNotification={false}
-          type="white"
-          rightAction={false}
-          rightActionIcon="settings"
-          showProfile={false}
-          onRightActionPress={() => navigation.navigate('Settings')}
+        title="Earnings"
+        showBack
+        showNotification={false}
+        type="white"
+        rightAction={false}
+        rightActionIcon="settings"
+        showProfile={false}
+        onRightActionPress={() => navigation.navigate('Settings')}
       />
-
 
       <ScrollView 
         showsVerticalScrollIndicator={false}
@@ -300,13 +289,89 @@ const EarningScreen = ({ navigation }) => {
         }
         contentContainerStyle={clsx(styles.px4, styles.pb6, styles.pt2)}
       >
-  
+        {/* Total Earnings Summary */}
+        <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm, styles.mb4)}>
+          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
+            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
+              Total Earnings
+            </Text>
+            <Icon name="monetization-on" size={24} color={colors.success} />
+          </View>
+          
+          <View style={clsx(styles.mb3)}>
+            <Text style={clsx(styles.text2xl, styles.fontBold, styles.textSuccess, styles.textCenter)}>
+              {formatCurrency(totalEarnings.total)}
+            </Text>
+            <Text style={clsx(styles.textSm, styles.textMuted, styles.textCenter)}>
+              Total Potential Earnings
+            </Text>
+          </View>
+          
+          <View style={clsx(styles.flexRow, styles.justifyBetween)}>
+            <View style={clsx(styles.itemsCenter)}>
+              <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
+                {formatCurrency(totalEarnings.daily)}
+              </Text>
+              <Text style={clsx(styles.textXs, styles.textMuted)}>
+                Daily
+              </Text>
+            </View>
+            
+            <View style={clsx(styles.itemsCenter)}>
+              <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
+                {formatCurrency(totalEarnings.weekly)}
+              </Text>
+              <Text style={clsx(styles.textXs, styles.textMuted)}>
+                Weekly
+              </Text>
+            </View>
+            
+            <View style={clsx(styles.itemsCenter)}>
+              <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
+                {formatCurrency(totalEarnings.monthly)}
+              </Text>
+              <Text style={clsx(styles.textXs, styles.textMuted)}>
+                Monthly
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Quick Stats */}
+        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb4)}>
+          <View style={clsx(styles.bgInfoLight, styles.p3, styles.roundedLg, styles.flex1, styles.mr2)}>
+            <Text style={clsx(styles.textBase, styles.fontBold, styles.textInfo)}>
+              {earnings.length}
+            </Text>
+            <Text style={clsx(styles.textXs, styles.textBlack)}>
+              Categories
+            </Text>
+          </View>
+          
+          <View style={clsx(styles.bgWarningLight, styles.p3, styles.roundedLg, styles.flex1, styles.mx2)}>
+            <Text style={clsx(styles.textBase, styles.fontBold, styles.textWarning)}>
+              {totalEarnings.minHours}h
+            </Text>
+            <Text style={clsx(styles.textXs, styles.textBlack)}>
+              Min Hours
+            </Text>
+          </View>
+          
+          <View style={clsx(styles.bgSuccessLight, styles.p3, styles.roundedLg, styles.flex1, styles.ml2)}>
+            <Text style={clsx(styles.textBase, styles.fontBold, styles.textSuccess)}>
+              {formatCurrency(totalEarnings.averageRate || 0)}/h
+            </Text>
+            <Text style={clsx(styles.textXs, styles.textBlack)}>
+              Avg. Rate
+            </Text>
+          </View>
+        </View>
 
         {/* Earning Breakdown */}
         <View style={clsx(styles.mb4)}>
           <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
-              Earning Breakdown
+              Category-wise Earnings
             </Text>
             <Text style={clsx(styles.textSm, styles.textMuted)}>
               {earnings.length} Categories
@@ -319,12 +384,15 @@ const EarningScreen = ({ navigation }) => {
               <Text style={clsx(styles.textBase, styles.fontMedium, styles.textMuted, styles.mt3)}>
                 No earnings data available
               </Text>
+              <Text style={clsx(styles.textSm, styles.textMuted, styles.mt2, styles.textCenter)}>
+                Start working in categories to see earnings
+              </Text>
               <TouchableOpacity
                 style={clsx(styles.mt4, styles.px4, styles.py2, styles.bgPrimary, styles.roundedFull)}
                 onPress={fetchEarnings}
               >
                 <Text style={clsx(styles.textSm, styles.fontMedium, styles.textWhite)}>
-                  Retry
+                  Refresh
                 </Text>
               </TouchableOpacity>
             </View>
@@ -334,25 +402,59 @@ const EarningScreen = ({ navigation }) => {
               
               {/* Summary Card */}
               <View style={clsx(styles.bgSuccessLight, styles.p4, styles.roundedLg, styles.mt4)}>
-                <Text style={clsx(styles.textBase, styles.fontBold, styles.textSuccess, styles.mb2)}>
-                  Earning Summary
-                </Text>
-                <Text style={clsx(styles.textSm, styles.textBlack)}>
-                  • Total active categories: {earnings.length}
-                  {'\n'}• Maximum earning potential: {formatCurrency(Math.max(...earnings.map(e => e.earningPrice4)))}
-                  {'\n'}• Minimum service hours: {Math.min(...earnings.map(e => e.earningHour1))} hours
-                  {'\n'}• Average per hour rate: {formatCurrency(totalEarnings.total / earnings.reduce((sum, e) => sum + e.earningHour1 + e.earningHour2 + e.earningHour3 + e.earningHour4, 0))}
-                </Text>
+                <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
+                  <Icon name="assessment" size={20} color={colors.success} />
+                  <Text style={clsx(styles.textBase, styles.fontBold, styles.textSuccess, styles.ml2)}>
+                    Earning Summary
+                  </Text>
+                </View>
+                <View style={clsx(styles.pl1)}>
+                  <Text style={clsx(styles.textSm, styles.textBlack, styles.mb1)}>
+                    • Total active categories: {earnings.length}
+                  </Text>
+                  <Text style={clsx(styles.textSm, styles.textBlack, styles.mb1)}>
+                    • Maximum earning per job: {formatCurrency(totalEarnings.maxPrice || 0)}
+                  </Text>
+                  <Text style={clsx(styles.textSm, styles.textBlack, styles.mb1)}>
+                    • Minimum service hours: {totalEarnings.minHours || 0} hours
+                  </Text>
+                  <Text style={clsx(styles.textSm, styles.textBlack)}>
+                    • Average per hour rate: {formatCurrency(totalEarnings.averageRate || 0)}/hour
+                  </Text>
+                </View>
               </View>
             </>
           )}
         </View>
 
-        
+        {/* Withdraw Button */}
+        <TouchableOpacity
+          style={clsx(
+            styles.button,
+            styles.mt4,
+            earnings.length === 0 && styles.opacity50
+          )}
+          onPress={handleWithdraw}
+          disabled={earnings.length === 0 || loading}
+        >
+          <View style={clsx(styles.flexRow, styles.justifyCenter, styles.itemsCenter)}>
+            <Icon name="account-balance-wallet" size={20} color={colors.white} style={clsx(styles.mr2)} />
+            <Text style={clsx(styles.buttonText)}>
+              Go Back Dashboard
+            </Text>
+          </View>
+        </TouchableOpacity>
 
+        {/* Info Message */}
+        <View style={clsx(styles.mt4, styles.p3, styles.bgInfoLight, styles.roundedLg)}>
+          <Text style={clsx(styles.textSm, styles.textInfo)}>
+            <Icon name="info" size={16} color={colors.info} />{' '}
+            Note: Earnings are calculated based on the service categories you're enrolled in and completed jobs.
+          </Text>
+        </View>
       </ScrollView>
     </View>
-  );
+  ); 
 };
-
+  
 export default EarningScreen;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -16,12 +16,21 @@ import * as ImagePicker from 'react-native-image-picker';
 import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import Header from '../../../components/Common/Header';
+import { AppContext } from '../../../Context/AppContext';
+
+import { navigate, reset } from '../../../navigation/navigationService';
 
 const KYCUpdateScreen = ({ navigation, route }) => {
+  const {
+    Toast,
+    Urls,
+    postData,
+  } = useContext(AppContext);
+
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [kycDataLoaded, setKycDataLoaded] = useState(false);
   
-  // Initial KYC data with image fields
+  // Initial KYC data
   const initialKYCData = {
     bankName: '',
     branchName: '',
@@ -41,21 +50,51 @@ const KYCUpdateScreen = ({ navigation, route }) => {
   const [formData, setFormData] = useState(initialKYCData);
   const [errors, setErrors] = useState({});
 
-  // Image labels for better display
-  const imageLabels = {
-    passbookOrCheque: 'Passbook/Cheque Image',
-    panCardImage: 'PAN Card Image',
-    aadharFrontImage: 'Aadhar Front Image',
-    aadharBackImage: 'Aadhar Back Image',
-    shopImage: 'Shop/Workplace Image',
+  // Fetch KYC data on component mount
+  const fetchKYCData = async () => {
+    setLoading(true);
+    try {
+      const response = await postData({}, Urls.kycDetail, 'GET', { showErrorMessage: false });
+      if (response?.success) {
+        const apiData = response.data || {};
+        
+        // Transform API response to match formData structure
+        setFormData({
+          bankName: apiData.bankName || '',
+          branchName: apiData.branchName || '',
+          accountNumber: apiData.accountNumber || '',
+          confirmAccountNumber: apiData.accountNumber || '', // For confirmation field
+          ifscCode: apiData.ifscCode || '',
+          panCardNumber: apiData.panCardNumber || '',
+          aadharCardNumber: apiData.aadharCardNumber || '', 
+          gstNumber: apiData.gstNumber || '',
+          passbookOrCheque: apiData.passbookOrCheque ? { uri: apiData.passbookOrCheque } : null,
+          panCardImage: apiData.panCardImage ? { uri: apiData.panCardImage } : null,
+          aadharFrontImage: apiData.aadharFrontImage ? { uri: apiData.aadharFrontImage } : null,
+          aadharBackImage: apiData.aadharBackImage ? { uri: apiData.aadharBackImage } : null,
+          shopImage: apiData.shopImage ? { uri: apiData.shopImage } : null,
+        });
+        
+        // If KYC data is also passed via route params, use it (overrides API data)
+        if (route.params?.kycData) {
+          setFormData(prev => ({ ...prev, ...route.params.kycData }));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching KYC data:', error);
+      // If API fails but route params exist, use them
+      if (route.params?.kycData) {
+        setFormData(route.params.kycData);
+      }
+    } finally {
+      setLoading(false);
+      setKycDataLoaded(true);
+    }
   };
 
-  // If KYC data is passed via route params, use it
-  React.useEffect(() => {
-    if (route.params?.kycData) {
-      setFormData(route.params.kycData);
-    }
-  }, [route.params]);
+  useEffect(() => {
+    fetchKYCData();
+  }, []);
 
   const validateForm = () => {
     const newErrors = {};
@@ -144,14 +183,21 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         if (response.didCancel) {
           console.log('User cancelled image picker');
         } else if (response.error) {
-          Alert.alert('Error', 'Failed to pick image');
-          console.error('ImagePicker Error: ', response.error);
+          Toast.show({
+            type: 'error',
+            text1: 'Error',
+            text2: 'Failed to pick image',
+          });
         } else if (response.assets && response.assets[0]) {
           const image = response.assets[0];
           
           // Check file size (max 5MB)
           if (image.fileSize > 5 * 1024 * 1024) {
-            Alert.alert('Error', 'Image size should be less than 5MB');
+            Toast.show({
+              type: 'error',
+              text1: 'Error',
+              text2: 'Image size should be less than 5MB',
+            });
             return;
           }
 
@@ -171,8 +217,11 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         }
       });
     } catch (error) {
-      Alert.alert('Error', 'Failed to open image picker');
-      console.error('Image picker error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to open image picker',
+      });
     }
   };
 
@@ -191,14 +240,21 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         if (response.didCancel) {
           console.log('User cancelled camera');
         } else if (response.error) {
-          Alert.alert('Error', 'Failed to capture image');
-          console.error('Camera Error: ', response.error);
+          Toast.show({
+            type: 'error',
+            text1: 'Error',
+            text2: 'Failed to capture image',
+          });
         } else if (response.assets && response.assets[0]) {
           const image = response.assets[0];
           
           // Check file size (max 5MB)
           if (image.fileSize > 5 * 1024 * 1024) {
-            Alert.alert('Error', 'Image size should be less than 5MB');
+            Toast.show({
+              type: 'error',
+              text1: 'Error',
+              text2: 'Image size should be less than 5MB',
+            });
             return;
           }
 
@@ -218,66 +274,81 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         }
       });
     } catch (error) {
-      Alert.alert('Error', 'Failed to open camera');
-      console.error('Camera error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to open camera',
+      });
     }
   };
 
   const handleUpdateKYC = async () => {
-    if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fix the errors in the form');
-      return;
-    }
+    // if (!validateForm()) {
+    //   Alert.alert('Validation Error', 'Please fix the errors in the form');
+    //   return;
+    // }
 
     setLoading(true);
 
     try {
-      // Prepare data for API
-      const kycData = {
-        ...formData,
-        ifscCode: formData.ifscCode.toUpperCase(),
-        panCardNumber: formData.panCardNumber.toUpperCase(),
-        // Images will be uploaded separately or as FormData
-      };
-
-      console.log('Updating KYC with data:', kycData);
-
-      // For actual image upload, you would use FormData:
+      // Prepare FormData for multipart upload
       const formDataToSend = new FormData();
       
       // Add text fields
-      Object.keys(kycData).forEach(key => {
-        if (key.includes('Image') || key === 'passbookOrCheque') {
-          // Handle images separately
-          if (kycData[key]) {
-            formDataToSend.append(key, {
-              uri: kycData[key].uri,
-              type: kycData[key].type,
-              name: kycData[key].name,
-            });
-          }
-        } else {
-          formDataToSend.append(key, kycData[key]);
+      formDataToSend.append('bankName', formData.bankName);
+      formDataToSend.append('branchName', formData.branchName);
+      formDataToSend.append('accountNumber', formData.accountNumber);
+      formDataToSend.append('confirmAccountNumber', formData.confirmAccountNumber);
+      formDataToSend.append('ifscCode', formData.ifscCode.toUpperCase());
+      formDataToSend.append('panCardNumber', formData.panCardNumber.toUpperCase());
+      formDataToSend.append('aadharCardNumber', formData.aadharCardNumber);
+      formDataToSend.append('gstNumber', formData.gstNumber);
+      
+      // Add image files if they exist
+      const imageFields = [
+        'passbookOrCheque',
+        'panCardImage',
+        'aadharFrontImage',
+        'aadharBackImage',
+        'shopImage'
+      ];
+      
+      imageFields.forEach(field => {
+        if (formData[field] && formData[field].uri) {
+          formDataToSend.append(field, {
+            uri: formData[field].uri,
+            type: formData[field].type || 'image/jpeg',
+            name: formData[field].name || `${field}.jpg`,
+          });
         }
       });
 
-      console.log('FormData prepared:', formDataToSend);
+      console.log('Updating KYC with data...');
+      console.log(formDataToSend)
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      Alert.alert(
-        'Success',
-        'KYC details updated successfully!',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
+      const response = await postData(formDataToSend, Urls.kycUpdate, 'POST', { 
+        showErrorMessage: true,
+        isFileUpload:true,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      if (response?.success) {
+        Toast.show({
+          type: 'success',
+          text1: response.message || 'KYC updated successfully',
+        });
+        navigate('Training');
+      } else {
+        Alert.alert('Error', response?.message || 'Failed to update KYC');
+      }
     } catch (error) {
-      Alert.alert('Error', 'Failed to update KYC details. Please try again.');
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to update KYC. Please try again.',
+      });
       console.error('KYC Update error:', error);
     } finally {
       setLoading(false);
@@ -345,15 +416,29 @@ const KYCUpdateScreen = ({ navigation, route }) => {
               style={clsx(styles.wFull, styles.h48, styles.roundedLg, styles.bgGray)}
               resizeMode="cover"
             />
-            <TouchableOpacity
-              style={clsx(styles.mt2, styles.flexRow, styles.itemsCenter)}
-              onPress={() => setFormData({ ...formData, [field]: null })}
-            >
-              <Icon name="delete" size={20} color={colors.error} />
-              <Text style={clsx(styles.textSm, styles.textError, styles.ml2)}>
-                Remove Image
-              </Text>
-            </TouchableOpacity>
+            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mt2)}>
+              <TouchableOpacity
+                style={clsx(styles.flexRow, styles.itemsCenter)}
+                onPress={() => setFormData({ ...formData, [field]: null })}
+              >
+                <Icon name="delete" size={20} color={colors.error} />
+                <Text style={clsx(styles.textSm, styles.textError, styles.ml2)}>
+                  Remove
+                </Text>
+              </TouchableOpacity>
+              
+              <View style={clsx(styles.flexRow)}>
+                <TouchableOpacity
+                  style={clsx(styles.flexRow, styles.itemsCenter, styles.mr-4)}
+                  onPress={() => handleImagePicker(field)}
+                >
+                  <Icon name="edit" size={20} color={colors.primary} />
+                  <Text style={clsx(styles.textSm, styles.textPrimary, styles.ml2)}>
+                    Change
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         ) : (
           <View style={clsx(styles.border2, styles.borderDashed, styles.borderGray, styles.roundedLg, styles.p4)}>
@@ -390,30 +475,39 @@ const KYCUpdateScreen = ({ navigation, route }) => {
     );
   };
 
+  if (!kycDataLoaded && loading) {
+    return (
+      <View style={clsx(styles.flex1, styles.bgSurface, styles.justifyCenter, styles.itemsCenter)}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={clsx(styles.textBase, styles.textBlack, styles.mt4)}>
+          Loading KYC data...
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={clsx(styles.flex1, styles.bgSurface)}
     >
-
       <Header
-          title="Update KYC Details"
-          showBack
-          showNotification={false}
-          type="white"
-          rightAction={false}
-          rightActionIcon="settings"
-          showProfile={false}
-          onRightActionPress={() => navigation.navigate('Settings')}
+        title="Update KYC Details"
+        showBack
+        showNotification={false}
+        type="white"
+        rightAction={false}
+        rightActionIcon="settings"
+        showProfile={false}
+        onRightActionPress={() => navigation.navigate('Settings')}
       />
-    
 
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={clsx(styles.px4, styles.pb6)}
       >
         {/* Bank Details */}
-        <View style={clsx(styles.mt0)}>
+        <View style={clsx(styles.mt4)}>
           <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb4)}>
             Bank Account Details
           </Text>
@@ -548,5 +642,5 @@ const KYCUpdateScreen = ({ navigation, route }) => {
     </KeyboardAvoidingView>
   );
 };
-
+ 
 export default KYCUpdateScreen;

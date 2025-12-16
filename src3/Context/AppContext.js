@@ -24,6 +24,7 @@ export const AppProvider = ({ children }) => {
   const [theme, setTheme] = useState("light");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [user, setUser] = useState(null);
+  const [isheaderback, setisheaderback] = useState(null);
   const [loadingStates, setLoadingStates] = useState({
     page: false,
     loader: false,
@@ -70,10 +71,18 @@ export const AppProvider = ({ children }) => {
       verifyTransaction: `${commUrl}payment/verify-payment`,
       login: `${serviceManUrl}auth/login`,
       verifyOtp: `${serviceManUrl}auth/verify-otp`,
+      
       kycDetail: `${serviceManUrl}kyc/detail`,
       kycUpdate: `${serviceManUrl}kyc`,
+      
       profileDetail: `${serviceManUrl}profile/detail`,
       profileUpdate: `${serviceManUrl}profile`,
+
+      trainingSchedule: `${serviceManUrl}training-schedule/next/upcoming`,
+      
+      earnings: `${serviceManUrl}earning`,
+      earningDetails: `${serviceManUrl}earning`,
+
       review: `${serviceManUrl}review`,
       booking: `${serviceManUrl}booking`,
       bookingAccept: `${serviceManUrl}booking/accept`,
@@ -182,9 +191,7 @@ export const AppProvider = ({ children }) => {
       if (token) {
         setUser(storedUser);
       }
-      console.log(storedUser)
-      console.log(token)
-
+ 
     } catch (error) {
       console.error('Failed to load user data:', error);
     }
@@ -251,7 +258,7 @@ export const AppProvider = ({ children }) => {
             }
           });
           formData.append('device_id', deviceId);
-          body = formData;
+          body = data;
         } else {
           headers['Content-Type'] = contentType || 'application/json';
           body = JSON.stringify({
@@ -271,17 +278,17 @@ export const AppProvider = ({ children }) => {
         body: method.toUpperCase() === 'GET' ? undefined : body,
         signal: controller.signal
       });
-
+      console.log(response)
       clearTimeout(timeoutId);
 
       return await handleResponse(response, showErrorMessage);
     } catch (error) {
       if (error.name === 'AbortError') {
-        Toast.show({
+        Toast.show({ 
           type: 'error',
           text1: 'Request Timeout',
           text2: 'Please try again'
-        });
+        }); 
       } else {
         console.error('API Error:', error);
         if (showErrorMessage) {
@@ -496,6 +503,7 @@ export const AppProvider = ({ children }) => {
     modals,
     categoryListData,
     loadingStates,
+    isheaderback,
     isConnected,
     
     // Setters
@@ -504,6 +512,7 @@ export const AppProvider = ({ children }) => {
     setUser,
     setDeviceId,
     setLoading,
+    setisheaderback,
     
     // Actions
     toggleModal,
@@ -541,7 +550,6 @@ export const AppProvider = ({ children }) => {
     Urls,
     storage,
     mainUrl,
-    loadingStates,
     setLoading,
   ]);
 

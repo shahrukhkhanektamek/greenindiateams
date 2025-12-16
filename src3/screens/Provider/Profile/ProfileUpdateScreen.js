@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -15,28 +15,37 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import Header from '../../../components/Common/Header';
+import { AppContext } from '../../../Context/AppContext';
 
-const ProfileUpdateScreen = ({ navigation, route }) => {
+import { navigate, reset } from '../../../navigation/navigationService';
+
+const ProfileUpdateScreen = ({ route }) => {
+  const {
+    Toast,
+    Urls,
+    postData,
+  } = useContext(AppContext);
+
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  
+  const [profileDataLoaded, setProfileDataLoaded] = useState(false);
+
   // Initial profile data
   const initialProfileData = {
-    name: 'Arwaz',
-    email: 'arwaz@gmail.com',
-    dob: '25-11-1998',
-    experienceLevel: 'Experience',
-    companyName: 'XYZ PVT LTD',
-    yearOfExperience: '3',
-    permanentAddress: 'Delhi',
-    currentAddress: 'Delhi',
-    referenceName1: 'xyx',
-    referenceMobile1: '12345567890',
-    referenceName2: 'abc',
-    referenceMobile2: '0987654321',
-    userId: '69255f29ea028953aa5d5556',
-    mobile: '8340723693',
-    categoryIds: ['691c1abfe53e3e7330a908fa','691c1abfe53e3e7330a908fc'],
+    name: '',
+    email: '',
+    dob: '',
+    experienceLevel: '',
+    companyName: '',
+    yearOfExperience: '',
+    permanentAddress: '',
+    currentAddress: '',
+    referenceName1: '',
+    referenceMobile1: '',
+    referenceName2: '',
+    referenceMobile2: '',
+    userId: '',
+    categoryIds: [],
   };
 
   const [formData, setFormData] = useState(initialProfileData);
@@ -62,12 +71,74 @@ const ProfileUpdateScreen = ({ navigation, route }) => {
   // Years of experience
   const yearsOfExperience = ['0', '1', '2', '3', '4', '5', '6+'];
 
-  useEffect(() => {
-    // If profile data is passed via route params, use it
-    if (route.params?.profile) {
-      setFormData(route.params.profile);
+  // Fetch profile data on component mount
+  const fetchProfileData = async () => {
+    setLoading(true);
+    try {
+      const response = await postData({}, Urls.profileDetail, 'GET', { showErrorMessage: false });
+      if (response?.success) {
+        // Transform API response to match formData structure
+        const apiData = response.data || {};
+        
+        // Parse date of birth if it exists
+        let dob = '';
+        if (apiData.dob) {
+          dob = new Date(apiData.dob);
+        }
+        
+        // Handle categoryIds - ensure it's an array
+        let categoryIds = [];
+        if (apiData.categoryIds) {
+          categoryIds = Array.isArray(apiData.categoryIds) ? apiData.categoryIds : [];
+        } else if (apiData.category_id) {
+          categoryIds = [apiData.category_id];
+        }
+        
+        // Handle yearOfExperience - convert number to string
+        let yearOfExperience = '';
+        if (apiData.yearOfExperience !== undefined && apiData.yearOfExperience !== null) {
+          const yearNum = parseInt(apiData.yearOfExperience);
+          yearOfExperience = yearNum >= 6 ? '6+' : yearNum.toString();
+        }
+        
+        setFormData({
+          name: apiData.name || '',
+          email: apiData.email || '',
+          dob: dob || '',
+          experienceLevel: apiData.experienceLevel || '',
+          companyName: apiData.companyName || '',
+          yearOfExperience: yearOfExperience,
+          permanentAddress: apiData.permanentAddress || '',
+          currentAddress: apiData.currentAddress || '',
+          referenceName1: apiData.referenceName1 || '',
+          referenceMobile1: apiData.referenceMobile1 || '',
+          referenceName2: apiData.referenceName2 || '',
+          referenceMobile2: apiData.referenceMobile2 || '',
+          userId: apiData.userId || apiData._id || '',
+          // mobile: apiData.mobile || apiData.phone || '',
+          categoryIds: categoryIds,
+        });
+        
+        // If profile data is also passed via route params, use it (overrides API data)
+        if (route.params?.profile) {
+          setFormData(prev => ({ ...prev, ...route.params.profile }));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching profile data:', error);
+      // If API fails but route params exist, use them
+      if (route.params?.profile) {
+        setFormData(route.params.profile);
+      }
+    } finally {
+      setLoading(false);
+      setProfileDataLoaded(true);
     }
-  }, [route.params]);
+  };
+
+  useEffect(() => {
+    fetchProfileData();
+  }, []);
 
   const validateForm = () => {
     const newErrors = {};
@@ -82,11 +153,11 @@ const ProfileUpdateScreen = ({ navigation, route }) => {
       newErrors.email = 'Enter a valid email address';
     }
 
-    if (!formData.mobile.trim()) {
-      newErrors.mobile = 'Mobile number is required';
-    } else if (!/^\d{10}$/.test(formData.mobile)) {
-      newErrors.mobile = 'Enter a valid 10-digit mobile number';
-    }
+    // if (!formData.mobile.trim()) {
+    //   newErrors.mobile = 'Mobile number is required';
+    // } else if (!/^\d{10}$/.test(formData.mobile)) {
+    //   newErrors.mobile = 'Enter a valid 10-digit mobile number';
+    // }
 
     if (!formData.yearOfExperience) {
       newErrors.yearOfExperience = 'Years of experience is required';
@@ -125,11 +196,10 @@ const ProfileUpdateScreen = ({ navigation, route }) => {
   };
 
   const handleCategoryToggle = (categoryId) => {
-    
     const updatedCategories = formData.categoryIds.includes(categoryId)
       ? formData.categoryIds.filter(id => id !== categoryId)
       : [...formData.categoryIds, categoryId];
-    
+
     setFormData({ ...formData, categoryIds: updatedCategories });
   };
 
@@ -145,25 +215,23 @@ const ProfileUpdateScreen = ({ navigation, route }) => {
       // Prepare data for API
       const profileData = {
         ...formData,
-        dob: formData.dob.toISOString().split('T')[0], // Convert to YYYY-MM-DD
-        yearOfExperience: parseInt(formData.yearOfExperience),
+        dob: formData.dob ? formData.dob.toISOString().split('T')[0] : '', // Convert to YYYY-MM-DD
+        yearOfExperience: parseInt(formData.yearOfExperience.replace('+', '')) || 0,
       };
 
       console.log('Updating profile with data:', profileData);
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      Alert.alert(
-        'Success',
-        'Profile updated successfully!',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
+      const response = await postData(profileData, Urls.profileUpdate, 'POST', { showErrorMessage: true });
+      if (response?.success) {
+        Toast.show({
+          type: 'success',
+          text1: response.message || 'Profile updated successfully',
+        });
+        navigate('KycScreen')
+        // navigation.goBack();
+      } else {
+        Alert.alert('Error', response?.message || 'Failed to update profile');
+      }
     } catch (error) {
       Alert.alert('Error', 'Failed to update profile. Please try again.');
       console.error('Update error:', error);
@@ -217,6 +285,24 @@ const ProfileUpdateScreen = ({ navigation, route }) => {
     );
   };
 
+  // Format date for display
+  const formatDate = (date) => {
+    if (!date) return 'Select Date of Birth';
+    if (typeof date === 'string') return date;
+    return date.toLocaleDateString();
+  };
+
+  if (!profileDataLoaded && loading) {
+    return (
+      <View style={clsx(styles.flex1, styles.bgSurface, styles.justifyCenter, styles.itemsCenter)}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={clsx(styles.textBase, styles.textBlack, styles.mt4)}>
+          Loading profile data...
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -230,10 +316,10 @@ const ProfileUpdateScreen = ({ navigation, route }) => {
         rightAction={false}
         rightActionIcon="settings"
         showProfile={false}
-        onRightActionPress={() => navigation.navigate('Settings')}
+        onRightActionPress={() => navigate('Settings')}
       />
 
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={clsx(styles.px4, styles.pb6)}
       >
@@ -244,17 +330,12 @@ const ProfileUpdateScreen = ({ navigation, route }) => {
           </Text>
 
           {renderInputField('Full Name', 'name', 'Enter your full name')}
-          
+
           {renderInputField('Email Address', 'email', 'Enter your email', {
             keyboardType: 'email-address',
-            editable: false, // Email should not be editable
           })}
+
           
-          {renderInputField('Mobile Number', 'mobile', 'Enter your mobile number', {
-            keyboardType: 'phone-pad',
-            maxLength: 10,
-            editable: false, // Mobile should not be editable
-          })}
 
           {/* Date of Birth */}
           <View style={clsx(styles.mb4)}>
@@ -270,8 +351,8 @@ const ProfileUpdateScreen = ({ navigation, route }) => {
               )}
               onPress={() => setShowDatePicker(true)}
             >
-              <Text style={clsx(styles.textBase, styles.textBlack)}>
-                {formData.dob}
+              <Text style={clsx(styles.textBase, formData.dob ? styles.textBlack : styles.textMuted)}>
+                {formatDate(formData.dob)}
               </Text>
               <Icon name="calendar-today" size={20} color={colors.textMuted} />
             </TouchableOpacity>
@@ -279,7 +360,7 @@ const ProfileUpdateScreen = ({ navigation, route }) => {
 
           {showDatePicker && (
             <DateTimePicker
-              value={formData.dob}
+              value={formData.dob || new Date()}
               mode="date"
               display="default"
               onChange={handleDateChange}
@@ -303,30 +384,31 @@ const ProfileUpdateScreen = ({ navigation, route }) => {
               Select all that apply
             </Text>
             <View style={clsx(styles.flexRow, styles.flexWrap)}>
-              {serviceCategories.map((category) => (
-                <TouchableOpacity
-                  key={category.id}
-                  style={clsx(
-                    styles.px3,
-                    styles.py2,
-                    styles.mr2,
-                    styles.mb2,
-                    styles.roundedFull,
-                    styles.bgPrimary,
-                    styles.bgGray
-                  )}
-                  onPress={() => handleCategoryToggle(category.id)}
-                >
-                  <Text style={clsx(
-                    styles.textSm,
-                    styles.fontMedium,
-                    styles.textWhite,
-                    styles.textBlack
-                  )}>
-                    {category.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {serviceCategories.map((category) => {
+                const isSelected = formData.categoryIds.includes(category.id);
+                return (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={clsx(
+                      styles.px3,
+                      styles.py2,
+                      styles.mr2,
+                      styles.mb2,
+                      styles.roundedFull,
+                      isSelected ? styles.bgPrimary : styles.bgGray
+                    )}
+                    onPress={() => handleCategoryToggle(category.id)}
+                  >
+                    <Text style={clsx(
+                      styles.textSm,
+                      styles.fontMedium,
+                      isSelected ? styles.textWhite : styles.textBlack
+                    )}>
+                      {category.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
 
@@ -345,18 +427,18 @@ const ProfileUpdateScreen = ({ navigation, route }) => {
                     styles.mr2,
                     styles.mb2,
                     styles.roundedFull,
-                    formData.experienceLevel === level ? 
-                    styles.bgPrimary : 
-                    styles.bgGray
+                    formData.experienceLevel === level ?
+                      styles.bgPrimary :
+                      styles.bgGray
                   )}
                   onPress={() => setFormData({ ...formData, experienceLevel: level })}
                 >
                   <Text style={clsx(
                     styles.textSm,
                     styles.fontMedium,
-                    formData.experienceLevel === level ? 
-                    styles.textWhite : 
-                    styles.textBlack
+                    formData.experienceLevel === level ?
+                      styles.textWhite :
+                      styles.textBlack
                   )}>
                     {level}
                   </Text>
@@ -365,7 +447,7 @@ const ProfileUpdateScreen = ({ navigation, route }) => {
             </View>
           </View>
 
-          {/* Years of Experience */}
+          {/* Years of Experience */} 
           <View style={clsx(styles.mb4)}>
             <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
               Years of Experience
@@ -380,18 +462,18 @@ const ProfileUpdateScreen = ({ navigation, route }) => {
                     styles.mr2,
                     styles.mb2,
                     styles.roundedFull,
-                    formData.yearOfExperience === year ? 
-                    styles.bgPrimary : 
-                    styles.bgGray
+                    formData.yearOfExperience === year ?
+                      styles.bgPrimary :
+                      styles.bgGray
                   )}
                   onPress={() => setFormData({ ...formData, yearOfExperience: year })}
                 >
                   <Text style={clsx(
                     styles.textSm,
                     styles.fontMedium,
-                    formData.yearOfExperience === year ? 
-                    styles.textWhite : 
-                    styles.textBlack
+                    formData.yearOfExperience === year ?
+                      styles.textWhite :
+                      styles.textBlack
                   )}>
                     {year} {year === '6+' ? 'Years' : year === '1' ? 'Year' : 'Years'}
                   </Text>
@@ -518,7 +600,7 @@ const ProfileUpdateScreen = ({ navigation, route }) => {
         <TouchableOpacity
           style={clsx(
             styles.button,
-            styles.mt4,
+            styles.mb6,
             loading && styles.opacity50
           )}
           onPress={handleUpdateProfile}
@@ -533,29 +615,9 @@ const ProfileUpdateScreen = ({ navigation, route }) => {
           )}
         </TouchableOpacity>
 
-        {/* Cancel Button */}
-        <TouchableOpacity
-          style={clsx(
-            styles.buttonOutline,
-            styles.mt3
-          )}
-          onPress={() => navigation.goBack()}
-          disabled={loading}
-        >
-          <Text style={clsx(styles.buttonOutlineText)}>
-            Cancel
-          </Text>
-        </TouchableOpacity>
+       
 
-        {/* User ID Display (Read Only) */}
-        <View style={clsx(styles.mt6, styles.p4, styles.bgGray, styles.roundedLg)}>
-          <Text style={clsx(styles.textSm, styles.textMuted)}>
-            User ID
-          </Text>
-          <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mt1)}>
-            {formData.userId}
-          </Text>
-        </View>
+        
       </ScrollView>
     </KeyboardAvoidingView>
   );

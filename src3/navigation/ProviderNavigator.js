@@ -54,7 +54,7 @@ import SplashScreen from '../screens/Common/SplashScreen';
 const Stack = createStackNavigator(); 
 
 function ProviderNavigator() {
-  const { user, setUser, storage } = useContext(AppContext);
+  const { user, setUser, storage, setisheaderback } = useContext(AppContext);
   const [isSplashVisible, setIsSplashVisible] = useState(true);
   const [rootScreen, setrootScreen] = useState('Intro');
 
@@ -74,12 +74,13 @@ function ProviderNavigator() {
           {
             setrootScreen('ProfileUpdate');
           }
-          else if(!user.kyc)
+          else if(!user.kyc)  
           {
             setrootScreen('KycScreen');
           }
           else
           {
+            setisheaderback(true)
             setrootScreen('ProviderDashboard');
           }
         }
@@ -87,7 +88,6 @@ function ProviderNavigator() {
         {
           setrootScreen('Intro');
         }
-        console.log(rootScreen)
         // setrootScreen('ProviderDashboard');
      };
 
@@ -100,7 +100,6 @@ function ProviderNavigator() {
     return <SplashScreen />;
   }
 
-  console.log(user)
 
  
 

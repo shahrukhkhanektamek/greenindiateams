@@ -209,10 +209,10 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
           });
           
           // Navigate to ProfileUpdate screen
-          // navigation.reset({
-          //   index: 0,
-          //   routes: [{ name: 'ProfileUpdate' }],
-          // });
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'ProfileUpdate' }],
+          });
 
         } else {
           Toast.show({
@@ -327,39 +327,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
         {/* Login Form */}
         <View style={[clsx(styles.bgWhite, styles.roundedT3xl, styles.flex1), { marginTop: -30 }]}>
           <View style={clsx(styles.px4, styles.pt8, styles.pb6)}>
-            {/* Progress Steps */}
-            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyCenter, styles.mb8)}>
-              <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-                <View style={clsx(
-                  styles.w8,
-                  styles.h8,
-                  styles.roundedFull,
-                  styles.itemsCenter,
-                  styles.justifyCenter,
-                  styles.bgPrimary
-                )}>
-                  <Text style={clsx(styles.textWhite, styles.fontBold)}>1</Text>
-                </View>
-                <View style={clsx(styles.w12, styles.h1, styles.bgPrimary)} />
-                <View style={clsx(
-                  styles.w8,
-                  styles.h8,
-                  styles.roundedFull,
-                  styles.itemsCenter,
-                  styles.justifyCenter,
-                  styles.border2,
-                  isOtpSent ? styles.bgPrimary : styles.bgWhite,
-                  isOtpSent ? styles.borderPrimary : styles.borderGray
-                )}>
-                  <Text style={clsx(
-                    isOtpSent ? styles.textWhite : styles.textGray,
-                    styles.fontBold
-                  )}>
-                    2
-                  </Text>
-                </View>
-              </View>
-            </View>
+            
 
             {!isOtpSent ? (
               /* Phone Input Section */

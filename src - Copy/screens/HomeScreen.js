@@ -5,7 +5,7 @@ import appstyles, { colors } from "../assets/app";
 import { AppContext } from "../Context/AppContext";
 
 const { width } = Dimensions.get('window');
-
+ 
 export default function HomeScreen() {
 
    const { handleLogout, setDrawerOpen } = useContext(AppContext);

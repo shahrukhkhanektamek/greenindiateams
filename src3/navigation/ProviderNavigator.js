@@ -1,0 +1,176 @@
+import React, { useContext, useEffect, useState } from "react";
+import { createStackNavigator } from '@react-navigation/stack';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+
+import { AppContext } from "../Context/AppContext";
+
+// Import Provider Screens
+import DashboardScreen from '../screens/Provider/DashboardScreen';
+
+import BookingListScreen from '../screens/Provider/Booking/BookingListScreen';
+import BookingDetailScreen from '../screens/Provider/Booking/BookingDetailScreen';
+
+import ProviderProfileScreen from '../screens/Provider/Profile/ProviderProfileScreen';
+import ProfileUpdateScreen from '../screens/Provider/Profile/ProfileUpdateScreen';
+
+import KYCUpdateScreen from '../screens/Provider/Kyc/KYCUpdateScreen';
+
+import TrainingScheduleScreen from '../screens/Provider/Training/TrainingScheduleScreen';
+
+import TodayJobsScreen from '../screens/Provider/TodayJobsScreen';
+
+import JobDetailsScreen from '../screens/Provider/JobDetailsScreen';
+
+import EarningsScreen from '../screens/Provider/Earning/EarningScreen';
+import EarningDetailsScreen  from '../screens/Provider/Earning/EarningDetailsScreen';
+
+import WalletScreen from '../screens/Provider/Wallet/WalletScreen';
+
+import TransactionHistoryScreen from '../screens/Provider/Transaction/TransactionHistoryScreen';
+import TransactionDetailsScreen from '../screens/Provider/Transaction/TransactionDetailsScreen';
+
+import ScheduleScreen from '../screens/Provider/ScheduleScreen';
+import PerformanceScreen from '../screens/Provider/PerformanceScreen';
+import ToolsScreen from '../screens/Provider/ToolsScreen';
+
+
+// Import Common Screens
+import ProfileScreen from '../screens/Common/ProfileScreen';
+import SettingsScreen from '../screens/Common/SettingsScreen';
+import SupportScreen from '../screens/Common/SupportScreen';
+import TermsConditionsScreen from '../screens/Common/TermsConditionsScreen';
+
+// Import Auth Screens
+import IntroScreen from '../screens/Auth/IntroScreen';
+import ProviderLoginScreen from '../screens/Auth/ProviderLoginScreen';
+import ProviderOTPLoginScreen from '../screens/Auth/ProviderOTPLoginScreen';
+import ProviderForgotPasswordScreen from '../screens/Auth/ProviderForgotPasswordScreen';
+import ProviderSignupScreen from '../screens/Auth/ProviderSignupScreen';
+import VerificationScreen from '../screens/Auth/VerificationScreen';
+
+// Import Splash Screen
+import SplashScreen from '../screens/Common/SplashScreen';
+
+const Stack = createStackNavigator(); 
+
+function ProviderNavigator() {
+  const { user, setUser, storage, setisheaderback } = useContext(AppContext);
+  const [isSplashVisible, setIsSplashVisible] = useState(true);
+  const [rootScreen, setrootScreen] = useState('Intro');
+
+
+  useEffect(() => { 
+    const initializeApp = async () => {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // setUser(null); // For demo, set to false to see auth flow
+      setIsSplashVisible(false);
+    };
+
+
+      const checkRootAccess = async () => {
+        if(user)
+        {
+          if(!user.profile)
+          {
+            setrootScreen('ProfileUpdate');
+          }
+          else if(!user.kyc)  
+          {
+            setrootScreen('KycScreen');
+          }
+          else
+          {
+            setisheaderback(true)
+            setrootScreen('ProviderDashboard');
+          }
+        }
+        else
+        {
+          setrootScreen('Intro');
+        }
+        // setrootScreen('ProviderDashboard');
+     };
+
+
+    checkRootAccess()
+    initializeApp();
+  }, [user]);
+
+  if (isSplashVisible) {
+    return <SplashScreen />;
+  }
+
+
+ 
+
+  return (
+    // NavigationContainer removed from here
+    <Stack.Navigator
+      initialRouteName={rootScreen}
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: '#FF6B6B',
+        },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
+        headerShown: false,
+        animation: 'slide_from_right',
+        gestureEnabled: true,
+      }}
+    >
+      {!user ? (
+        // =========== AUTH SCREENS ===========
+        <>
+          <Stack.Screen name="Intro" component={IntroScreen} options={{ headerShown: false }} />            
+          <Stack.Screen name="ProviderLogin" component={ProviderLoginScreen} />            
+          <Stack.Screen name="ProviderOTPLogin" component={ProviderOTPLoginScreen}/>            
+          <Stack.Screen name="ProviderForgotPassword" component={ProviderForgotPasswordScreen}/>            
+          <Stack.Screen name="ProviderSignup" component={ProviderSignupScreen}/>            
+          <Stack.Screen name="Verification" component={VerificationScreen}/>            
+          <Stack.Screen name="ProviderDashboard" component={DashboardScreen}/>
+          <Stack.Screen name="ProfileUpdate" component={ProfileUpdateScreen} />
+        </> 
+      ) : (
+        // =========== MAIN APP SCREENS ===========
+        <>
+          <Stack.Screen name="ProviderOTPLogin" component={ProviderOTPLoginScreen}/>            
+          <Stack.Screen name="ProviderDashboard" component={DashboardScreen}/>
+
+          <Stack.Screen name="Bookings" component={BookingListScreen}/>
+          <Stack.Screen name="BookingDetail" component={BookingDetailScreen}/> 
+
+          <Stack.Screen name="ProviderProfile" component={ProviderProfileScreen}/>
+          <Stack.Screen name="ProfileUpdate" component={ProfileUpdateScreen} />
+
+          <Stack.Screen name="KycScreen" component={KYCUpdateScreen} />
+
+          <Stack.Screen name="Training" component={TrainingScheduleScreen} />
+
+          <Stack.Screen name="TodayJobs" component={TodayJobsScreen}/>            
+          <Stack.Screen name="JobDetails" component={JobDetailsScreen}/>                        
+
+          <Stack.Screen name="Earnings" component={EarningsScreen}/>
+          <Stack.Screen name="EarningDetails" component={EarningDetailsScreen}/>
+
+          <Stack.Screen name="Wallet" component={WalletScreen}/>
+
+          <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen}/>
+          <Stack.Screen name="TransactionDetails" component={TransactionDetailsScreen}/>
+
+          <Stack.Screen name="Schedule" component={ScheduleScreen}/>            
+          <Stack.Screen name="Performance" component={PerformanceScreen}/>            
+          <Stack.Screen name="Tools" component={ToolsScreen}/>
+          
+          <Stack.Screen name="Profile" component={ProfileScreen}/>
+          <Stack.Screen name="Settings" component={SettingsScreen}/>
+          <Stack.Screen name="Support" component={SupportScreen}/>
+          <Stack.Screen name="TermsCondition" component={TermsConditionsScreen}/>
+        </>
+      )}
+    </Stack.Navigator>
+  );
+}
+
+export default ProviderNavigator;

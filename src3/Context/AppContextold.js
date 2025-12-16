@@ -2,16 +2,16 @@ import React, { createContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
 import DeviceInfo from "react-native-device-info";
-import PageLoading from "../components/Loader/PageLoding";
-import Loader from "../components/Loader/Loader";
-import SplashScreen from "../screens/SplashScreen";
+
+
 
 export const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
 
   // App states
-  const mainUrl = "http://192.168.1.61:8080/"; 
+  // const mainUrl = "http://192.168.1.61:8080/"; 
+  const mainUrl = "http://192.168.1.17:8080/";
   const [theme, setTheme] = useState("light"); 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [userLoggedIn, setUserLoggedIn] = useState(false);
@@ -142,27 +142,29 @@ export const AppProvider = ({ children }) => {
       const params = new URLSearchParams({ ...filedata, userId:user?.id,device_id: deviceId,device_detail:deviceInfo }).toString();
       url += `?${params}`; // Append query parameters
     }
-    else if(method=='POST'){
-      const formData = new FormData();
+    // else if(method=='POST'){
+    //   const formData = new FormData();
 
-      Object.entries(filedata).forEach(([key, value]) => {
-        if (value && value.uri && value.type && value.fileName) {
-          // Ye file hai
-          formData.append(key, value);
-        } else if (value !== undefined && value !== null) {
-          // Ye normal text value hai
-          formData.append(key, value);
-        }
-      });
+    //   Object.entries(filedata).forEach(([key, value]) => {
+    //     if (value && value.uri && value.type && value.fileName) {
+    //       // Ye file hai
+    //       formData.append(key, value);
+    //     } else if (value !== undefined && value !== null) {
+    //       // Ye normal text value hai
+    //       formData.append(key, value);
+    //     }
+    //   });
 
-      // formData.append("userId", user?.id?user?.id:'');
-      formData.append("deviceId", deviceId);
-      // formData.append("device_detail", JSON.stringify(deviceInfo));
+    //   // formData.append("userId", user?.id?user?.id:'');
+    //   // formData.append("deviceId", deviceId);
+    //   // formData.append("device_detail", JSON.stringify(deviceInfo));
       
 
-      data = formData;
+    //   data = formData;
 
-    }
+    // }
+
+    if(method=='POST')  data = JSON.stringify(Object.assign(filedata, { device_id: deviceId}));
 
   
 
@@ -177,7 +179,8 @@ export const AppProvider = ({ children }) => {
       const response = await fetch(url, {
         method,
         headers: {
-          "Content-Type": method=='POST'?"multipart/form-data":"application/json",
+          // "Content-Type": method=='POST'?"multipart/form-data":"application/json",
+          "Content-Type": "application/json",
           // "Content-Type": "multipart/form-data",
           Authorization: "Bearer " + (await storage.get("token")),
         },
@@ -387,20 +390,15 @@ export const AppProvider = ({ children }) => {
         PriceFormat, generateUniqueId, Toast,
         showHideLoader, setshowHideLoader,
 
-
         categoryListData,
         setcategoryListData,
-
-
-
       }}
     >
-
-      {showHidePageLoading ? <PageLoading /> : children}
-      {showHideLoader && <Loader showHideLoader={showHideLoader} setshowHideLoader={setshowHideLoader} />}
-      <Toast />
-      {/* <SplashScreen/> */}
-      
+      {loadingStates.page ? <PageLoading /> : children}
+      {loadingStates.api && <Loader showHideLoader={loadingStates.api} setLoading={setLoading} />}
+      {loadingStates.sideBar && <CustomSidebar isVisible={loadingStates.sideBar} setLoading={setLoading} />}
+      {children}
+      <Toast />      
     </AppContext.Provider>
   );
 };

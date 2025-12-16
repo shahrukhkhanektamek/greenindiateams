@@ -25,14 +25,24 @@ cd ../
 
 
 
+// office
 adb devices
 adb tcpip 5555
 adb connect 192.168.1.29:5555
 
-vivo
+
+adb -s 37a661c1 tcpip 5555
+adb -s 37a661c1 shell ip route
+adb connect 192.168.1.7:5555
+
+// vivo 
 adb devices
 adb tcpip 5555
-adb connect 192.168.1.32:5555
+adb connect 192.168.1.7:5555  // azmal
+adb connect 192.168.1.24:5555  //  shahrukh
+adb connect 192.168.1.29:5555 // office
+adb connect 192.168.1.41:5555
+
 
 npm install react-native-image-crop-picker
 npx pod-install
@@ -65,11 +75,11 @@ npx react-native run-android
 cd android
 ./gradlew clean
 cd ..
+npx react-native start --reset-cache
 npx react-native run-android
 
 
 
-npx react-native start --reset-cache
 
 
 

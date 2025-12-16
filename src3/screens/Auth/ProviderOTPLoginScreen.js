@@ -24,6 +24,9 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
     Urls,
     postData,
     storage,
+    setisheaderback,
+    user,
+    fetchProfile,
   } = useContext(AppContext);
 
   // const urls = Urls();
@@ -207,11 +210,38 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
             text1: response.message,
             text2: 'OTP verified successfully'
           });
+
+          fetchProfile()
+
+          let Goscreen = '';
+          if(!user.profile && !user.dob)
+            {
+              Goscreen = 'ProfileUpdate';
+            }
+            else if(!user.kyc)  
+            {
+              Goscreen = 'KycScreen';
+            }
+            else if(user.kyc)  
+            {
+              if(user.kyc.status=='Pending' || user.kyc.status=='Rejected')
+                Goscreen = 'KYCStatus';
+              else
+              { 
+                setisheaderback(true) 
+                Goscreen = 'ProviderDashboard';
+              }
+            }
+            else
+            {
+              setisheaderback(true) 
+              Goscreen = 'ProviderDashboard';
+            }
           
-          // Navigate to ProfileUpdate screen
+          // Navigate to IntroEarning screen
           navigation.reset({
             index: 0,
-            routes: [{ name: 'ProfileUpdate' }],
+            routes: [{ name: Goscreen }],
           });
 
         } else {
@@ -315,12 +345,6 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                   resizeMode="contain"
                 />
             </View>
-            <Text style={clsx(styles.text2xl, styles.fontBold, styles.textWhite, styles.mb2, styles.textCenter)}>
-              OTP Login
-            </Text>
-            <Text style={clsx(styles.textBase, styles.textWhite, styles.opacity75, styles.textCenter)}>
-              Login quickly with One Time Password
-            </Text>
           </View>
         </View>
 
@@ -427,6 +451,9 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
               /* OTP Input Section */
               <View>
                 <View style={clsx(styles.mb6)}>
+
+                  <Icon name="lock-open" style={[styles.textCenter,styles.text12xl,styles.textPrimary]} />
+
                   <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb1)}>
                     Enter OTP
                   </Text>
@@ -501,7 +528,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                 </View>
 
                 {/* Resend OTP */}
-                <View style={clsx(styles.itemsCenter, styles.mb2)}>
+                <View style={clsx(styles.itemsCenter, styles.mb6, styles.mt6)}>
                   {timerActive ? (
                     <Text style={clsx(styles.textBase, styles.textMuted)}>
                       Resend OTP in {countdown} seconds
@@ -543,18 +570,6 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                   </View>
                 </TouchableOpacity>
 
-                {/* Back to Phone Input */}
-                <TouchableOpacity
-                  style={clsx(styles.itemsCenter, styles.mt4)}
-                  onPress={() => {
-                    setIsOtpSent(false);
-                    setOtp(['', '', '', '']);
-                  }}
-                >
-                  <Text style={clsx(styles.textPrimary, styles.fontMedium)}>
-                    ← Back to Phone Number
-                  </Text>
-                </TouchableOpacity>
               </View>
             )}
 

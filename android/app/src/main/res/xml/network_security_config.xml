@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- yahan apna server IP ya domain likho -->
+        <domain includeSubdomains="true">192.168.1.10</domain>
+        <domain includeSubdomains="true">192.168.1.61</domain>
+        <domain includeSubdomains="true">145.223.18.56</domain>
+        <domain includeSubdomains="true">192.168.1.25</domain>
+    </domain-config>
+</network-security-config>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  RefreshControl,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as ImagePicker from 'react-native-image-picker';
@@ -25,9 +26,12 @@ const KYCUpdateScreen = ({ navigation, route }) => {
     Toast,
     Urls,
     postData,
+    UploadUrl,
+    fetchProfile,
   } = useContext(AppContext);
 
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [kycDataLoaded, setKycDataLoaded] = useState(false);
   
   // Initial KYC data
@@ -50,9 +54,8 @@ const KYCUpdateScreen = ({ navigation, route }) => {
   const [formData, setFormData] = useState(initialKYCData);
   const [errors, setErrors] = useState({});
 
-  // Fetch KYC data on component mount
+  // Fetch KYC data
   const fetchKYCData = async () => {
-    setLoading(true);
     try {
       const response = await postData({}, Urls.kycDetail, 'GET', { showErrorMessage: false });
       if (response?.success) {
@@ -68,32 +71,75 @@ const KYCUpdateScreen = ({ navigation, route }) => {
           panCardNumber: apiData.panCardNumber || '',
           aadharCardNumber: apiData.aadharCardNumber || '', 
           gstNumber: apiData.gstNumber || '',
-          passbookOrCheque: apiData.passbookOrCheque ? { uri: apiData.passbookOrCheque } : null,
-          panCardImage: apiData.panCardImage ? { uri: apiData.panCardImage } : null,
-          aadharFrontImage: apiData.aadharFrontImage ? { uri: apiData.aadharFrontImage } : null,
-          aadharBackImage: apiData.aadharBackImage ? { uri: apiData.aadharBackImage } : null,
-          shopImage: apiData.shopImage ? { uri: apiData.shopImage } : null,
+          // Use UploadUrl for all image fields
+          passbookOrCheque: apiData.passbookOrCheque ? { 
+            uri: `${UploadUrl}${apiData.passbookOrCheque}` 
+          } : null,
+          panCardImage: apiData.panCardImage ? { 
+            uri: `${UploadUrl}${apiData.panCardImage}` 
+          } : null,
+          aadharFrontImage: apiData.aadharFrontImage ? { 
+            uri: `${UploadUrl}${apiData.aadharFrontImage}` 
+          } : null,
+          aadharBackImage: apiData.aadharBackImage ? { 
+            uri: `${UploadUrl}${apiData.aadharBackImage}` 
+          } : null,
+          shopImage: apiData.shopImage ? { 
+            uri: `${UploadUrl}${apiData.shopImage}` 
+          } : null,
         });
         
         // If KYC data is also passed via route params, use it (overrides API data)
         if (route.params?.kycData) {
           setFormData(prev => ({ ...prev, ...route.params.kycData }));
         }
+        return true;
       }
+      return false;
     } catch (error) {
       console.error('Error fetching KYC data:', error);
       // If API fails but route params exist, use them
       if (route.params?.kycData) {
         setFormData(route.params.kycData);
       }
+      return false;
+    }
+  };
+
+  // Initial load
+  useEffect(() => {
+    loadKYCData();
+  }, []);
+
+  const loadKYCData = async () => {
+    setLoading(true);
+    try {
+      await fetchKYCData();
     } finally {
       setLoading(false);
       setKycDataLoaded(true);
     }
   };
 
-  useEffect(() => {
-    fetchKYCData();
+  // Refresh function
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchKYCData();
+      Toast.show({
+        type: 'success',
+        text1: 'KYC data refreshed',
+        text2: 'Latest data loaded successfully',
+      });
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: 'Refresh failed',
+        text2: 'Could not refresh KYC data',
+      });
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
   const validateForm = () => {
@@ -315,20 +361,32 @@ const KYCUpdateScreen = ({ navigation, route }) => {
       
       imageFields.forEach(field => {
         if (formData[field] && formData[field].uri) {
-          formDataToSend.append(field, {
-            uri: formData[field].uri,
-            type: formData[field].type || 'image/jpeg',
-            name: formData[field].name || `${field}.jpg`,
-          });
+          // Check if it's a local file or remote URL
+          const isLocalFile = formData[field].uri.startsWith('file://') || 
+                              formData[field].uri.startsWith('content://');
+          
+          if (isLocalFile) {
+            // It's a local file selected from gallery/camera
+            formDataToSend.append(field, {
+              uri: formData[field].uri,
+              type: formData[field].type || 'image/jpeg',
+              name: formData[field].name || `${field}.jpg`,
+            });
+          } else {
+            // It's a remote URL from API (already uploaded)
+            // Don't append to formData if it's already on server
+            // Just send the URL if your backend expects it
+            formDataToSend.append(`${field}Url`, formData[field].uri);
+          }
         }
       });
 
       console.log('Updating KYC with data...');
-      console.log(formDataToSend)
+      console.log('FormData to send:', formDataToSend);
 
       const response = await postData(formDataToSend, Urls.kycUpdate, 'POST', { 
         showErrorMessage: true,
-        isFileUpload:true,
+        isFileUpload: true,
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -339,7 +397,14 @@ const KYCUpdateScreen = ({ navigation, route }) => {
           type: 'success',
           text1: response.message || 'KYC updated successfully',
         });
-        navigate('Training');
+        
+        // Refresh data after successful update
+        await fetchKYCData();
+
+        fetchProfile();
+        
+        // navigate('Training');
+        navigate('KYCStatus');
       } else {
         Alert.alert('Error', response?.message || 'Failed to update KYC');
       }
@@ -413,7 +478,11 @@ const KYCUpdateScreen = ({ navigation, route }) => {
           <View style={clsx(styles.mb2)}>
             <Image
               source={{ uri: formData[field].uri }}
-              style={clsx(styles.wFull, styles.h48, styles.roundedLg, styles.bgGray)}
+              style={[
+                {width: '100%', height: 192},  // ✅ Hardcode dimensions for proper display
+                styles.roundedLg, 
+                styles.bgGray
+              ]}
               resizeMode="cover"
             />
             <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mt2)}>
@@ -429,7 +498,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
               
               <View style={clsx(styles.flexRow)}>
                 <TouchableOpacity
-                  style={clsx(styles.flexRow, styles.itemsCenter, styles.mr-4)}
+                  style={clsx(styles.flexRow, styles.itemsCenter, styles.mr4)}
                   onPress={() => handleImagePicker(field)}
                 >
                   <Icon name="edit" size={20} color={colors.primary} />
@@ -475,7 +544,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
     );
   };
 
-  if (!kycDataLoaded && loading) {
+  if (!kycDataLoaded && loading && !refreshing) {
     return (
       <View style={clsx(styles.flex1, styles.bgSurface, styles.justifyCenter, styles.itemsCenter)}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -497,15 +566,35 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         showNotification={false}
         type="white"
         rightAction={false}
-        rightActionIcon="settings"
+        rightActionIcon="refresh"
         showProfile={false}
-        onRightActionPress={() => navigation.navigate('Settings')}
+        onRightActionPress={onRefresh}
       />
 
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={clsx(styles.px4, styles.pb6)}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+            title="Pull to refresh"
+            titleColor={colors.textMuted}
+          />
+        }
       >
+        {/* Refresh Status Indicator */}
+        {refreshing && (
+          <View style={clsx(styles.py2, styles.itemsCenter)}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={clsx(styles.textSm, styles.textPrimary, styles.mt1)}>
+              Refreshing KYC data...
+            </Text>
+          </View>
+        )}
+
         {/* Bank Details */}
         <View style={clsx(styles.mt4)}>
           <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb4)}>
@@ -611,10 +700,10 @@ const KYCUpdateScreen = ({ navigation, route }) => {
           style={clsx(
             styles.button,
             styles.mt6,
-            loading && styles.opacity50
+            (loading || refreshing) && styles.opacity50
           )}
           onPress={handleUpdateKYC}
-          disabled={loading}
+          disabled={loading || refreshing}
         >
           {loading ? (
             <ActivityIndicator color={colors.white} size="small" />
@@ -632,7 +721,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
             styles.mt3
           )}
           onPress={() => navigation.goBack()}
-          disabled={loading}
+          disabled={loading || refreshing}
         >
           <Text style={clsx(styles.buttonOutlineText)}>
             Cancel

@@ -19,20 +19,15 @@ import { navigate, reset } from '../../navigation/navigationService';
 const { width, height } = Dimensions.get('window');
 
 const CustomSidebar = ({ state, isVisible, onClose }) => {
-  const { setUser, setLoading, storage } = useContext(AppContext);
+  const { setUser, user, setLoading, storage, UploadUrl } = useContext(AppContext);
+
+ 
   
   const slideAnim = useRef(new Animated.Value(-width)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [sidebarOpen, setSidebarOpen] = useState(isVisible);
 
-  const user = {
-    name: 'Rajesh Kumar',
-    image: 'https://picsum.photos/200?random=provider',
-    user_id: 'SP001',
-    rating: 4.8,
-    service_type: 'AC Repair Specialist',
-    total_earnings: '₹1,25,430',
-  };
+ 
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', screen: 'MainTabs' },
@@ -189,16 +184,16 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
           <View style={styles.profileSection}>
             <View style={styles.profileRow}>
               <Image 
-                source={{ uri: user.image }} 
+                source={{ uri: UploadUrl+''+user.profileImage }} 
                 style={styles.profileImage}
               />
               <View style={styles.profileDetails}>
                 <Text style={styles.profileName}>{user.name}</Text>
-                <Text style={styles.profileID}>ID: {user.user_id}</Text>
+                <Text style={styles.profileID}>ID: RRR1000</Text>
                 <View style={styles.ratingContainer}>
                   <Icon name="star" size={14} color={colors.warning} />
                   <Text style={styles.ratingText}>
-                    {user.rating} • {user.service_type}
+                    {4.5} • {user?.categories[0]?.name}
                   </Text>
                 </View>
               </View>
@@ -206,7 +201,7 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
             
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>{user.total_earnings}</Text>
+                <Text style={styles.statValue}>100</Text>
                 <Text style={styles.statLabel}>Total Earnings</Text>
               </View>
               <View style={styles.statItem}>

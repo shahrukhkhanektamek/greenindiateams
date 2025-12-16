@@ -14,14 +14,16 @@ import ProviderProfileScreen from '../screens/Provider/Profile/ProviderProfileSc
 import ProfileUpdateScreen from '../screens/Provider/Profile/ProfileUpdateScreen';
 
 import KYCUpdateScreen from '../screens/Provider/Kyc/KYCUpdateScreen';
-
+import KYCStatusScreen from '../screens/Provider/Kyc/KYCStatusScreen';
+ 
 import TrainingScheduleScreen from '../screens/Provider/Training/TrainingScheduleScreen';
+import TrainingStatusScreen from '../screens/Provider/Training/TrainingStatusScreen';
 
 import TodayJobsScreen from '../screens/Provider/TodayJobsScreen';
 
 import JobDetailsScreen from '../screens/Provider/JobDetailsScreen';
 
-import EarningsScreen from '../screens/Provider/Earning/EarningScreen';
+import EarningsScreen from '../screens/Provider/Earning/EarningScreen'; 
 import EarningDetailsScreen  from '../screens/Provider/Earning/EarningDetailsScreen';
 
 import WalletScreen from '../screens/Provider/Wallet/WalletScreen';
@@ -41,8 +43,9 @@ import SupportScreen from '../screens/Common/SupportScreen';
 import TermsConditionsScreen from '../screens/Common/TermsConditionsScreen';
 
 // Import Auth Screens
-import IntroScreen from '../screens/Auth/IntroScreen';
-import ProviderLoginScreen from '../screens/Auth/ProviderLoginScreen';
+import IntroScreen from '../screens/Intro/IntroScreen'; 
+import IntroEarningScreen from '../screens/Intro/IntroEarningScreen';
+import ProviderLoginScreen from '../screens/Auth/ProviderLoginScreen'; 
 import ProviderOTPLoginScreen from '../screens/Auth/ProviderOTPLoginScreen';
 import ProviderForgotPasswordScreen from '../screens/Auth/ProviderForgotPasswordScreen';
 import ProviderSignupScreen from '../screens/Auth/ProviderSignupScreen';
@@ -54,40 +57,21 @@ import SplashScreen from '../screens/Common/SplashScreen';
 const Stack = createStackNavigator(); 
 
 function ProviderNavigator() {
-  const { user, setUser, storage, setisheaderback } = useContext(AppContext);
+  const { user, setUser, storage, setisheaderback, setrootScreen, rootScreen, profileStatus } = useContext(AppContext);
   const [isSplashVisible, setIsSplashVisible] = useState(true);
-  const [rootScreen, setrootScreen] = useState('Intro');
 
 
   useEffect(() => { 
     const initializeApp = async () => {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       // setUser(null); // For demo, set to false to see auth flow
-      setIsSplashVisible(false);
+      setIsSplashVisible(false); 
     };
-
+ 
 
       const checkRootAccess = async () => {
-        if(user)
-        {
-          if(!user.profile)
-          {
-            setrootScreen('ProfileUpdate');
-          }
-          else if(!user.kyc)  
-          {
-            setrootScreen('KycScreen');
-          }
-          else
-          {
-            setisheaderback(true)
-            setrootScreen('ProviderDashboard');
-          }
-        }
-        else
-        {
-          setrootScreen('Intro');
-        }
+        profileStatus()
+        console.log(user) 
         // setrootScreen('ProviderDashboard');
      };
 
@@ -120,6 +104,8 @@ function ProviderNavigator() {
         gestureEnabled: true,
       }}
     >
+      <Stack.Screen name="IntroEarning" component={IntroEarningScreen}/>            
+      <Stack.Screen name="KYCStatus" component={KYCStatusScreen} />
       {!user ? (
         // =========== AUTH SCREENS ===========
         <>
@@ -147,6 +133,7 @@ function ProviderNavigator() {
           <Stack.Screen name="KycScreen" component={KYCUpdateScreen} />
 
           <Stack.Screen name="Training" component={TrainingScheduleScreen} />
+          <Stack.Screen name="TrainingStatus" component={TrainingStatusScreen} />
 
           <Stack.Screen name="TodayJobs" component={TodayJobsScreen}/>            
           <Stack.Screen name="JobDetails" component={JobDetailsScreen}/>                        

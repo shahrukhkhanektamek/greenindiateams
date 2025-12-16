@@ -10,8 +10,10 @@ import CustomSidebar from '../components/Provider/CustomSidebar';
 export const AppContext = createContext();
 
 // API URLs configuration - Consider moving to environment variables
+const UploadUrl = 'http://192.168.1.61:8080/';
 const BASE_URLS = {
-  development: "http://192.168.1.25:8080/",
+  // development: "http://192.168.1.25:8080/",
+  development: "http://192.168.1.61:8080/",
   // staging: "https://staging-api.example.com/",
   // production: "https://api.example.com/"
 };
@@ -24,6 +26,7 @@ export const AppProvider = ({ children }) => {
   const [theme, setTheme] = useState("light");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [user, setUser] = useState(null);
+  const [rootScreen, setrootScreen] = useState('Intro');
   const [isheaderback, setisheaderback] = useState(null);
   const [loadingStates, setLoadingStates] = useState({
     page: false,
@@ -278,7 +281,7 @@ export const AppProvider = ({ children }) => {
         body: method.toUpperCase() === 'GET' ? undefined : body,
         signal: controller.signal
       });
-      console.log(response)
+      
       clearTimeout(timeoutId);
 
       return await handleResponse(response, showErrorMessage);
@@ -313,6 +316,7 @@ export const AppProvider = ({ children }) => {
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         result = await response.json();
+        console.log(result);
       } else {
         const text = await response.text();
         throw new Error(`Invalid response format: ${text.substring(0, 100)}`);
@@ -487,6 +491,67 @@ export const AppProvider = ({ children }) => {
     }
   }, [Urls.homeDetail, postData, setLoading]);
 
+
+
+  const fetchProfile = async () => {
+    try {
+      const response = await postData({}, Urls.profileDetail, 'GET', { showErrorMessage: false });
+
+      if (response?.success) {
+        const apiData = response.data || {};      
+        storage.set('user', apiData);
+        setUser(apiData);      
+        return true;
+      } else {
+        console.log('Profile API failed:', response);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error fetching profile data:', error);
+      // If API fails but route params exist, use them
+      if (route.params?.profile) {
+        setFormData(route.params.profile);
+      }
+      return false;
+    }
+  };
+
+  const profileStatus = async () => {
+    if(user)
+    {
+      if(!user.profile && !user.dob)
+      {
+        setrootScreen('ProfileUpdate');
+      }
+      else if(!user.kyc)  
+      {
+        setrootScreen('KycScreen');
+      }
+      else if(user.kyc)  
+      {
+        if(user.kyc.status=='Pending' || user.kyc.status=='Rejected')
+          setrootScreen('KYCStatus');
+        else
+        { 
+          setisheaderback(true) 
+          setrootScreen('ProviderDashboard');
+        }
+      }
+      else
+      {
+        setisheaderback(true) 
+        setrootScreen('ProviderDashboard');
+      }
+    }
+    else
+    {
+      setrootScreen('Intro');
+    }
+  };
+
+
+
+
   // Initial data load 
   // useEffect(() => {
   //   fetchHomeData();
@@ -521,6 +586,11 @@ export const AppProvider = ({ children }) => {
     handleLogout,
     priceFormat,
     imageCheck,
+    UploadUrl,
+    fetchProfile,
+    setrootScreen,
+    rootScreen,
+    profileStatus,
     
     // Data
     Urls,

@@ -345,7 +345,8 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
 
   // API to reschedule training
   const handleReschedule = () => {
-    navigate('Earnings')
+    // navigate('ProviderDashboard')
+    navigate('TrainingStatus')
     // First show date/time pickers for rescheduling
     // Alert.alert(
     //   'Reschedule Training',

@@ -135,6 +135,10 @@ const globalStyles = StyleSheet.create({
   text3xl: { fontSize: scaleFont(24) },
   text4xl: { fontSize: scaleFont(30) },
   text5xl: { fontSize: scaleFont(36) },
+  text6xl: { fontSize: scaleFont(40) },
+  text7xl: { fontSize: scaleFont(46) },
+  text8xl: { fontSize: scaleFont(52) },
+  text12xl: { fontSize: scaleFont(80) },
   
   // Font Weights
   fontThin: { fontWeight: '100' },

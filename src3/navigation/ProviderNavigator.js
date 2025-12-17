@@ -57,9 +57,12 @@ import SplashScreen from '../screens/Common/SplashScreen';
 const Stack = createStackNavigator(); 
 
 function ProviderNavigator() {
-  const { user, setUser, storage, setisheaderback, setrootScreen, rootScreen, profileStatus } = useContext(AppContext);
+  const { user, token, setUser, storage, setisheaderback, setrootScreen, rootScreen, profileStatus, fetchProfile } = useContext(AppContext);
   const [isSplashVisible, setIsSplashVisible] = useState(true);
 
+  useEffect(() => { 
+    fetchProfile()
+  }, []);
 
   useEffect(() => { 
     const initializeApp = async () => {
@@ -71,7 +74,8 @@ function ProviderNavigator() {
 
       const checkRootAccess = async () => {
         profileStatus()
-        console.log(user) 
+        // console.log(user) 
+        console.log(storage.get('token'))  
         // setrootScreen('ProviderDashboard');
      };
 

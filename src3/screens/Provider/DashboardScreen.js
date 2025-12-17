@@ -109,7 +109,7 @@ const DashboardScreen = ({ navigation }) => {
               Welcome back,
             </Text>
             <Text style={clsx(styles.textWhite, styles.text2xl, styles.fontBold)}>
-              {user.name}
+              {user?.name}
             </Text>
             <Text style={clsx(styles.textWhite, styles.textSm, styles.opacity75, styles.mt1)}>
               AC Repair Specialist • 4.8 ⭐
@@ -121,7 +121,7 @@ const DashboardScreen = ({ navigation }) => {
             onPress={() => setLoading('sideBar', true)}
           >
             <Image
-              source={{ uri: UploadUrl+''+user.profileImage }}
+              source={{ uri: UploadUrl+''+user?.profileImage }}
               style={customStyles.profileImage}
             />
           </TouchableOpacity>

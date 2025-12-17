@@ -89,6 +89,8 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
     storage.delete('token');
     storage.delete('user');
     closeSidebar();
+
+
     
     reset('ProviderOTPLogin')
 
@@ -184,11 +186,11 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
           <View style={styles.profileSection}>
             <View style={styles.profileRow}>
               <Image 
-                source={{ uri: UploadUrl+''+user.profileImage }} 
+                source={{ uri: UploadUrl+''+user?.profileImage }} 
                 style={styles.profileImage}
               />
               <View style={styles.profileDetails}>
-                <Text style={styles.profileName}>{user.name}</Text>
+                <Text style={styles.profileName}>{user?.name}</Text>
                 <Text style={styles.profileID}>ID: RRR1000</Text>
                 <View style={styles.ratingContainer}>
                   <Icon name="star" size={14} color={colors.warning} />

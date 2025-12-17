@@ -20,6 +20,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
     Toast,
     Urls,
     postData,
+    fetchProfile,
   } = useContext(AppContext);
 
   const [loading, setLoading] = useState(false);
@@ -98,15 +99,16 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
           
           // Determine status based on API data
           let status = 'pending';
-          if (apiData.status === true) {
+          if (apiData.trainingScheduleStatus === 1) {
             status = 'scheduled';
-          } else if (apiData.status === false) {
-            status = 'cancelled';
-          } else if (apiData.status === 'completed') {
-            status = 'completed';
-          } else if (apiData.status === 'rescheduled') {
-            status = 'rescheduled';
           }
+          //  else if (apiData.trainingScheduleStatus === false) {
+          //   status = 'cancelled';
+          // } else if (apiData.trainingScheduleStatus === 'completed') {
+          //   status = 'completed';
+          // } else if (apiData.trainingScheduleStatus === 'rescheduled') {
+          //   status = 'rescheduled';
+          // }
           
           console.log('Setting schedule data:', {
             trainingDate,
@@ -294,7 +296,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
         scheduleDate: formattedDate,
         scheduleTime: formattedTime,
         status: true, // true for scheduled
-        trainingId: trainingDetails.trainingId,
+        trainingScheduleId: scheduleData.scheduleId,
       };
 
       // Add scheduleId if exists (for update)
@@ -325,9 +327,14 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
         }));
         
         // Navigate back after delay
-        setTimeout(() => {
-          navigation.goBack();
-        }, 1500);
+        // setTimeout(() => {
+        //   navigation.goBack();
+        // }, 1500);
+
+        await fetchProfile();
+
+        navigate('TrainingStatus')
+
       } else {
         Alert.alert('Error', response?.message || 'Failed to schedule training');
       }

@@ -401,7 +401,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         // Refresh data after successful update
         await fetchKYCData();
 
-        fetchProfile();
+        await fetchProfile();
         
         // navigate('Training');
         navigate('KYCStatus');
@@ -714,19 +714,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
           )}
         </TouchableOpacity>
 
-        {/* Cancel Button */}
-        <TouchableOpacity
-          style={clsx(
-            styles.buttonOutline,
-            styles.mt3
-          )}
-          onPress={() => navigation.goBack()}
-          disabled={loading || refreshing}
-        >
-          <Text style={clsx(styles.buttonOutlineText)}>
-            Cancel
-          </Text>
-        </TouchableOpacity>
+        
       </ScrollView>
     </KeyboardAvoidingView>
   );

@@ -495,7 +495,7 @@ const ProfileUpdateScreen = ({ route }) => {
         // Refresh data after successful update
         await fetchProfileData();
 
-        fetchProfile();
+        await fetchProfile();
         
         navigate('KycScreen');
       } else {

@@ -10,10 +10,11 @@ import CustomSidebar from '../components/Provider/CustomSidebar';
 export const AppContext = createContext();
 
 // API URLs configuration - Consider moving to environment variables
-const UploadUrl = 'http://192.168.1.61:8080/';
+// const UploadUrl = 'http://192.168.1.61:8080/';
+const UploadUrl = 'http://192.168.1.25:8080/';
 const BASE_URLS = {
-  // development: "http://192.168.1.25:8080/",
-  development: "http://192.168.1.61:8080/",
+  development: "http://192.168.1.25:8080/",
+  // development: "http://192.168.1.61:8080/",
   // staging: "https://staging-api.example.com/",
   // production: "https://api.example.com/"
 };
@@ -82,15 +83,23 @@ export const AppProvider = ({ children }) => {
       profileUpdate: `${serviceManUrl}profile`,
 
       trainingSchedule: `${serviceManUrl}training-schedule/next/upcoming`,
+      trainingScheduleUpdate: `${serviceManUrl}training-schedule-submit`,
+      trainingScheduleDetail: `${serviceManUrl}training-schedule-submit/detail`,
       
       earnings: `${serviceManUrl}earning`,
       earningDetails: `${serviceManUrl}earning`,
 
       review: `${serviceManUrl}review`,
       booking: `${serviceManUrl}booking`,
+      getBookingDetail: `${serviceManUrl}booking`,
+      sendOtp: `${serviceManUrl}booking/booking-start-otp`,
+      verifyOtpAndStart: `${serviceManUrl}booking/booking-start-otp-verify`,
+      
+      uploadMedia: `${serviceManUrl}booking/booking-start-otp-verify`,
+      deleteMedia: `${serviceManUrl}booking/booking-start-otp-verify`,
+      completeBooking: `${serviceManUrl}booking/booking-start-otp-verify`,
+
       bookingAccept: `${serviceManUrl}booking/accept`,
-      bookingOtp: `${serviceManUrl}booking/booking-start-otp`,
-      bookingOtpVerify: `${serviceManUrl}booking/booking-start-otp-verify`,
       logout: `${serviceManUrl}auth/logout`
     };
   }, [mainUrl]);
@@ -526,11 +535,30 @@ export const AppProvider = ({ children }) => {
       else if(!user.kyc)  
       {
         setrootScreen('KycScreen');
-      }
+      } 
       else if(user.kyc)  
       {
-        if(user.kyc.status=='Pending' || user.kyc.status=='Rejected')
+        if(user.kyc.status=='pending' || user.kyc.status=='rejected')
           setrootScreen('KYCStatus');
+        else if(!user?.trainingScheduleSubmit)
+        {
+          setrootScreen('Training');
+        }
+        else if(user?.trainingScheduleSubmit)
+        {
+          // "New", "Confirm", "Reject", "Complete"
+          if(
+            user?.trainingScheduleSubmit.trainingScheduleStatus=='New' ||
+            user?.trainingScheduleSubmit.trainingScheduleStatus=='Confirm' ||
+            user?.trainingScheduleSubmit.trainingScheduleStatus=='Reject'
+          )
+          {
+            setrootScreen('TrainingStatus');
+          }
+          else{
+            setrootScreen('ProviderDashboard');
+          }
+        }
         else
         { 
           setisheaderback(true) 

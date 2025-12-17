@@ -1,4 +1,4 @@
-import React, { useState, useRef, useContext } from 'react';
+import React, { useState, useRef, useContext, useEffect } from 'react';
 import {
   View,
   Text,
@@ -202,7 +202,8 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
           
           if (userData) {
             await storage.set('user', userData);
-            setUser(userData);
+            if(!userData?.profile)
+             setUser(userData);
           }
           
           Toast.show({
@@ -211,38 +212,9 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
             text2: 'OTP verified successfully'
           });
 
-          fetchProfile()
+          await fetchProfile()
 
-          let Goscreen = '';
-          if(!user.profile && !user.dob)
-            {
-              Goscreen = 'ProfileUpdate';
-            }
-            else if(!user.kyc)  
-            {
-              Goscreen = 'KycScreen';
-            }
-            else if(user.kyc)  
-            {
-              if(user.kyc.status=='Pending' || user.kyc.status=='Rejected')
-                Goscreen = 'KYCStatus';
-              else
-              { 
-                setisheaderback(true) 
-                Goscreen = 'ProviderDashboard';
-              }
-            }
-            else
-            {
-              setisheaderback(true) 
-              Goscreen = 'ProviderDashboard';
-            }
           
-          // Navigate to IntroEarning screen
-          navigation.reset({
-            index: 0,
-            routes: [{ name: Goscreen }],
-          });
 
         } else {
           Toast.show({
@@ -263,6 +235,60 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
       }
     }
   };
+
+  useEffect(() => {
+
+    let Goscreen = '';
+    if(user)
+    {
+      if(!user.profile && !user.dob)
+      {
+        Goscreen = 'ProfileUpdate';
+      }
+      else if(!user.kyc)  
+      {
+        Goscreen = 'KycScreen';
+      } 
+      else if(user.kyc)  
+      {
+        if(user.kyc.status=='pending' || user.kyc.status=='rejected')
+          Goscreen = 'KYCStatus';
+        else if(!user?.trainingScheduleSubmit)
+        {
+          Goscreen = 'Training';
+        }
+        else if(user?.trainingScheduleSubmit)
+        {
+          // "New", "Confirm", "Reject", "Complete"
+          if(
+            user?.trainingScheduleSubmit.trainingScheduleStatus=='New' ||
+            user?.trainingScheduleSubmit.trainingScheduleStatus=='Confirm' ||
+            user?.trainingScheduleSubmit.trainingScheduleStatus=='Reject'
+          )
+          {
+            Goscreen = 'TrainingStatus';
+          }
+          else{
+            Goscreen = 'ProviderDashboard';
+          }
+        }
+        else
+        { 
+          setisheaderback(true) 
+          Goscreen = 'ProviderDashboard';
+        }
+      }
+      else
+      {
+        setisheaderback(true) 
+        Goscreen = 'ProviderDashboard';
+      }
+      navigation.reset({
+        index: 0,
+        routes: [{ name: Goscreen }],
+      });
+    }
+  }, [user]);
 
   const handleOtpChange = (text, index) => {
     if (text.length > 1) {

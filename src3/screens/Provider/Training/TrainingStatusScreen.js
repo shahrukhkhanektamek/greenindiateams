@@ -23,14 +23,15 @@ const TrainingStatusScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [trainingData, setTrainingData] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
 
   const fetchTrainingStatus = async () => {
     try {
-      const response = await postData({}, Urls.trainingSchedule, 'GET', { 
+      const response = await postData({}, Urls.trainingScheduleDetail, 'GET', { 
         showErrorMessage: false 
       });
       
-      if (response?.success) {
+      if (response?.success && response.data) {
         const apiData = response.data || {};
         console.log('Training API Data:', apiData);
         
@@ -44,24 +45,39 @@ const TrainingStatusScreen = ({ navigation }) => {
           location: '',
           type: '',
           date: '',
+          dateDisplay: '',
           time: '',
-          status: 'pending', // pending, scheduled, completed, cancelled
+          timeDisplay: '',
+          status: 'pending',
+          statusMessage: '',
           scheduledDate: null,
           scheduledTime: null,
+          trainingScheduleStatus: apiData.trainingScheduleStatus || 'New'
         };
 
-        // Extract from trainingId object if exists
-        if (apiData.trainingId) {
-          const training = apiData.trainingId;
+        // Extract from training object if exists
+        if (apiData.training) {
+          const training = apiData.training;
           formattedData = {
             ...formattedData,
             subject: training.subject || 'Technical Training',
             description: training.description || 'Technical training session',
             fullName: training.fullName || 'Trainer Name',
-            duration: training.duration || '2 hours',
             location: training.location || 'Training Center',
             type: training.type || 'Classroom',
           };
+          
+          // Calculate duration
+          if (training.startTime && training.endTime) {
+            const startTime = new Date(`2000-01-01T${training.startTime}`);
+            const endTime = new Date(`2000-01-01T${training.endTime}`);
+            const diffMs = endTime - startTime;
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+            formattedData.duration = `${diffHours}h ${diffMinutes}m`;
+          } else {
+            formattedData.duration = '2 hours';
+          }
         }
 
         // Extract schedule info
@@ -73,6 +89,11 @@ const TrainingStatusScreen = ({ navigation }) => {
             month: 'long',
             day: 'numeric',
           });
+          formattedData.dateDisplay = scheduleDate.toLocaleDateString('en-IN', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+          });
           formattedData.scheduledDate = scheduleDate;
         }
 
@@ -80,45 +101,84 @@ const TrainingStatusScreen = ({ navigation }) => {
           const timeStr = apiData.scheduleTime;
           const [hours, minutes] = timeStr.split(':').map(Number);
           formattedData.time = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+          
+          // Add AM/PM format
+          const ampm = hours >= 12 ? 'PM' : 'AM';
+          const hour12 = hours % 12 || 12;
+          formattedData.timeDisplay = `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+          
           formattedData.scheduledTime = timeStr;
         }
-
-        apiData.status = 'completed';
-
-        // Determine status
-        if (apiData.status === true) {
-          formattedData.status = 'scheduled';
-        } else if (apiData.status === false) {
-          formattedData.status = 'cancelled';
-        } else if (apiData.status === 'completed') {
-          formattedData.status = 'completed';
-        } else if (apiData.status === 'rescheduled') {
-          formattedData.status = 'scheduled'; // Treat rescheduled as scheduled
+        console.log("fafas",apiData)
+        // Determine status based on trainingScheduleStatus
+        switch (apiData.trainingScheduleStatus) {
+          case 'New':
+            formattedData.status = 'pending';
+            formattedData.statusMessage = 'Training request submitted. Waiting for confirmation.';
+            break;
+            
+          case 'Confirm':
+            formattedData.status = 'scheduled';
+            formattedData.statusMessage = 'Training confirmed and scheduled.';
+            break;
+            
+          case 'Reject':
+            formattedData.status = 'cancelled';
+            formattedData.statusMessage = 'Training request has been rejected.';
+            break;
+            
+          case 'Complete':
+            formattedData.status = 'Complete';
+            formattedData.statusMessage = 'Training successfully Complete.';
+            break;
+            
+          default:
+            formattedData.status = 'pending';
+            formattedData.statusMessage = 'Training status unknown.';
         }
-
-        // If no schedule date but training exists, show pending
-        if (!apiData.scheduleDate && apiData.trainingId) {
-          formattedData.status = 'pending';
+        
+        // Also check status field as backup
+        if (apiData.status === true && formattedData.status === 'pending') {
+          formattedData.status = 'scheduled';
+        } else if (apiData.status === false && formattedData.status === 'pending') {
+          formattedData.status = 'cancelled';
         }
 
         console.log('Formatted Training Data:', formattedData);
         setTrainingData(formattedData);
-        return true;
-      } else {
+        setLastUpdated(new Date());
+        return { success: true, data: formattedData };
+      } else if (response?.success && !response.data) {
         // No training data found
-        setTrainingData({
+        const noData = {
           status: 'no-training',
-          message: 'No training scheduled'
-        });
-        return false;
+          message: 'No training scheduled',
+          trainingScheduleStatus: 'none'
+        };
+        setTrainingData(noData);
+        setLastUpdated(new Date());
+        return { success: false, data: noData };
+      } else {
+        // API error
+        const errorData = {
+          status: 'error',
+          message: response?.message || 'Failed to load training status',
+          trainingScheduleStatus: 'error'
+        };
+        setTrainingData(errorData);
+        setLastUpdated(new Date());
+        return { success: false, data: errorData };
       }
     } catch (error) {
       console.error('Error fetching training status:', error);
-      setTrainingData({
+      const errorData = {
         status: 'error',
-        message: 'Failed to load training status'
-      });
-      return false;
+        message: 'Failed to load training status',
+        trainingScheduleStatus: 'error'
+      };
+      setTrainingData(errorData);
+      setLastUpdated(new Date());
+      return { success: false, data: errorData };
     }
   };
 
@@ -132,49 +192,98 @@ const TrainingStatusScreen = ({ navigation }) => {
     setLoading(false);
   };
 
-  const onRefresh = async () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchTrainingStatus();
+    const result = await fetchTrainingStatus();
     setRefreshing(false);
-    Toast.show({
-      type: 'success',
-      text1: 'Status refreshed',
-      text2: 'Latest training status loaded',
-    });
+    
+    if (result.success) {
+      Toast.show({
+        type: 'success',
+        text1: 'Status refreshed',
+        text2: 'Latest training status loaded',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+    } else if (result.data.status === 'no-training') {
+      Toast.show({
+        type: 'info',
+        text1: 'No training scheduled',
+        text2: 'You have not scheduled any training yet',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to refresh training status',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+    }
   };
 
-  const getStatusConfig = (status) => {
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    const result = await fetchTrainingStatus();
+    setRefreshing(false);
+    
+    if (result.success) {
+      Toast.show({
+        type: 'success',
+        text1: 'Status updated',
+        text2: 'Training information refreshed',
+        position: 'top',
+        visibilityTime: 2000,
+      });
+    }
+  };
+
+  const getStatusConfig = (status, trainingData) => {
+    // Use custom message if available
+    const customMessage = trainingData?.statusMessage || '';
+    
     switch (status) {
       case 'scheduled':
         return {
           icon: 'event-available',
           iconColor: colors.success,
           title: 'Training Scheduled',
-          message: 'Your training session has been scheduled.',
+          subtitle: trainingData?.trainingScheduleStatus === 'Confirm' 
+            ? '(Confirmed)' 
+            : '',
+          message: customMessage || 'Your training session has been scheduled.',
           bgColor: colors.successLight,
           textColor: colors.success,
-          buttonText: 'View Schedule',
-          buttonAction: () => navigation.navigate('TrainingSchedule'),
+          buttonText: 'Reschedule Training',
+          buttonAction: () => navigation.navigate('Training'),
         };
       
       case 'pending':
         return {
-          icon: 'pending',
+          icon: trainingData?.trainingScheduleStatus === 'New' ? 'hourglass-empty' : 'pending',
           iconColor: colors.warning,
-          title: 'Training Pending',
-          message: 'Please schedule your training session.',
+          title: trainingData?.trainingScheduleStatus === 'New' 
+            ? 'Training Request Submitted' 
+            : 'Training Pending',
+          subtitle: '',
+          message: customMessage || 'Please schedule your training session.',
           bgColor: colors.warningLight,
           textColor: colors.warning,
-          buttonText: 'Schedule Now',
+          buttonText: trainingData?.trainingScheduleStatus === 'New' 
+            ? 'Check Status' 
+            : 'Schedule Now',
           buttonAction: () => navigation.navigate('TrainingSchedule'),
         };
       
-      case 'completed':
+      case 'Complete':
         return {
           icon: 'check-circle',
           iconColor: colors.primary,
-          title: 'Training Completed',
-          message: 'You have successfully completed the training.',
+          title: 'Training Complete',
+          subtitle: '',
+          message: customMessage || 'You have successfully Complete the training.',
           bgColor: colors.primaryLight,
           textColor: colors.primary,
           buttonText: 'Go To Dashboard',
@@ -183,14 +292,21 @@ const TrainingStatusScreen = ({ navigation }) => {
       
       case 'cancelled':
         return {
-          icon: 'cancel',
+          icon: trainingData?.trainingScheduleStatus === 'Reject' ? 'block' : 'cancel',
           iconColor: colors.error,
-          title: 'Training Cancelled',
-          message: 'Your training session has been cancelled.',
+          title: trainingData?.trainingScheduleStatus === 'Reject' 
+            ? 'Training Rejected' 
+            : 'Training Cancelled',
+          subtitle: '',
+          message: customMessage || 'Your training session has been cancelled.',
           bgColor: colors.errorLight,
           textColor: colors.error,
-          buttonText: 'Reschedule',
-          buttonAction: () => navigation.navigate('TrainingSchedule'),
+          buttonText: trainingData?.trainingScheduleStatus === 'Reject' 
+            ? 'Contact Support' 
+            : 'Reschedule',
+          buttonAction: trainingData?.trainingScheduleStatus === 'Reject' 
+            ? () => navigation.navigate('Support')
+            : () => navigation.navigate('TrainingSchedule'),
         };
       
       case 'no-training':
@@ -198,6 +314,7 @@ const TrainingStatusScreen = ({ navigation }) => {
           icon: 'info',
           iconColor: colors.info,
           title: 'No Training Scheduled',
+          subtitle: '',
           message: 'You have not scheduled any training yet.',
           bgColor: colors.infoLight,
           textColor: colors.info,
@@ -205,16 +322,18 @@ const TrainingStatusScreen = ({ navigation }) => {
           buttonAction: () => navigation.navigate('TrainingSchedule'),
         };
       
+      case 'error':
       default:
         return {
           icon: 'error',
           iconColor: colors.error,
-          title: 'Error',
-          message: 'Unable to load training status.',
+          title: 'Error Loading Status',
+          subtitle: '',
+          message: trainingData?.message || 'Unable to load training status.',
           bgColor: colors.errorLight,
           textColor: colors.error,
           buttonText: 'Try Again',
-          buttonAction: onRefresh,
+          buttonAction: handleRefresh,
         };
     }
   };
@@ -226,12 +345,58 @@ const TrainingStatusScreen = ({ navigation }) => {
         <Text style={clsx(styles.textBase, styles.textBlack, styles.mt4)}>
           Loading training status...
         </Text>
+        <TouchableOpacity
+          onPress={handleRefresh}
+          style={clsx(styles.mt6, styles.px4, styles.py2, styles.bgPrimary, styles.roundedFull)}
+        >
+          <Text style={clsx(styles.textWhite, styles.textSm)}>Refresh</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
-  const status = trainingData?.status || 'no-training';
-  const statusConfig = getStatusConfig(status);
+  // const status = trainingData?.status || 'no-training';
+  const status = 'Complete';
+  const statusConfig = getStatusConfig(status, trainingData);
+
+  const formatLastUpdated = () => {
+    try {
+      return lastUpdated.toLocaleTimeString('en-IN', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    } catch (error) {
+      return 'Just now';
+    }
+  };
+
+  const calculateCountdown = () => {
+    if (!trainingData?.scheduledDate) return { days: 0, hours: 0, minutes: 0 };
+    
+    const now = new Date();
+    const scheduledDate = new Date(trainingData.scheduledDate);
+    
+    // Add time if available
+    if (trainingData.scheduledTime) {
+      const [hours, minutes] = trainingData.scheduledTime.split(':').map(Number);
+      scheduledDate.setHours(hours, minutes, 0, 0);
+    }
+    
+    const diffMs = scheduledDate - now;
+    
+    if (diffMs <= 0) {
+      return { days: 0, hours: 0, minutes: 0 };
+    }
+    
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    return { days, hours, minutes };
+  };
+
+  const countdown = calculateCountdown();
 
   return (
     <View style={clsx(styles.flex1, styles.bgSurface)}>
@@ -243,7 +408,7 @@ const TrainingStatusScreen = ({ navigation }) => {
         rightAction={true}
         rightActionIcon="refresh"
         showProfile={false}
-        onRightActionPress={onRefresh}
+        onRightActionPress={handleManualRefresh}
       />
 
       <ScrollView
@@ -252,15 +417,33 @@ const TrainingStatusScreen = ({ navigation }) => {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={handleRefresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
           />
         }
       >
+        {/* Refresh Status Indicator */}
+        {refreshing && (
+          <View style={clsx(
+            styles.p3,
+            styles.mb4,
+            styles.bgPrimaryLight,
+            styles.roundedLg,
+            styles.itemsCenter,
+            styles.flexRow,
+            styles.justifyCenter
+          )}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={clsx(styles.textSm, styles.textPrimary, styles.ml2)}>
+              Refreshing training status...
+            </Text>
+          </View>
+        )}
+
         {/* Status Card */}
         <View style={clsx(
-          styles.mt8,
+          styles.mt4,
           styles.p6,
           styles.roundedXl,
           styles.itemsCenter,
@@ -281,14 +464,26 @@ const TrainingStatusScreen = ({ navigation }) => {
           </View>
 
           {/* Status Title */}
-          <Text style={clsx(
-            styles.text2xl,
-            styles.fontBold,
-            styles.mb3,
-            { color: statusConfig.textColor }
-          )}>
-            {statusConfig.title}
-          </Text>
+          <View style={clsx(styles.itemsCenter)}>
+            <Text style={clsx(
+              styles.text2xl,
+              styles.fontBold,
+              styles.mb1,
+              { color: statusConfig.textColor }
+            )}>
+              {statusConfig.title}
+            </Text>
+            {statusConfig.subtitle ? (
+              <Text style={clsx(
+                styles.textBase,
+                styles.fontMedium,
+                styles.mb3,
+                { color: statusConfig.textColor }
+              )}>
+                {statusConfig.subtitle}
+              </Text>
+            ) : null}
+          </View>
 
           {/* Status Message */}
           <Text style={clsx(
@@ -319,24 +514,28 @@ const TrainingStatusScreen = ({ navigation }) => {
                     </Text>
                   </View>
                   
-                  <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
-                    <Icon name="location-on" size={16} color={colors.textMuted} />
-                    <Text style={clsx(styles.textSm, styles.textBlack, styles.ml2)}>
-                      Location: {trainingData.location}
-                    </Text>
-                  </View>
+                  {trainingData.location && (
+                    <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
+                      <Icon name="location-on" size={16} color={colors.textMuted} />
+                      <Text style={clsx(styles.textSm, styles.textBlack, styles.ml2)}>
+                        Location: {trainingData.location}
+                      </Text>
+                    </View>
+                  )}
                   
-                  <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-                    <Icon name="access-time" size={16} color={colors.textMuted} />
-                    <Text style={clsx(styles.textSm, styles.textBlack, styles.ml2)}>
-                      Duration: {trainingData.duration}
-                    </Text>
-                  </View>
+                  {trainingData.duration && (
+                    <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+                      <Icon name="access-time" size={16} color={colors.textMuted} />
+                      <Text style={clsx(styles.textSm, styles.textBlack, styles.ml2)}>
+                        Duration: {trainingData.duration}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
 
-              {/* Schedule Details (for scheduled/completed status) */}
-              {(status === 'scheduled' || status === 'completed') && (
+              {/* Schedule Details (for scheduled/Complete status) */}
+              {(status === 'scheduled' || status === 'Complete') && (trainingData.date || trainingData.timeDisplay) && (
                 <View style={clsx(styles.p4, styles.bgPrimaryLight, styles.roundedLg)}>
                   <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary, styles.mb3)}>
                     Schedule Details:
@@ -346,16 +545,16 @@ const TrainingStatusScreen = ({ navigation }) => {
                     <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
                       <Icon name="event" size={20} color={colors.primary} />
                       <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.ml2)}>
-                        Date: {trainingData.date}
+                        Date: {trainingData.dateDisplay || trainingData.date}
                       </Text>
                     </View>
                   )}
                   
-                  {trainingData.time && (
+                  {(trainingData.timeDisplay || trainingData.time) && (
                     <View style={clsx(styles.flexRow, styles.itemsCenter)}>
                       <Icon name="schedule" size={20} color={colors.primary} />
                       <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.ml2)}>
-                        Time: {trainingData.time}
+                        Time: {trainingData.timeDisplay || trainingData.time}
                       </Text>
                     </View>
                   )}
@@ -367,8 +566,8 @@ const TrainingStatusScreen = ({ navigation }) => {
           {/* Last Updated */}
           <View style={clsx(styles.mb6, styles.itemsCenter)}>
             <Text style={clsx(styles.textSm, styles.textMuted)}>
-              Last updated: {new Date().toLocaleDateString('en-IN')}
-            </Text>
+              Last updated: {formatLastUpdated()}
+            </Text>            
           </View>
 
           {/* Action Button */}
@@ -376,60 +575,17 @@ const TrainingStatusScreen = ({ navigation }) => {
             style={clsx(
               styles.button,
               styles.px6,
-              { backgroundColor: statusConfig.iconColor }
+              { backgroundColor: statusConfig.iconColor, opacity: refreshing ? 0.7 : 1 }
             )}
             onPress={statusConfig.buttonAction}
             disabled={refreshing}
           >
             <Text style={clsx(styles.buttonText)}>
-              {statusConfig.buttonText}
+              {refreshing ? 'Loading...' : statusConfig.buttonText}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Training Progress (for scheduled status) */}
-        {status === 'scheduled' && trainingData?.scheduledDate && (
-          <View style={clsx(styles.mt8, styles.p4, styles.bgWhite, styles.roundedLg, styles.shadowSm)}>
-            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb4)}>
-              Training Countdown
-            </Text>
-            
-            <View style={clsx(styles.flexRow, styles.justifyBetween)}>
-              <View style={clsx(styles.itemsCenter)}>
-                <View style={clsx(styles.p3, styles.bgPrimaryLight, styles.roundedFull)}>
-                  <Text style={clsx(styles.text2xl, styles.fontBold, styles.textPrimary)}>
-                    {trainingData.scheduledDate ? 
-                      Math.max(0, Math.ceil((trainingData.scheduledDate - new Date()) / (1000 * 60 * 60 * 24))) 
-                      : '0'}
-                  </Text>
-                </View>
-                <Text style={clsx(styles.textSm, styles.textMuted, styles.mt2)}>Days</Text>
-              </View>
-              
-              <View style={clsx(styles.itemsCenter)}>
-                <View style={clsx(styles.p3, styles.bgWarningLight, styles.roundedFull)}>
-                  <Text style={clsx(styles.text2xl, styles.fontBold, styles.textWarning)}>
-                    {trainingData.scheduledDate ? 
-                      Math.max(0, Math.ceil((trainingData.scheduledDate - new Date()) / (1000 * 60 * 60))) % 24 
-                      : '0'}
-                  </Text>
-                </View>
-                <Text style={clsx(styles.textSm, styles.textMuted, styles.mt2)}>Hours</Text>
-              </View>
-              
-              <View style={clsx(styles.itemsCenter)}>
-                <View style={clsx(styles.p3, styles.bgSuccessLight, styles.roundedFull)}>
-                  <Text style={clsx(styles.text2xl, styles.fontBold, styles.textSuccess)}>
-                    {trainingData.scheduledDate ? 
-                      Math.max(0, Math.ceil((trainingData.scheduledDate - new Date()) / (1000 * 60))) % 60 
-                      : '0'}
-                  </Text>
-                </View>
-                <Text style={clsx(styles.textSm, styles.textMuted, styles.mt2)}>Minutes</Text>
-              </View>
-            </View>
-          </View>
-        )}
 
         {/* Important Information */}
         <View style={clsx(styles.mt8, styles.p4, styles.bgInfoLight, styles.roundedLg)}>
@@ -437,7 +593,16 @@ const TrainingStatusScreen = ({ navigation }) => {
             Training Information
           </Text>
           
-          {status === 'pending' && (
+          {status === 'pending' && trainingData?.trainingScheduleStatus === 'New' && (
+            <Text style={clsx(styles.textBase, styles.textInfo)}>
+              • Your training request has been submitted
+              {'\n'}• Status: Awaiting confirmation from admin
+              {'\n'}• You'll be notified once it's confirmed
+              {'\n'}• For queries, contact support
+            </Text>
+          )}
+          
+          {status === 'pending' && trainingData?.trainingScheduleStatus !== 'New' && (
             <Text style={clsx(styles.textBase, styles.textInfo)}>
               • Please schedule your training at your earliest convenience
               {'\n'}• Training is mandatory for account activation
@@ -448,24 +613,35 @@ const TrainingStatusScreen = ({ navigation }) => {
           
           {status === 'scheduled' && (
             <Text style={clsx(styles.textBase, styles.textInfo)}>
-              • Please arrive 15 minutes before the scheduled time
+              • Training Status: Confirmed ✓
+              {'\n'}• Please arrive 15 minutes before the scheduled time
               {'\n'}• Bring your ID proof and notebook
               {'\n'}• Training duration: {trainingData?.duration || '2 hours'}
-              {'\n'}• Location: {trainingData?.location || 'Training Center'}
+              {trainingData?.location && `\n• Location: ${trainingData.location}`}
               {'\n'}• For rescheduling/cancellation, visit Schedule screen
             </Text>
           )}
           
-          {status === 'completed' && (
+          {status === 'Complete' && (
             <Text style={clsx(styles.textBase, styles.textInfo)}>
-              • Congratulations! You have completed the training
+              • Congratulations! You have Complete the training
+              {'\n'}• Status: Complete ✓
               {'\n'}• Your certificate is now available
               {'\n'}• You can now access all platform features
               {'\n'}• For any queries, contact support
             </Text>
           )}
           
-          {status === 'cancelled' && (
+          {status === 'cancelled' && trainingData?.trainingScheduleStatus === 'Reject' && (
+            <Text style={clsx(styles.textBase, styles.textInfo)}>
+              • Your training request has been rejected
+              {'\n'}• Status: Rejected by admin
+              {'\n'}• Please contact support for more details
+              {'\n'}• You may need to submit a new request
+            </Text>
+          )}
+          
+          {status === 'cancelled' && trainingData?.trainingScheduleStatus !== 'Reject' && (
             <Text style={clsx(styles.textBase, styles.textInfo)}>
               • Your training has been cancelled
               {'\n'}• You can reschedule it anytime
@@ -483,6 +659,15 @@ const TrainingStatusScreen = ({ navigation }) => {
               {'\n'}• Location: Training Center or Online
             </Text>
           )}
+          
+          {status === 'error' && (
+            <Text style={clsx(styles.textBase, styles.textInfo)}>
+              • Unable to load training status
+              {'\n'}• Please check your internet connection
+              {'\n'}• Try refreshing the page
+              {'\n'}• If problem persists, contact support
+            </Text>
+          )}
         </View>
 
         {/* Contact Support */}
@@ -498,6 +683,7 @@ const TrainingStatusScreen = ({ navigation }) => {
             styles.justifyCenter
           )}
           onPress={() => navigation.navigate('Support')}
+          disabled={refreshing}
         >
           <Icon name="help" size={20} color={colors.primary} />
           <Text style={clsx(styles.textBase, styles.textPrimary, styles.ml2)}>
@@ -506,20 +692,7 @@ const TrainingStatusScreen = ({ navigation }) => {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Refresh Indicator */}
-      {refreshing && (
-        <View style={clsx(
-          styles.absolute,
-          styles.top16,
-          styles.selfCenter,
-          styles.p3,
-          styles.bgWhite,
-          styles.roundedFull,
-          styles.shadowMd
-        )}>
-          <ActivityIndicator size="small" color={colors.primary} />
-        </View>
-      )}
+     
     </View>
   );
 };

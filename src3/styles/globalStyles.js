@@ -227,6 +227,31 @@ const globalStyles = StyleSheet.create({
     w1: { width: 1 },
     h1: { height: 1 },
 
+
+    w10: { width: scaleSize(40) },
+    w14: { width: scaleSize(56) },
+
+    // Spacing
+    px2: { paddingHorizontal: scaleSize(8) },
+    py2: { paddingVertical: scaleSize(8) },
+
+    // Text
+    textXl: { fontSize: scaleFont(20) }, // बड़ा font size
+
+    // Border
+    borderDashed: { borderStyle: 'dashed' },
+
+    // Position
+    topNegative1: { top: -scaleSize(4) },
+    rightNegative1: { right: -scaleSize(4) },
+
+    // Background
+    bgBlack50: { backgroundColor: 'rgba(0, 0, 0, 0.5)' },
+
+    // Height
+    h80: { height: scaleSize(320) },
+    maxH80: { maxHeight: scaleSize(320) },
+
     // Add to the SPACING section:
     mx1: { marginHorizontal: scaleSize(4) },
 

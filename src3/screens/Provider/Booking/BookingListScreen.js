@@ -108,6 +108,7 @@ const BookingListScreen = ({ navigation }) => {
           const user = item.user || {};
           const address = booking.addressId || {};
           const bookingItems = booking.bookingItems || [];
+          const id = item._id || '';
 
           // Get service names
           const serviceNames = bookingItems.map(item => 
@@ -498,7 +499,7 @@ const BookingListScreen = ({ navigation }) => {
               )}
               onPress={(e) => {
                 e.stopPropagation();
-                navigation.navigate('BookingDetail', { booking: booking });
+                navigation.navigate('BookingDetail', { booking: booking.originalData });
               }}
             >
               <Text style={clsx(styles.textPrimary, styles.fontMedium, styles.mr1)}>

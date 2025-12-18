@@ -9,16 +9,10 @@ import {
   Alert,
   Linking,
   Share,
-  Modal,
   ActivityIndicator,
   Dimensions,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  FlatList,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import { AppContext } from '../../../Context/AppContext';
@@ -26,72 +20,38 @@ import { AppContext } from '../../../Context/AppContext';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const BookingDetailScreen = ({ navigation, route }) => {
-  const bookingId = '6942a02419205552122790f5';
-  console.log('Booking ID:', bookingId);
-  const { Toast, Urls, postData, user } = useContext(AppContext);
+  const bookingId = route.params.booking._id;
+  
+  const { Toast, Urls, postData, user, token, UploadUrl } = useContext(AppContext);
 
   const [bookingData, setBookingData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isNotesExpanded, setIsNotesExpanded] = useState(false);
   
-  // OTP Verification States
-  const [otpModalVisible, setOtpModalVisible] = useState(false); 
-  const [otp, setOtp] = useState(['', '', '', '']);
-  const [otpError, setOtpError] = useState('');
-  const [sendingOtp, setSendingOtp] = useState(false);
-  const [verifyingOtp, setVerifyingOtp] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpTimer, setOtpTimer] = useState(0);
-  
   // Selfie States
-  const [selfieModalVisible, setSelfieModalVisible] = useState(false);
   const [selectedSelfie, setSelectedSelfie] = useState(null);
-  const [takingSelfie, setTakingSelfie] = useState(false);
   
-  // Media Upload States
-  const [mediaModalVisible, setMediaModalVisible] = useState(false);
-  const [mediaType, setMediaType] = useState('');
+  // Media Upload States - FOR CAPTURED MEDIA (NOT UPLOADED YET)
+  const [capturedBeforeImages, setCapturedBeforeImages] = useState([]);
+  const [capturedBeforeVideos, setCapturedBeforeVideos] = useState([]);
+  const [capturedAfterImages, setCapturedAfterImages] = useState([]);
+  const [capturedAfterVideos, setCapturedAfterVideos] = useState([]);
+  
+  // Server Media States
   const [beforeImages, setBeforeImages] = useState([]);
   const [beforeVideos, setBeforeVideos] = useState([]);
   const [afterImages, setAfterImages] = useState([]);
   const [afterVideos, setAfterVideos] = useState([]);
+  
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [showUploadButton, setShowUploadButton] = useState(false);
   
   // Complete Booking States
-  const [completeModalVisible, setCompleteModalVisible] = useState(false);
-  const [cashCollected, setCashCollected] = useState(false);
-  const [cashAmount, setCashAmount] = useState('');
   const [additionalItems, setAdditionalItems] = useState([]);
-  const [addItemModalVisible, setAddItemModalVisible] = useState(false);
-  const [newItem, setNewItem] = useState({ name: '', quantity: '1', price: '' });
-  const [completingBooking, setCompletingBooking] = useState(false);
-
-  // OTP Input Refs
-  const otpInputRefs = useRef([]);
 
   useEffect(() => {
     loadBookingDetails();
   }, []);
-
-  useEffect(() => {
-    let interval;
-    if (otpTimer > 0) {
-      interval = setInterval(() => {
-        setOtpTimer(prev => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [otpTimer]);
-
-  const startOtpTimer = () => {
-    setOtpTimer(120); // 2 minutes
-  };
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const loadBookingDetails = async () => {
     try {
@@ -227,251 +187,79 @@ const BookingDetailScreen = ({ navigation, route }) => {
     }
   };
 
-  // 1️⃣ FIXED OTP FUNCTIONS
-  const sendOtp = async () => {
-    try {
-      setSendingOtp(true);
-      setOtpError('');
-      
-      console.log('Sending OTP for booking:', bookingData?._id);
-      
-      const response = await postData(
-        { 
-          bookingId: bookingData?._id,
-        },
-        Urls.sendOtp,
-        'POST'
-      );
-
-      console.log('Send OTP Response:', response);
-
-      if (response?.success) {
-        setOtpSent(true);
-        startOtpTimer();
-        
-        Toast.show({
-          type: 'success',
-          text1: 'OTP Sent Successfully',
-          text2: 'OTP has been sent to customer\'s mobile',
-        });
-      } else {
-        setOtpError(response?.message || 'Failed to send OTP');
-        Toast.show({
-          type: 'error',
-          text1: 'Failed to Send OTP',
-          text2: response?.message || 'Please try again',
-        });
-      }
-    } catch (error) {
-      console.error('Error sending OTP:', error);
-      setOtpError('Failed to send OTP');
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to send OTP. Please check your connection.',
-      });
-    } finally {
-      setSendingOtp(false);
-    }
-  };
-
-  const resendOtp = async () => {
-    if (otpTimer > 0) {
-      Toast.show({
-        type: 'info',
-        text1: 'Please wait',
-        text2: `You can resend OTP in ${formatTime(otpTimer)}`,
-      });
-      return;
-    }
-    await sendOtp();
-  };
-
-  const verifyOtpAndStartService = async () => {
-    const otpString = otp.join('');
-    
-    // Validate OTP
-    if (otpString.length !== 4) {
-      setOtpError('Please enter 4-digit OTP');
-      return;
-    }
-
-    // Validate selfie
-    if (!selectedSelfie) {
-      setOtpError('Please take a selfie first');
-      return;
-    }
-
-    try {
-      setVerifyingOtp(true);
-      setOtpError('');
-
-      // Create form data properly
-      const formData = new FormData();
-      formData.append('bookingId', bookingData?._id);
-      formData.append('otp', otpString);
-      
-      // Append selfie correctly
-      if (selectedSelfie.uri) {
-        const selfieFile = {
-          uri: selectedSelfie.uri,
-          type: selectedSelfie.type || 'image/jpeg',
-          name: `selfie_${Date.now()}.jpg`,
-        };
-        formData.append('selfie', selfieFile);
-        console.log('Selfie appended:', selfieFile);
-      }
-
-      console.log('Verifying OTP...');
-      
-      const response = await postData(
-        formData,
-        Urls.verifyOtpAndStart+'/'+bookingId,
-        'POST',
-        { 
-          isFileUpload: true,
-        }
-      );
-
-      console.log('OTP Verification Response:', response);
-
-      if (response?.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'Service Started Successfully',
-          text2: 'Booking has been marked as ongoing',
-        });
-        
-        // Reset all states
-        setOtpModalVisible(false);
-        setSelfieModalVisible(false);
-        setSelectedSelfie(null);
-        setOtp(['', '', '', '']);
-        setOtpSent(false);
-        setOtpTimer(0);
-        setOtpError('');
-        
-        // Clear OTP input refs focus
-        otpInputRefs.current.forEach(ref => ref?.blur());
-        
-        // Refresh booking data
-        setTimeout(() => {
-          loadBookingDetails();
-        }, 1500);
-        
-      } else {
-        setOtpError(response?.message || 'Invalid OTP or failed to start service');
-        Toast.show({
-          type: 'error',
-          text1: 'Verification Failed',
-          text2: response?.message || 'Invalid OTP. Please try again.',
-        });
-      }
-    } catch (error) {
-      console.error('Error verifying OTP:', error);
-      setOtpError('Network error. Please try again.');
-      Toast.show({
-        type: 'error',
-        text1: 'Network Error',
-        text2: 'Failed to verify OTP. Please check your connection.',
-      });
-    } finally {
-      setVerifyingOtp(false);
-    }
-  };
-
-  // 2️⃣ MEDIA UPLOAD FUNCTIONS
+  // MEDIA UPLOAD FUNCTIONS
   const openMediaModal = (type) => {
-    setMediaType(type);
-    setMediaModalVisible(true);
+    navigation.navigate('MediaCaptureScreen', {
+      mediaType: type,
+      bookingId,
+      setCapturedBeforeImages,
+      setCapturedBeforeVideos,
+      setCapturedAfterImages,
+      setCapturedAfterVideos,
+      checkAndShowUploadButton,
+    });
   };
 
-  const captureMedia = async (type) => {
+  const checkAndShowUploadButton = () => {
+    const totalCaptured = 
+      capturedBeforeImages.length + 
+      capturedBeforeVideos.length + 
+      capturedAfterImages.length + 
+      capturedAfterVideos.length;
+    
+    setShowUploadButton(totalCaptured > 0);
+  };
+
+  const uploadAllCapturedMedia = async () => {
     try {
       setUploadingMedia(true);
       
-      const options = {
-        mediaType: type.includes('image') ? 'photo' : 'video',
-        includeBase64: false,
-        quality: type.includes('image') ? 0.8 : 0.7,
-        videoQuality: 'high',
-        durationLimit: 60,
-      };
-
-      const result = await launchCamera(options);
-
-      if (result.didCancel) {
-        setUploadingMedia(false);
-        return;
-      }
-      
-      if (result.errorCode) {
-        Alert.alert('Error', `Camera error: ${result.errorMessage}`);
-        setUploadingMedia(false);
-        return;
-      }
-
-      if (result.assets && result.assets[0]) {
-        const media = result.assets[0];
-        await uploadMedia(media);
-      }
-    } catch (error) {
-      console.error('Error capturing media:', error);
-      Alert.alert('Error', 'Failed to capture media');
-      setUploadingMedia(false);
-    }
-  };
-
-  const uploadMedia = async (media) => {
-    try {
-      const formData = new FormData();
-      formData.append('bookingId', bookingData?._id);
-      formData.append('type', mediaType);
-      
-      const mediaFile = {
-        uri: media.uri,
-        type: media.type || (mediaType.includes('image') ? 'image/jpeg' : 'video/mp4'),
-        name: `${mediaType}_${Date.now()}.${mediaType.includes('image') ? 'jpg' : 'mp4'}`,
-      };
-      
-      formData.append('file', mediaFile);
-
-      const response = await postData(
-        formData,
-        Urls.uploadMedia,
-        'POST',
-        { isFormData: true }
-      );
-
-      if (response?.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'Upload Successful',
-          text2: 'Media uploaded successfully',
-        });
-        
-        // Update local state
-        if (mediaType === 'before-image') {
-          setBeforeImages(prev => [...prev, media.uri]);
-        } else if (mediaType === 'before-video') {
-          setBeforeVideos(prev => [...prev, media.uri]);
-        } else if (mediaType === 'after-image') {
-          setAfterImages(prev => [...prev, media.uri]);
-        } else if (mediaType === 'after-video') {
-          setAfterVideos(prev => [...prev, media.uri]);
+      // Upload before media if exists
+      if (capturedBeforeImages.length > 0 || capturedBeforeVideos.length > 0) {
+        const beforeSuccess = await uploadMediaBatch(capturedBeforeImages, capturedBeforeVideos, 'before');
+        if (!beforeSuccess) {
+          Toast.show({
+            type: 'error',
+            text1: 'Upload Failed',
+            text2: 'Failed to upload before service media',
+          });
+          setUploadingMedia(false);
+          return;
         }
-        
-        setMediaModalVisible(false);
-        loadBookingDetails();
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Upload Failed',
-          text2: response?.message || 'Failed to upload media',
-        });
       }
+      
+      // Upload after media if exists
+      if (capturedAfterImages.length > 0 || capturedAfterVideos.length > 0) {
+        const afterSuccess = await uploadMediaBatch(capturedAfterImages, capturedAfterVideos, 'after');
+        if (!afterSuccess) {
+          Toast.show({
+            type: 'error',
+            text1: 'Upload Failed',
+            text2: 'Failed to upload after service media',
+          });
+          setUploadingMedia(false);
+          return;
+        }
+      }
+      
+      // Clear all captured media
+      setCapturedBeforeImages([]);
+      setCapturedBeforeVideos([]);
+      setCapturedAfterImages([]);
+      setCapturedAfterVideos([]);
+      setShowUploadButton(false);
+      
+      Toast.show({
+        type: 'success',
+        text1: 'Upload Complete',
+        text2: 'All media uploaded successfully',
+      });
+      
+      // Refresh booking data
+      loadBookingDetails();
+      
     } catch (error) {
-      console.error('Error uploading media:', error);
+      console.error('Error uploading all media:', error);
       Toast.show({
         type: 'error',
         text1: 'Upload Error',
@@ -482,7 +270,56 @@ const BookingDetailScreen = ({ navigation, route }) => {
     }
   };
 
-  const deleteMedia = async (mediaUri, type) => {
+  const uploadMediaBatch = async (images, videos, type) => {
+    try {
+      const formData = new FormData();
+      
+      // Append images to formData
+      images.forEach((image, index) => {
+        formData.append('images', {
+          uri: image.uri,
+          type: image.type || 'image/jpeg',
+          name: `image_${Date.now()}_${index}.jpg`,
+        });
+      });
+      
+      // Append videos to formData
+      videos.forEach((video, index) => {
+        formData.append('videos', {
+          uri: video.uri,
+          type: video.type || 'video/mp4',
+          name: `video_${Date.now()}_${index}.mp4`,
+        });
+      });
+      
+      // Determine endpoint based on type
+      const endpoint = type === 'before' 
+        ? `${Urls.uploadBeforeStartMedia}/${bookingId}`
+        : `${Urls.uploadAfterCompleteMedia}/${bookingId}`;
+      
+      console.log('Uploading to:', endpoint);
+      console.log('Images count:', images.length);
+      console.log('Videos count:', videos.length);
+
+      const response = await postData(formData, endpoint, 'POST', {
+        showErrorMessage: true,
+        isFileUpload: true,
+        showLoader: false,
+      });
+
+      const result = response;
+      console.log('Upload response:', result);
+      
+      return result?.success === true;
+      
+    } catch (error) {
+      console.error('Error in uploadMediaBatch:', error);
+      return false;
+    }
+  };
+
+  // UPDATED: Delete media function according to your backend API
+  const deleteMedia = async (mediaUri, mediaType) => {
     Alert.alert(
       'Delete Media',
       'Are you sure you want to delete this media?',
@@ -493,13 +330,31 @@ const BookingDetailScreen = ({ navigation, route }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const response = await postData(
-                { mediaUri, type },
-                Urls.deleteMedia,
-                'POST'
-              );
+              // Determine if it's before or after media
+              const isBefore = mediaType.includes('before');
+              const isImage = mediaType.includes('image');
+              
+              const endpoint = isBefore 
+                ? `${Urls.removeBeforeStartMedia}/${bookingId}`
+                : `${Urls.removeAfterCompleteMedia}/${bookingId}`;
+              
+              const requestBody = {
+                [isImage ? 'images' : 'videos']: [mediaUri]
+              };
+              
+              console.log('Deleting from:', endpoint);
+              console.log('Request body:', requestBody);
 
-              if (response?.success) {
+              const response = await postData(requestBody, endpoint, 'DELETE', {
+                showErrorMessage: true,
+                isFileUpload: false,
+                showLoader: false,
+              });
+              const result = response;
+
+              console.log('Delete response:', result);
+              
+              if (result?.success) {
                 Toast.show({
                   type: 'success',
                   text1: 'Deleted',
@@ -507,20 +362,31 @@ const BookingDetailScreen = ({ navigation, route }) => {
                 });
                 
                 // Update local state
-                if (type === 'before-image') {
+                if (mediaType === 'before-image') {
                   setBeforeImages(prev => prev.filter(uri => uri !== mediaUri));
-                } else if (type === 'before-video') {
+                } else if (mediaType === 'before-video') {
                   setBeforeVideos(prev => prev.filter(uri => uri !== mediaUri));
-                } else if (type === 'after-image') {
+                } else if (mediaType === 'after-image') {
                   setAfterImages(prev => prev.filter(uri => uri !== mediaUri));
-                } else if (type === 'after-video') {
+                } else if (mediaType === 'after-video') {
                   setAfterVideos(prev => prev.filter(uri => uri !== mediaUri));
                 }
                 
                 loadBookingDetails();
+              } else {
+                Toast.show({
+                  type: 'error',
+                  text1: 'Delete Failed',
+                  text2: result?.message || 'Failed to delete media',
+                });
               }
             } catch (error) {
               console.error('Error deleting media:', error);
+              Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to delete media',
+              });
             }
           },
         },
@@ -528,85 +394,68 @@ const BookingDetailScreen = ({ navigation, route }) => {
     );
   };
 
-  // 3️⃣ COMPLETE BOOKING FUNCTIONS
+  const deleteCapturedMedia = (index, type) => {
+    Alert.alert(
+      'Delete Captured Media',
+      'Are you sure you want to delete this captured media?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            if (type === 'before-image') {
+              setCapturedBeforeImages(prev => prev.filter((_, i) => i !== index));
+            } else if (type === 'before-video') {
+              setCapturedBeforeVideos(prev => prev.filter((_, i) => i !== index));
+            } else if (type === 'after-image') {
+              setCapturedAfterImages(prev => prev.filter((_, i) => i !== index));
+            } else if (type === 'after-video') {
+              setCapturedAfterVideos(prev => prev.filter((_, i) => i !== index));
+            }
+            
+            checkAndShowUploadButton();
+            
+            Toast.show({
+              type: 'success',
+              text1: 'Deleted',
+              text2: 'Captured media removed',
+            });
+          },
+        },
+      ]
+    );
+  };
+
+  // COMPLETE BOOKING FUNCTIONS
   const openCompleteModal = () => {
-    setCompleteModalVisible(true);
-    if (formattedData?.paymentStatus === 'Pending') {
-      setCashAmount(formattedData.amount.toString());
-    }
-  };
-
-  const addAdditionalItem = () => {
-    if (!newItem.name.trim()) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Please enter item name',
-      });
-      return;
-    }
-    
-    if (!newItem.price || parseFloat(newItem.price) <= 0) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Please enter valid price',
-      });
-      return;
-    }
-
-    const item = {
-      id: Date.now().toString(),
-      name: newItem.name.trim(),
-      quantity: parseInt(newItem.quantity) || 1,
-      price: parseFloat(newItem.price) || 0,
-    };
-
-    setAdditionalItems(prev => [...prev, item]);
-    setNewItem({ name: '', quantity: '1', price: '' });
-    setAddItemModalVisible(false);
-    
-    Toast.show({
-      type: 'success',
-      text1: 'Item Added',
-      text2: 'Additional item added successfully',
+    navigation.navigate('CompleteBookingScreen', {
+      bookingData,
+      formattedData,
+      loadBookingDetails,
     });
   };
 
-  const removeAdditionalItem = (id) => {
-    setAdditionalItems(prev => prev.filter(item => item.id !== id));
-  };
-
-  const calculateTotalAmount = () => {
-    let total = formattedData?.originalBookingAmount || 0;
-    additionalItems.forEach(item => {
-      total += item.price * item.quantity;
+  const openOTPVerification = () => {
+    navigation.navigate('OTPVerificationScreen', {
+      bookingData,
+      selectedSelfie,
+      setSelectedSelfie,
+      loadBookingDetails,
     });
-    return total;
-  };
-
-  const calculateDueAmount = () => {
-    const total = calculateTotalAmount();
-    if (formattedData?.paymentStatus === 'Paid') {
-      const additionalTotal = additionalItems.reduce((sum, item) => 
-        sum + (item.price * item.quantity), 0
-      );
-      return additionalTotal;
-    }
-    return total;
   };
 
   const handleShareBooking = async () => {
     try {
       const shareMessage = `Booking Details:
-ID: ${formattedData?.bookingId}
-Service: ${formattedData?.service}
-Customer: ${formattedData?.customerName}
-Date: ${formattedData?.date}
-Time: ${formattedData?.time}
-Address: ${formattedData?.address}
-Amount: ₹${formattedData?.amount}
-Status: ${getStatusLabel(formattedData?.status)}`;
+        ID: ${formattedData?.bookingId}
+        Service: ${formattedData?.service}
+        Customer: ${formattedData?.customerName}
+        Date: ${formattedData?.date}
+        Time: ${formattedData?.time}
+        Address: ${formattedData?.address}
+        Amount: ₹${formattedData?.amount}
+        Status: ${getStatusLabel(formattedData?.status)}`;
 
       await Share.share({
         message: shareMessage,
@@ -617,922 +466,257 @@ Status: ${getStatusLabel(formattedData?.status)}`;
     }
   };
 
-  const completeBooking = async () => {
-    try {
-      setCompletingBooking(true);
-      
-      const data = {
-        bookingId: bookingData?._id,
-        cashCollected: cashCollected,
-        cashAmount: cashCollected ? parseFloat(cashAmount) : 0,
-        additionalItems: additionalItems,
-        totalAmount: calculateTotalAmount(),
-        dueAmount: calculateDueAmount(),
-      };
-
-      const response = await postData(
-        data,
-        Urls.completeBooking,
-        'POST'
-      );
-
-      if (response?.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'Booking Completed',
-          text2: 'Booking has been completed successfully',
-        });
-        
-        setCompleteModalVisible(false);
-        setTimeout(() => {
-          navigation.goBack();
-        }, 1000);
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Error',
-          text2: response?.message || 'Failed to complete booking',
-        });
-      }
-    } catch (error) {
-      console.error('Error completing booking:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to complete booking',
-      });
-    } finally {
-      setCompletingBooking(false);
-    }
-  };
-
-  // 4️⃣ MODAL COMPONENTS
-  const OTPModal = () => (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={otpModalVisible}
-      onRequestClose={() => {
-        if (!verifyingOtp) {
-          setOtpModalVisible(false);
-          setOtpError('');
-        }
-      }}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={clsx(styles.flex1)}
-      >
-        <View style={clsx(styles.flex1, styles.justifyEnd, styles.bgBlack50)}>
-          <View style={clsx(styles.bgWhite, styles.roundedT3xl, styles.p6)}>
-            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb6)}>
-              <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)}>
-                Start Service - OTP Verification
-              </Text>
-              <TouchableOpacity 
-                onPress={() => {
-                  if (!verifyingOtp) {
-                    setOtpModalVisible(false);
-                    setOtpError('');
-                  }
-                }}
-                disabled={verifyingOtp}
-              >
-                <Icon name="close" size={24} color={colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={clsx(styles.textBase, styles.textBlack, styles.mb6)}>
-              Enter 4-digit OTP received from customer
-            </Text>
-
-            {/* Selfie Preview */}
-            {selectedSelfie ? (
-              <View style={clsx(styles.mb6, styles.itemsCenter)}>
-                <Image
-                  source={{ uri: selectedSelfie.uri }}
-                  style={{
-                    width: 100,
-                    height: 100,
-                    borderRadius: 8,
-                    borderWidth: 2,
-                    borderColor: colors.success,
-                  }}
-                />
-                <Text style={clsx(styles.textSm, styles.textSuccess, styles.mt2)}>
-                  ✓ Selfie captured
-                </Text>
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={clsx(
-                  styles.mb6,
-                  styles.p4,
-                  styles.border,
-                  styles.borderDashed,
-                  styles.borderPrimary,
-                  styles.roundedLg,
-                  styles.itemsCenter
-                )}
-                onPress={() => {
-                  setOtpModalVisible(false);
-                  setSelfieModalVisible(true);
-                }}
-                disabled={verifyingOtp}
-              >
-                <Icon name="camera-alt" size={40} color={colors.primary} />
-                <Text style={clsx(styles.textPrimary, styles.fontMedium, styles.mt2)}>
-                  Take Selfie First
-                </Text>
-                <Text style={clsx(styles.textSm, styles.textMuted)}>
-                  Selfie is required to start service
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            {/* OTP Input */}
-            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb4)}>
-              {[0,1,2,3].map((index) => (
-                <TextInput
-                  key={index}
-                  ref={(ref) => (otpInputRefs.current[index] = ref)}
-                  style={clsx(
-                    styles.w12,
-                    styles.h12,
-                    styles.border,
-                    styles.roundedLg,
-                    styles.textCenter,
-                    styles.textXl,
-                    styles.fontBold,
-                    { 
-                      borderColor: otpError ? colors.error : colors.primary,
-                      backgroundColor: otp[index] ? colors.primaryLight : colors.white,
-                    }
-                  )}
-                  keyboardType="number-pad"
-                  maxLength={1}
-                  value={otp[index]}
-                  onChangeText={(text) => {
-                    const numericText = text.replace(/[^0-9]/g, '');
-                    if (!numericText) return;
-                    
-                    const newOtp = [...otp];
-                    newOtp[index] = numericText;
-                    setOtp(newOtp);
-                    setOtpError('');
-                    
-                    // Auto focus next input
-                    if (numericText && index < 3) {
-                      otpInputRefs.current[index + 1]?.focus();
-                    }
-                    
-                    // If all fields filled, focus verify button
-                    if (index === 3 && numericText) {
-                      // You can add logic to auto-submit if needed
-                    }
-                  }}
-                  onKeyPress={({ nativeEvent }) => {
-                    if (nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
-                      otpInputRefs.current[index - 1]?.focus();
-                    }
-                  }}
-                  editable={!verifyingOtp}
-                  selectTextOnFocus
-                />
-              ))}
-            </View>
-
-            {otpError ? (
-              <Text style={clsx(styles.textSm, styles.textError, styles.mb4, styles.textCenter)}>
-                {otpError}
-              </Text>
-            ) : null}
-
-
-            {/* Verify Button */}
-            <TouchableOpacity
-              style={clsx(
-                styles.bgPrimary,
-                styles.roundedLg,
-                styles.p4,
-                styles.itemsCenter,
-                styles.justifyCenter,
-                (verifyingOtp || !selectedSelfie || otp.join('').length !== 4) && styles.opacity50
-              )}
-              onPress={verifyOtpAndStartService}
-              disabled={verifyingOtp || !selectedSelfie || otp.join('').length !== 4}
-            >
-              {verifyingOtp ? (
-                <ActivityIndicator size="small" color={colors.white} />
-              ) : (
-                <Text style={clsx(styles.textWhite, styles.fontBold)}>
-                  Verify OTP & Start Service
-                </Text>
-              )}
-            </TouchableOpacity>
-            
-            {/* Debug - For testing only */}
-            {__DEV__ && (
-              <TouchableOpacity
-                style={clsx(styles.mt4, styles.p2, styles.bgGray200, styles.roundedFull)}
-                onPress={() => {
-                  setOtp(['1','2','3','4']);
-                  Toast.show({
-                    type: 'info',
-                    text1: 'Debug',
-                    text2: 'Test OTP filled',
-                  });
-                }}
-              >
-                <Text style={clsx(styles.textXs, styles.textCenter)}>Fill Test OTP (1234)</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-
-  const SelfieModal = () => (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={selfieModalVisible}
-      onRequestClose={() => !takingSelfie && setSelfieModalVisible(false)}
-    >
-      <View style={clsx(styles.flex1, styles.justifyEnd, styles.bgBlack50)}>
-        <View style={clsx(styles.bgWhite, styles.roundedT3xl, styles.p6)}>
-          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb6)}>
-            <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)}>
-              Take Selfie
-            </Text>
-            <TouchableOpacity 
-              onPress={() => !takingSelfie && setSelfieModalVisible(false)}
-              disabled={takingSelfie}
-            >
-              <Icon name="close" size={24} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-
-          <Text style={clsx(styles.textBase, styles.textBlack, styles.mb6)}>
-            Take a selfie to verify your identity before starting the service
-          </Text>
-
-          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.gap3)}>
-            <TouchableOpacity
-              style={clsx(
-                styles.flex1,
-                styles.border,
-                styles.borderPrimary,
-                styles.roundedLg,
-                styles.p4,
-                styles.itemsCenter,
-                styles.justifyCenter,
-                takingSelfie && styles.opacity50
-              )}
-              onPress={async () => {
-                try {
-                  setTakingSelfie(true);
-                  const result = await launchCamera({
-                    mediaType: 'photo',
-                    cameraType: 'front',
-                    quality: 0.8,
-                    includeBase64: false,
-                  });
-                  
-                  if (result.didCancel) {
-                    setTakingSelfie(false);
-                    return;
-                  }
-                  
-                  if (result.errorCode) {
-                    Alert.alert('Error', `Camera error: ${result.errorMessage}`);
-                    setTakingSelfie(false);
-                    return;
-                  }
-                  
-                  if (result.assets && result.assets[0]) {
-                    setSelectedSelfie(result.assets[0]);
-                    Toast.show({
-                      type: 'success',
-                      text1: 'Selfie Captured',
-                      text2: 'Selfie captured successfully',
-                    });
-                    setSelfieModalVisible(false);
-                    setOtpModalVisible(true);
-                  }
-                } catch (error) {
-                  console.error('Error taking selfie:', error);
-                  Alert.alert('Error', 'Failed to take selfie');
-                } finally {
-                  setTakingSelfie(false);
-                }
-              }}
-              disabled={takingSelfie}
-            >
-              {takingSelfie ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <>
-                  <Icon name="camera-alt" size={32} color={colors.primary} />
-                  <Text style={clsx(styles.textPrimary, styles.fontBold, styles.mt2)}>
-                    Take Selfie
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={clsx(
-                styles.flex1,
-                styles.border,
-                styles.borderSuccess,
-                styles.roundedLg,
-                styles.p4,
-                styles.itemsCenter,
-                styles.justifyCenter
-              )}
-              onPress={async () => {
-                try {
-                  const result = await launchImageLibrary({
-                    mediaType: 'photo',
-                    quality: 0.8,
-                    includeBase64: false,
-                  });
-                  
-                  if (result.assets && result.assets[0]) {
-                    setSelectedSelfie(result.assets[0]);
-                    Toast.show({
-                      type: 'success',
-                      text1: 'Selfie Selected',
-                      text2: 'Selfie selected from gallery',
-                    });
-                    setSelfieModalVisible(false);
-                    setOtpModalVisible(true);
-                  }
-                } catch (error) {
-                  console.error('Error selecting selfie:', error);
-                  Alert.alert('Error', 'Failed to select image');
-                }
-              }}
-            >
-              <Icon name="photo-library" size={32} color={colors.success} />
-              <Text style={clsx(styles.textSuccess, styles.fontBold, styles.mt2)}>
-                Choose from Gallery
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-
-  const MediaModal = () => (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={mediaModalVisible}
-      onRequestClose={() => !uploadingMedia && setMediaModalVisible(false)}
-    >
-      <View style={clsx(styles.flex1, styles.justifyEnd, styles.bgBlack50)}>
-        <View style={clsx(styles.bgWhite, styles.roundedT3xl, styles.p6)}>
-          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb6)}>
-            <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)}>
-              {mediaType === 'before-image' ? 'Upload Before Service Image' :
-               mediaType === 'before-video' ? 'Upload Before Service Video' :
-               mediaType === 'after-image' ? 'Upload After Service Image' : 'Upload After Service Video'}
-            </Text>
-            <TouchableOpacity 
-              onPress={() => setMediaModalVisible(false)}
-              disabled={uploadingMedia}
-            >
-              <Icon name="close" size={24} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.gap3)}>
-            <TouchableOpacity
-              style={clsx(
-                styles.flex1,
-                styles.border,
-                styles.borderPrimary,
-                styles.roundedLg,
-                styles.p4,
-                styles.itemsCenter,
-                styles.justifyCenter,
-                uploadingMedia && styles.opacity50
-              )}
-              onPress={() => captureMedia(mediaType)}
-              disabled={uploadingMedia}
-            >
-              {uploadingMedia ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <>
-                  <Icon 
-                    name={mediaType.includes('image') ? 'camera-alt' : 'videocam'} 
-                    size={32} 
-                    color={colors.primary} 
-                  />
-                  <Text style={clsx(styles.textPrimary, styles.fontBold, styles.mt2)}>
-                    {mediaType.includes('image') ? 'Take Photo' : 'Record Video'}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={clsx(
-                styles.flex1,
-                styles.border,
-                styles.borderSuccess,
-                styles.roundedLg,
-                styles.p4,
-                styles.itemsCenter,
-                styles.justifyCenter,
-                uploadingMedia && styles.opacity50
-              )}
-              onPress={async () => {
-                try {
-                  setUploadingMedia(true);
-                  const result = await launchImageLibrary({
-                    mediaType: mediaType.includes('image') ? 'photo' : 'video',
-                    quality: 0.8,
-                    includeBase64: false,
-                  });
-                  
-                  if (result.assets && result.assets[0]) {
-                    await uploadMedia(result.assets[0]);
-                  } else {
-                    setUploadingMedia(false);
-                  }
-                } catch (error) {
-                  console.error('Error selecting media:', error);
-                  setUploadingMedia(false);
-                }
-              }}
-              disabled={uploadingMedia}
-            >
-              <Icon name="photo-library" size={32} color={colors.success} />
-              <Text style={clsx(styles.textSuccess, styles.fontBold, styles.mt2)}>
-                Choose from Gallery
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-
-  const CompleteBookingModal = () => (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={completeModalVisible}
-      onRequestClose={() => !completingBooking && setCompleteModalVisible(false)}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={clsx(styles.flex1)}
-      >
-        <View style={clsx(styles.flex1, styles.justifyEnd, styles.bgBlack50)}>
-          <ScrollView 
-            style={clsx(styles.bgWhite, styles.roundedT3xl, styles.maxH80)}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={clsx(styles.p6)}>
-              <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb6)}>
-                <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)}>
-                  Complete Booking
-                </Text>
-                <TouchableOpacity 
-                  onPress={() => setCompleteModalVisible(false)}
-                  disabled={completingBooking}
-                >
-                  <Icon name="close" size={24} color={colors.textMuted} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Payment Summary */}
-              <View style={clsx(styles.mb6, styles.p4, styles.bgGray50, styles.roundedLg)}>
-                <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb4)}>
-                  Payment Summary
-                </Text>
-                
-                <View style={clsx(styles.mb3)}>
-                  <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
-                    <Text style={clsx(styles.textBase, styles.textBlack)}>Original Amount:</Text>
-                    <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-                      ₹{formattedData?.originalBookingAmount || 0}
-                    </Text>
-                  </View>
-                  
-                  {additionalItems.length > 0 && (
-                    <>
-                      <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mt3, styles.mb2)}>
-                        Additional Items:
-                      </Text>
-                      {additionalItems.map(item => (
-                        <View key={item.id} style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
-                          <Text style={clsx(styles.textSm, styles.textMuted)}>
-                            {item.quantity}x {item.name}
-                          </Text>
-                          <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack)}>
-                            ₹{item.price * item.quantity}
-                          </Text>
-                        </View>
-                      ))}
-                    </>
-                  )}
-                  
-                  <View style={clsx(styles.borderTop, styles.borderLight, styles.pt3, styles.mt3)}>
-                    <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
-                      <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>Total Amount:</Text>
-                      <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
-                        ₹{calculateTotalAmount()}
-                      </Text>
-                    </View>
-                    
-                    <View style={clsx(styles.flexRow, styles.justifyBetween)}>
-                      <Text style={clsx(styles.textBase, styles.textMuted)}>Payment Status:</Text>
-                      <Text style={clsx(
-                        styles.textBase,
-                        styles.fontMedium,
-                        formattedData?.paymentStatus === 'Paid' ? styles.textSuccess : styles.textWarning
-                      )}>
-                        {formattedData?.paymentStatus}
-                      </Text>
-                    </View>
-                    
-                    <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mt2)}>
-                      <Text style={clsx(styles.textLg, styles.fontBold, styles.textPrimary)}>Amount Due:</Text>
-                      <Text style={clsx(styles.textLg, styles.fontBold, styles.textPrimary)}>
-                        ₹{calculateDueAmount()}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-
-              {/* Cash Collection */}
-              {calculateDueAmount() > 0 && (
-                <View style={clsx(styles.mb6, styles.p4, styles.bgGray50, styles.roundedLg)}>
-                  <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb4)}>
-                    Cash Collection
-                  </Text>
-                  
-                  <TouchableOpacity
-                    style={clsx(
-                      styles.flexRow,
-                      styles.itemsCenter,
-                      styles.mb4,
-                      styles.p3,
-                      styles.roundedLg,
-                      cashCollected ? styles.bgSuccessLight : styles.bgWhite,
-                      styles.border,
-                      cashCollected ? styles.borderSuccess : styles.borderLight
-                    )}
-                    onPress={() => setCashCollected(!cashCollected)}
-                  >
-                    <View style={clsx(
-                      styles.w6,
-                      styles.h6,
-                      styles.border,
-                      styles.roundedFull,
-                      styles.itemsCenter,
-                      styles.justifyCenter,
-                      styles.mr3,
-                      cashCollected ? styles.bgSuccess : styles.bgWhite,
-                      cashCollected ? styles.borderSuccess : styles.borderGray
-                    )}>
-                      {cashCollected && <Icon name="check" size={16} color={colors.white} />}
-                    </View>
-                    <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-                      Cash Collected
-                    </Text>
-                  </TouchableOpacity>
-                  
-                  {cashCollected && (
-                    <View>
-                      <Text style={clsx(styles.textSm, styles.textMuted, styles.mb2)}>
-                        Amount Collected
-                      </Text>
-                      <TextInput
-                        style={clsx(
-                          styles.border,
-                          styles.borderPrimary,
-                          styles.roundedLg,
-                          styles.p3,
-                          styles.textBase,
-                          styles.textBlack
-                        )}
-                        placeholder="Enter amount"
-                        keyboardType="numeric"
-                        value={cashAmount}
-                        onChangeText={setCashAmount}
-                        editable={!completingBooking}
-                      />
-                    </View>
-                  )}
-                </View>
-              )}
-
-              {/* Additional Items */}
-              <View style={clsx(styles.mb6)}>
-                <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4)}>
-                  <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
-                    Additional Items
-                  </Text>
-                  <TouchableOpacity
-                    style={clsx(
-                      styles.flexRow,
-                      styles.itemsCenter,
-                      styles.px3,
-                      styles.py2,
-                      styles.bgPrimary,
-                      styles.roundedFull
-                    )}
-                    onPress={() => setAddItemModalVisible(true)}
-                    disabled={completingBooking}
-                  >
-                    <Icon name="add" size={20} color={colors.white} />
-                    <Text style={clsx(styles.textWhite, styles.fontMedium, styles.ml1)}>
-                      Add Item
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-                
-                {additionalItems.length === 0 ? (
-                  <Text style={clsx(styles.textBase, styles.textMuted, styles.textCenter, styles.p4)}>
-                    No additional items added
-                  </Text>
-                ) : (
-                  <View>
-                    {additionalItems.map(item => (
-                      <View key={item.id} style={clsx(
-                        styles.flexRow,
-                        styles.itemsCenter,
-                        styles.justifyBetween,
-                        styles.p3,
-                        styles.bgWhite,
-                        styles.roundedLg,
-                        styles.mb2,
-                        styles.shadowSm
-                      )}>
-                        <View style={clsx(styles.flex1)}>
-                          <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-                            {item.quantity}x {item.name}
-                          </Text>
-                          <Text style={clsx(styles.textSm, styles.textMuted)}>
-                            ₹{item.price} each
-                          </Text>
-                        </View>
-                        <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-                          <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary, styles.mr3)}>
-                            ₹{item.price * item.quantity}
-                          </Text>
-                          <TouchableOpacity 
-                            onPress={() => removeAdditionalItem(item.id)}
-                            disabled={completingBooking}
-                          >
-                            <Icon name="delete" size={20} color={colors.error} />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </View>
-
-              {/* Complete Button */}
-              <TouchableOpacity
-                style={clsx(
-                  styles.bgSuccess,
-                  styles.roundedLg,
-                  styles.p4,
-                  styles.itemsCenter,
-                  styles.justifyCenter,
-                  completingBooking && styles.opacity50
-                )}
-                onPress={completeBooking}
-                disabled={completingBooking}
-              >
-                {completingBooking ? (
-                  <ActivityIndicator size="small" color={colors.white} />
-                ) : (
-                  <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
-                    Complete Booking
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-
-  const AddItemModal = () => (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={addItemModalVisible}
-      onRequestClose={() => setAddItemModalVisible(false)}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={clsx(styles.flex1)}
-      >
-        <View style={clsx(styles.flex1, styles.justifyEnd, styles.bgBlack50)}>
-          <View style={clsx(styles.bgWhite, styles.roundedT3xl, styles.p6)}>
-            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb6)}>
-              <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)}>
-                Add Additional Item
-              </Text>
-              <TouchableOpacity onPress={() => setAddItemModalVisible(false)}>
-                <Icon name="close" size={24} color={colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={clsx(styles.mb4)}>
-              <Text style={clsx(styles.textSm, styles.textMuted, styles.mb2)}>Item Name</Text>
-              <TextInput
-                style={clsx(
-                  styles.border,
-                  styles.borderPrimary,
-                  styles.roundedLg,
-                  styles.p3,
-                  styles.textBase,
-                  styles.textBlack
-                )}
-                placeholder="e.g., AC Gas, Spare Parts"
-                value={newItem.name}
-                onChangeText={(text) => setNewItem({...newItem, name: text})}
-              />
-            </View>
-
-            <View style={clsx(styles.flexRow, styles.gap3, styles.mb4)}>
-              <View style={clsx(styles.flex1)}>
-                <Text style={clsx(styles.textSm, styles.textMuted, styles.mb2)}>Quantity</Text>
-                <TextInput
-                  style={clsx(
-                    styles.border,
-                    styles.borderPrimary,
-                    styles.roundedLg,
-                    styles.p3,
-                    styles.textBase,
-                    styles.textBlack,
-                    styles.textCenter
-                  )}
-                  placeholder="1"
-                  keyboardType="numeric"
-                  value={newItem.quantity}
-                  onChangeText={(text) => setNewItem({...newItem, quantity: text})}
-                />
-              </View>
-              
-              <View style={clsx(styles.flex1)}>
-                <Text style={clsx(styles.textSm, styles.textMuted, styles.mb2)}>Price (₹)</Text>
-                <TextInput
-                  style={clsx(
-                    styles.border,
-                    styles.borderPrimary,
-                    styles.roundedLg,
-                    styles.p3,
-                    styles.textBase,
-                    styles.textBlack,
-                    styles.textCenter
-                  )}
-                  placeholder="0"
-                  keyboardType="numeric"
-                  value={newItem.price}
-                  onChangeText={(text) => setNewItem({...newItem, price: text})}
-                />
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={clsx(
-                styles.bgPrimary,
-                styles.roundedLg,
-                styles.p4,
-                styles.itemsCenter,
-                styles.justifyCenter
-              )}
-              onPress={addAdditionalItem}
-            >
-              <Text style={clsx(styles.textWhite, styles.fontBold)}>
-                Add Item
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-
-  // 5️⃣ MEDIA DISPLAY COMPONENTS
-  const MediaSection = ({ title, images, videos, type }) => (
+  // MEDIA DISPLAY COMPONENTS
+  const MediaSection = ({ title, uploadedImages, uploadedVideos, capturedImages, capturedVideos, type }) => (
     <View style={clsx(styles.mb6)}>
       <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
         <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
           {title}
         </Text>
-        <TouchableOpacity
-          style={clsx(
-            styles.flexRow,
-            styles.itemsCenter,
-            styles.px3,
-            styles.py1,
-            styles.bgPrimary,
-            styles.roundedFull
-          )}
-          onPress={() => openMediaModal(`${type}-image`)}
-        >
-          <Icon name="add" size={16} color={colors.white} />
-          <Text style={clsx(styles.textWhite, styles.textSm, styles.ml1)}>
-            Add {images.length + videos.length > 0 ? 'More' : ''}
-          </Text>
-        </TouchableOpacity>
+        <View style={clsx(styles.flexRow, styles.gap2)}>
+          <TouchableOpacity
+            style={clsx(
+              styles.flexRow,
+              styles.itemsCenter,
+              styles.px3,
+              styles.py1,
+              styles.bgPrimary,
+              styles.roundedFull
+            )}
+            onPress={() => openMediaModal(`${type}-image`)}
+          >
+            <Icon name="add-a-photo" size={16} color={colors.white} />
+            <Text style={clsx(styles.textWhite, styles.textSm, styles.ml1)}>
+              Add Image
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={clsx(
+              styles.flexRow,
+              styles.itemsCenter,
+              styles.px3,
+              styles.py1,
+              styles.bgSecondary,
+              styles.roundedFull
+            )}
+            onPress={() => openMediaModal(`${type}-video`)}
+          >
+            <Icon name="videocam" size={16} color={colors.white} />
+            <Text style={clsx(styles.textWhite, styles.textSm, styles.ml1)}>
+              Add Video
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
       
-      {/* Images Grid */}
-      {images.length > 0 && (
+      {/* Captured Media (Not Uploaded Yet) */}
+      {(capturedImages.length > 0 || capturedVideos.length > 0) && (
+        <View style={clsx(styles.mb4, styles.p3, styles.bgWarningLight, styles.roundedLg, styles.border, styles.borderWarning)}>
+          <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
+            📸 Captured Media (Not Uploaded)
+          </Text>
+          
+          {capturedImages.length > 0 && (
+            <View style={clsx(styles.mb3)}>
+              <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack, styles.mb2)}>
+                Images ({capturedImages.length})
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {capturedImages.map((media, index) => (
+                  <View key={index} style={clsx(styles.mr3, styles.positionRelative)}>
+                    <Image
+                      source={{ uri: media.uri }}
+                      style={{
+                        width: 80,
+                        height: 80,
+                        borderRadius: 8,
+                        borderWidth: 2,
+                        borderColor: colors.warning,
+                      }}
+                    />
+                    <TouchableOpacity
+                      style={clsx(
+                        styles.absolute,
+                        styles.topNegative1,
+                        styles.rightNegative1,
+                        styles.bgWhite,
+                        styles.roundedFull,
+                        styles.p1,
+                        styles.shadowSm
+                      )}
+                      onPress={() => deleteCapturedMedia(index, `${type}-image`)}
+                    >
+                      <Icon name="close" size={14} color={colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+          
+          {capturedVideos.length > 0 && (
+            <View>
+              <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack, styles.mb2)}>
+                Videos ({capturedVideos.length})
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {capturedVideos.map((media, index) => (
+                  <View key={index} style={clsx(styles.mr3, styles.positionRelative)}>
+                    <View style={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: 8,
+                      backgroundColor: colors.gray300,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderWidth: 2,
+                      borderColor: colors.warning,
+                    }}>
+                      <Icon name="play-circle-filled" size={32} color={colors.white} />
+                    </View>
+                    <TouchableOpacity
+                      style={clsx(
+                        styles.absolute,
+                        styles.topNegative1,
+                        styles.rightNegative1,
+                        styles.bgWhite,
+                        styles.roundedFull,
+                        styles.p1,
+                        styles.shadowSm
+                      )}
+                      onPress={() => deleteCapturedMedia(index, `${type}-video`)}
+                    >
+                      <Icon name="close" size={14} color={colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+      )}
+      
+      {/* Uploaded Media */}
+      {uploadedImages.length > 0 && (
         <View style={clsx(styles.mb4)}>
           <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
-            Images ({images.length})
+            ✅ Uploaded Images ({uploadedImages.length})
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {images.map((uri, index) => (
-              <View key={index} style={clsx(styles.mr3, styles.positionRelative)}>
-                <Image
-                  source={{ uri }}
-                  style={{
-                    width: 100,
-                    height: 100,
-                    borderRadius: 8,
-                  }}
-                />
-                <TouchableOpacity
-                  style={clsx(
-                    styles.absolute,
-                    styles.top1,
-                    styles.right1,
-                    styles.bgWhite,
-                    styles.roundedFull,
-                    styles.p1,
-                    styles.shadowSm
-                  )}
-                  onPress={() => deleteMedia(uri, `${type}-image`)}
-                >
-                  <Icon name="close" size={16} color={colors.error} />
-                </TouchableOpacity>
-              </View>
-            ))}
+            {uploadedImages.map((uri, index) => {
+              const imageUri = `${UploadUrl}${uri}`;                
+              return (
+                <View key={index} style={clsx(styles.mr3, styles.positionRelative)}>
+                  <Image
+                    source={{ uri: imageUri }}
+                    style={{
+                      width: 100,
+                      height: 100,
+                      borderRadius: 8,
+                    }}
+                    resizeMode="cover"
+                  />
+                  <TouchableOpacity
+                    style={clsx(
+                      styles.absolute,
+                      styles.top1,
+                      styles.right1,
+                      styles.bgWhite,
+                      styles.roundedFull,
+                      styles.p1,
+                      styles.shadowSm
+                    )}
+                    onPress={() => deleteMedia(uri, `${type}-image`)}
+                  >
+                    <Icon name="close" size={16} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
           </ScrollView>
         </View>
       )}
       
-      {/* Videos Grid */}
-      {videos.length > 0 && (
+      {uploadedVideos.length > 0 && (
         <View>
           <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
-            Videos ({videos.length})
+            ✅ Uploaded Videos ({uploadedVideos.length})
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {videos.map((uri, index) => (
-              <View key={index} style={clsx(styles.mr3, styles.positionRelative)}>
-                <View style={{
-                  width: 100,
-                  height: 100,
-                  borderRadius: 8,
-                  backgroundColor: colors.gray300,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  <Icon name="play-circle-filled" size={40} color={colors.white} />
+            {uploadedVideos.map((uri, index) => {
+              const videoUri = `${UploadUrl}${uri}`;     
+              console.log(videoUri)
+              
+              return (
+                <View key={index} style={clsx(styles.mr3, styles.positionRelative)}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      // Video play के लिए
+                      if (videoUri) {
+                        Linking.openURL(videoUri).catch(err => 
+                          console.log('Failed to open video:', err)
+                        );
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{
+                      width: 100,
+                      height: 100,
+                      borderRadius: 8,
+                      backgroundColor: colors.gray300,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden',
+                    }}>
+                      {/* Video Thumbnail के लिए (optional) */}
+                      <Image
+                        source={{ uri: videoUri }}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          position: 'absolute',
+                        }}
+                        resizeMode="cover"
+                        onError={(e) => {
+                          console.log('Video thumbnail error:', e.nativeEvent.error);
+                        }}
+                      />
+                      <View style={{
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: 'rgba(0,0,0,0.3)',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <Icon name="play-circle-filled" size={40} color={colors.white} />
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={clsx(
+                      styles.absolute,
+                      styles.top1,
+                      styles.right1,
+                      styles.bgWhite,
+                      styles.roundedFull,
+                      styles.p1,
+                      styles.shadowSm
+                    )}
+                    onPress={() => deleteMedia(uri, `${type}-video`)}
+                  >
+                    <Icon name="close" size={16} color={colors.error} />
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  style={clsx(
-                    styles.absolute,
-                    styles.top1,
-                    styles.right1,
-                    styles.bgWhite,
-                    styles.roundedFull,
-                    styles.p1,
-                    styles.shadowSm
-                  )}
-                  onPress={() => deleteMedia(uri, `${type}-video`)}
-                >
-                  <Icon name="close" size={16} color={colors.error} />
-                </TouchableOpacity>
-              </View>
-            ))}
+              );
+            })}
           </ScrollView>
         </View>
       )}
       
-      {images.length === 0 && videos.length === 0 && (
+      {uploadedImages.length === 0 && uploadedVideos.length === 0 && 
+       capturedImages.length === 0 && capturedVideos.length === 0 && (
         <View style={clsx(styles.p4, styles.bgGray50, styles.roundedLg, styles.itemsCenter)}>
           <Icon name="photo-library" size={40} color={colors.gray400} />
           <Text style={clsx(styles.textBase, styles.textMuted, styles.mt2)}>
@@ -1759,6 +943,17 @@ Status: ${getStatusLabel(formattedData?.status)}`;
                   </Text>
                 </View>
               </View>
+              
+              {/* Captured Media Count */}
+              {(capturedBeforeImages.length > 0 || capturedBeforeVideos.length > 0 || 
+                capturedAfterImages.length > 0 || capturedAfterVideos.length > 0) && (
+                <View style={clsx(styles.mt3, styles.p2, styles.bgWarningLight, styles.roundedLg)}>
+                  <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack, styles.textCenter)}>
+                    📸 {capturedBeforeImages.length + capturedBeforeVideos.length + capturedAfterImages.length + capturedAfterVideos.length} 
+                    media captured (not uploaded)
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         </View>
@@ -1781,7 +976,7 @@ Status: ${getStatusLabel(formattedData?.status)}`;
               ]}>
                 {formattedData.profileImage ? (
                   <Image
-                    source={{ uri: formattedData.profileImage }}
+                    source={{ uri: UploadUrl+'/'+formattedData.profileImage }}
                     style={{ width: '100%', height: '100%' }}
                   />
                 ) : (
@@ -1893,22 +1088,54 @@ Status: ${getStatusLabel(formattedData?.status)}`;
               Service Proof Upload
             </Text>
             <Text style={clsx(styles.textBase, styles.textMuted, styles.mb6)}>
-              Upload images/videos before and after service
+              Capture images/videos before and after service. All media will be uploaded together.
             </Text>
             
             <MediaSection
               title="Before Service"
-              images={beforeImages}
-              videos={beforeVideos}
+              uploadedImages={beforeImages}
+              uploadedVideos={beforeVideos}
+              capturedImages={capturedBeforeImages}
+              capturedVideos={capturedBeforeVideos}
               type="before"
             />
             
             <MediaSection
               title="After Service"
-              images={afterImages}
-              videos={afterVideos}
+              uploadedImages={afterImages}
+              uploadedVideos={afterVideos}
+              capturedImages={capturedAfterImages}
+              capturedVideos={capturedAfterVideos}
               type="after"
             />
+            
+            {/* Upload All Button - Only show when there are captured media */}
+            {showUploadButton && (
+              <TouchableOpacity
+                style={clsx(
+                  styles.bgSuccess,
+                  styles.roundedLg,
+                  styles.p4,
+                  styles.itemsCenter,
+                  styles.justifyCenter,
+                  styles.mt4,
+                  uploadingMedia && styles.opacity50
+                )}
+                onPress={uploadAllCapturedMedia}
+                disabled={uploadingMedia}
+              >
+                {uploadingMedia ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <>
+                    <Icon name="cloud-upload" size={24} color={colors.white} style={clsx(styles.mr2)} />
+                    <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
+                      Upload All Captured Media
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -1978,7 +1205,7 @@ Status: ${getStatusLabel(formattedData?.status)}`;
               icon="play-arrow"
               label="Start Service"
               color={colors.primary}
-              onPress={() => setOtpModalVisible(true)}
+              onPress={openOTPVerification}
             />
           </>
         ) : formattedData.status === 'ongoing' ? (
@@ -1999,13 +1226,6 @@ Status: ${getStatusLabel(formattedData?.status)}`;
           </>
         ) : null}
       </View>
-
-      {/* All Modals */}
-      <OTPModal />
-      <SelfieModal />
-      <MediaModal />
-      <CompleteBookingModal />
-      <AddItemModal />
     </View>
   );
 };

@@ -95,8 +95,12 @@ export const AppProvider = ({ children }) => {
       sendOtp: `${serviceManUrl}booking/booking-start-otp`,
       verifyOtpAndStart: `${serviceManUrl}booking/booking-start-otp-verify`,
       
-      uploadMedia: `${serviceManUrl}booking/booking-start-otp-verify`,
-      deleteMedia: `${serviceManUrl}booking/booking-start-otp-verify`,
+      uploadBeforeStartMedia: `${serviceManUrl}bookingUpload/upload-before-start`,
+      uploadAfterCompleteMedia: `${serviceManUrl}bookingUpload/upload-after-complete`,
+
+      removeBeforeStartMedia: `${serviceManUrl}bookingUpload/remove-before-start`,
+      removeAfterCompleteMedia: `${serviceManUrl}bookingUpload/remove-after-complete`,
+      
       completeBooking: `${serviceManUrl}booking/booking-start-otp-verify`,
 
       bookingAccept: `${serviceManUrl}booking/accept`,

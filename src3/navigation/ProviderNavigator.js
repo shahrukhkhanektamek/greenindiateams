@@ -10,6 +10,13 @@ import DashboardScreen from '../screens/Provider/DashboardScreen';
 import BookingListScreen from '../screens/Provider/Booking/BookingListScreen';
 import BookingDetailScreen from '../screens/Provider/Booking/BookingDetailScreen';
 
+import OTPVerificationScreen from '../screens/Provider/Booking/OTPVerificationScreen';
+import SelfieCaptureScreen from '../screens/Provider/Booking/SelfieCaptureScreen';
+import MediaCaptureScreen from '../screens/Provider/Booking/MediaCaptureScreen';
+import CompleteBookingScreen from '../screens/Provider/Booking/CompleteBookingScreen';
+import AddItemScreen from '../screens/Provider/Booking/AddItemScreen';
+
+
 import ProviderProfileScreen from '../screens/Provider/Profile/ProviderProfileScreen';
 import ProfileUpdateScreen from '../screens/Provider/Profile/ProfileUpdateScreen';
 
@@ -130,6 +137,12 @@ function ProviderNavigator() {
 
           <Stack.Screen name="Bookings" component={BookingListScreen}/>
           <Stack.Screen name="BookingDetail" component={BookingDetailScreen}/> 
+
+          <Stack.Screen name="OTPVerificationScreen" component={OTPVerificationScreen}/> 
+          <Stack.Screen name="SelfieCaptureScreen" component={SelfieCaptureScreen}/> 
+          <Stack.Screen name="MediaCaptureScreen" component={MediaCaptureScreen}/> 
+          <Stack.Screen name="CompleteBookingScreen" component={CompleteBookingScreen}/> 
+          <Stack.Screen name="AddItemScreen" component={AddItemScreen}/> 
 
           <Stack.Screen name="ProviderProfile" component={ProviderProfileScreen}/>
           <Stack.Screen name="ProfileUpdate" component={ProfileUpdateScreen} />

@@ -12,15 +12,17 @@ export const AppContext = createContext();
 // API URLs configuration - Consider moving to environment variables
 // const UploadUrl = 'http://192.168.1.61:8080/';
 const UploadUrl = 'http://192.168.1.25:8080/';
+// const UploadUrl = 'http://145.223.18.56:3001/';
 const BASE_URLS = {
   development: "http://192.168.1.25:8080/",
+  // production: "http://145.223.18.56:3001/",
+  
   // development: "http://192.168.1.61:8080/",
-  // staging: "https://staging-api.example.com/",
   // production: "https://api.example.com/"
 };
 
 export const AppProvider = ({ children }) => {
-  const ENVIRONMENT = "development"; // Change based on build configuration
+  const ENVIRONMENT = "development"; 
   const mainUrl = BASE_URLS[ENVIRONMENT];
   
   // App states
@@ -31,7 +33,7 @@ export const AppProvider = ({ children }) => {
   const [isheaderback, setisheaderback] = useState(null);
   const [loadingStates, setLoadingStates] = useState({
     page: false,
-    loader: false,
+    loader: false,  
     global: false,
     api: false,
     sideBar: false,
@@ -100,10 +102,12 @@ export const AppProvider = ({ children }) => {
 
       removeBeforeStartMedia: `${serviceManUrl}bookingUpload/remove-before-start`,
       removeAfterCompleteMedia: `${serviceManUrl}bookingUpload/remove-after-complete`,
-      
-      completeBooking: `${serviceManUrl}booking/booking-start-otp-verify`,
+
+      walletHistory: `${serviceManUrl}wallet`,
+      addWalletCredit: `${serviceManUrl}wallet`,
 
       bookingAccept: `${serviceManUrl}booking/accept`,
+      bookingComplete: `${serviceManUrl}booking/complete`,
       logout: `${serviceManUrl}auth/logout`
     };
   }, [mainUrl]);
@@ -229,8 +233,9 @@ export const AppProvider = ({ children }) => {
     options = {}
   ) => {
     const {
-      showLoader = true,
+      showLoader = false,
       showErrorMessage = true,
+      showSuccessMessage = true,
       isFileUpload = false,
       contentType = null
     } = options;
@@ -297,7 +302,7 @@ export const AppProvider = ({ children }) => {
       
       clearTimeout(timeoutId);
 
-      return await handleResponse(response, showErrorMessage);
+      return await handleResponse(response, showErrorMessage, showSuccessMessage);
     } catch (error) {
       if (error.name === 'AbortError') {
         Toast.show({ 
@@ -322,7 +327,7 @@ export const AppProvider = ({ children }) => {
   }, [deviceId, isConnected, storage, setLoading]);
 
   // Enhanced response handler
-  const handleResponse = async (response, showErrorMessage) => {
+  const handleResponse = async (response, showErrorMessage, showSuccessMessage) => {
     let result;
     
     try {
@@ -340,13 +345,16 @@ export const AppProvider = ({ children }) => {
     }
 
     // Handle different status codes
-    switch (response.status) {
+    switch (response.status) { 
       case 200:
         if (result.success && result.message && !showErrorMessage) {
-          Toast.show({
-            type: 'success',
-            text1: result.message
-          });
+          if(showSuccessMessage)
+          {
+            Toast.show({
+              type: 'success',
+              text1: result.message
+            });
+          }
         }
         return result;
 
@@ -508,7 +516,7 @@ export const AppProvider = ({ children }) => {
 
   const fetchProfile = async () => {
     try {
-      const response = await postData({}, Urls.profileDetail, 'GET', { showErrorMessage: false });
+      const response = await postData({}, Urls.profileDetail, 'GET', { showErrorMessage: false, showSuccessMessage: false });
 
       if (response?.success) {
         const apiData = response.data || {};      
@@ -544,10 +552,10 @@ export const AppProvider = ({ children }) => {
       {
         if(user.kyc.status=='pending' || user.kyc.status=='rejected')
           setrootScreen('KYCStatus');
-        else if(!user?.trainingScheduleSubmit)
-        {
-          setrootScreen('Training');
-        }
+        // else if(!user?.trainingScheduleSubmit)
+        // {
+        //   setrootScreen('Training');
+        // }
         else if(user?.trainingScheduleSubmit)
         {
           // "New", "Confirm", "Reject", "Complete"

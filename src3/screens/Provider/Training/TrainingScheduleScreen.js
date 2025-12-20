@@ -54,7 +54,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
     setLoading(true);
     try {
       const response = await postData({}, Urls.trainingSchedule, 'GET', { 
-        showErrorMessage: false 
+        showErrorMessage: false, showSuccessMessage: false 
       });
       
       if (response?.success) {
@@ -110,12 +110,12 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
           //   status = 'rescheduled';
           // }
           
-          console.log('Setting schedule data:', {
-            trainingDate,
-            trainingTime,
-            status,
-            scheduleId: apiData._id,
-          });
+          // console.log('Setting schedule data:', {
+          //   trainingDate,
+          //   trainingTime,
+          //   status,
+          //   scheduleId: apiData._id,
+          // });
           
           setScheduleData({
             trainingDate: trainingDate,
@@ -296,7 +296,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
         scheduleDate: formattedDate,
         scheduleTime: formattedTime,
         status: true, // true for scheduled
-        trainingScheduleId: scheduleData.scheduleId,
+        trainingId: scheduleData.scheduleId,
       };
 
       // Add scheduleId if exists (for update)
@@ -336,7 +336,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
         navigate('TrainingStatus')
 
       } else {
-        Alert.alert('Error', response?.message || 'Failed to schedule training');
+        // Alert.alert('Error', response?.message || 'Failed to schedule training');
       }
     } catch (error) {
       Toast.show({

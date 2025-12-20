@@ -97,7 +97,7 @@ const BookingListScreen = ({ navigation }) => {
       }
 
       const response = await postData(params, Urls.booking, 'GET', {
-        showErrorMessage: false,
+        showErrorMessage: false, showSuccessMessage: false
       });
 
       if (response?.success) {

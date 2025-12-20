@@ -57,7 +57,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
   // Fetch KYC data
   const fetchKYCData = async () => {
     try {
-      const response = await postData({}, Urls.kycDetail, 'GET', { showErrorMessage: false });
+      const response = await postData({}, Urls.kycDetail, 'GET', { showErrorMessage: false, showSuccessMessage: false });
       if (response?.success) {
         const apiData = response.data || {};
         
@@ -126,11 +126,11 @@ const KYCUpdateScreen = ({ navigation, route }) => {
     setRefreshing(true);
     try {
       await fetchKYCData();
-      Toast.show({
-        type: 'success',
-        text1: 'KYC data refreshed',
-        text2: 'Latest data loaded successfully',
-      });
+      // Toast.show({
+      //   type: 'success',
+      //   text1: 'KYC data refreshed',
+      //   text2: 'Latest data loaded successfully',
+      // });
     } catch (error) {
       Toast.show({
         type: 'error',

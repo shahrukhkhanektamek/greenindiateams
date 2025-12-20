@@ -34,6 +34,7 @@ import EarningsScreen from '../screens/Provider/Earning/EarningScreen';
 import EarningDetailsScreen  from '../screens/Provider/Earning/EarningDetailsScreen';
 
 import WalletScreen from '../screens/Provider/Wallet/WalletScreen';
+import AddWalletScreen from '../screens/Provider/Wallet/AddWalletScreen';
 
 import TransactionHistoryScreen from '../screens/Provider/Transaction/TransactionHistoryScreen';
 import TransactionDetailsScreen from '../screens/Provider/Transaction/TransactionDetailsScreen';
@@ -78,11 +79,11 @@ function ProviderNavigator() {
       setIsSplashVisible(false); 
     };
  
-
+ 
       const checkRootAccess = async () => {
         profileStatus()
-        // console.log(user) 
-        console.log(storage.get('token'))  
+        console.log(user)  
+        // console.log(storage.get('token'))   
         // setrootScreen('ProviderDashboard');
      };
 
@@ -159,6 +160,7 @@ function ProviderNavigator() {
           <Stack.Screen name="EarningDetails" component={EarningDetailsScreen}/>
 
           <Stack.Screen name="Wallet" component={WalletScreen}/>
+          <Stack.Screen name="AddWallet" component={AddWalletScreen}/>
 
           <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen}/>
           <Stack.Screen name="TransactionDetails" component={TransactionDetailsScreen}/>

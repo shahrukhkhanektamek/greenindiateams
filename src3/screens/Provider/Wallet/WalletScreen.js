@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -7,147 +7,233 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  SectionList,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import Header from '../../../components/Common/Header';
+import { AppContext } from '../../../Context/AppContext';
 
 const WalletScreen = ({ navigation }) => {
+  const { Toast, Urls, postData, user } = useContext(AppContext);
+  
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [earnings, setEarnings] = useState([]);
-  const [totalEarnings, setTotalEarnings] = useState({
-    daily: 0,
-    weekly: 0,
-    monthly: 0,
-    total: 0,
+  const [transactions, setTransactions] = useState([]);
+  const [filter, setFilter] = useState('all'); // 'all', 'credit', 'debit'
+  const [selectedPeriod, setSelectedPeriod] = useState('all'); // 'all', 'today', 'week', 'month'
+  
+  // Wallet summary states from API
+  const [walletSummary, setWalletSummary] = useState({
+    balance: 0,
+    totalCreditPoints: 0,
+    totalTransactions: 0,
   });
 
-  // Sample earning data from API
-  const sampleEarningData = [
-    {
-      "_id": "692a9733dd95ad94ee8a9d4d",
-      "categoryId": "691c1bfae53e3e7330a90928",
-      "earningHour1": 4,
-      "earningPrice1": 5000,
-      "earningHour2": 6,
-      "earningPrice2": 8000,
-      "earningHour3": 8,
-      "earningPrice3": 12000,
-      "earningHour4": 12,
-      "earningPrice4": 25000,
-      "status": true,
-      "createdBy": "68e617f638867a5a737b161f",
-      "updatedBy": null,
-      "createdAt": "2025-11-29T06:48:19.784Z",
-      "updatedAt": "2025-11-29T06:48:19.784Z",
-      "__v": 0,
-      "category": {
-        "_id": "691c1bfae53e3e7330a90928",
-        "name": "Kitchen Appliances Repair & Services",
-        "image": "uploads/category/1763449850546-392715050.jpg",
-        "icon": "uploads/category/1763449850547-106991991.svg",
-        "fullDescription": "Kitchen Appliances Repair & Services",
-        "status": true,
-        "createdBy": "68e617f638867a5a737b161f",
-        "updatedBy": null,
-        "createdAt": "2025-11-18T07:10:50.550Z",
-        "updatedAt": "2025-11-18T07:10:50.669Z",
-        "__v": 0,
-        "slug": "kitchen-appliances-repair-services"
-      }
-    },
-    {
-      "_id": "69159e53760d365effa921ec",
-      "categoryId": "691c1abfe53e3e7330a908fa",
-      "earningHour1": 4,
-      "earningPrice1": 6000,
-      "earningHour2": 6,
-      "earningPrice2": 8000,
-      "earningHour3": 8,
-      "earningPrice3": 15000,
-      "earningHour4": 12,
-      "earningPrice4": 25000,
-      "status": true,
-      "createdBy": "68e617f638867a5a737b161f",
-      "updatedBy": "68e617f638867a5a737b161f",
-      "createdAt": "2025-11-13T09:01:07.202Z",
-      "updatedAt": "2025-11-20T11:47:27.680Z",
-      "__v": 0,
-      "category": {
-        "_id": "691c1abfe53e3e7330a908fa",
-        "name": "AC Home Appliance Repair & Services",
-        "image": "uploads/category/1764762961931-852835782.svg",
-        "icon": "uploads/category/1763449535084-626930616.svg",
-        "fullDescription": "AC Home Appliance Repair & Services",
-        "status": true,
-        "createdBy": "68e617f638867a5a737b161f",
-        "updatedBy": "68e617f638867a5a737b161f",
-        "createdAt": "2025-11-18T07:05:35.091Z",
-        "updatedAt": "2025-12-03T11:56:01.935Z",
-        "__v": 0,
-        "slug": "ac-home-appliance-repair-services"
-      }
-    }
-  ];
-
-  const fetchEarnings = async () => {
+  // Fetch wallet data from API
+  const fetchWalletData = async () => {
     try {
       setLoading(true);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Prepare API parameters
+      const params = {
+        type: filter === 'all' ? 'all' : filter,
+        period: selectedPeriod,
+        page: 1,
+        limit: 20
+      };
       
-      // Use sample data
-      setEarnings(sampleEarningData);
-      
-      // Calculate total earnings
-      calculateTotalEarnings(sampleEarningData);
+      // Call API to get wallet transactions and summary
+      const response = await postData(
+        params,
+        `${Urls.walletHistory}`,
+        'GET'
+      );
+
+      if (response?.success && response.data) {
+        // Set transactions from API response
+        setTransactions(response.data || []);
+        
+        // Set wallet summary from API response
+        if (response.summary) {
+          setWalletSummary(response.summary);
+        } else {
+          // Calculate summary from transactions if not provided by API
+          calculateSummaryFromTransactions(response.data);
+        }
+        
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: response?.message || 'Failed to load wallet data',
+        });
+        
+        // For demo, use sample data if API fails
+        const sampleData = getSampleData();
+        setTransactions(sampleData.transactions);
+        setWalletSummary(sampleData.summary);
+      }
       
     } catch (error) {
-      Alert.alert('Error', 'Failed to fetch earnings data');
-      console.error('Fetch earnings error:', error);
+      console.error('Fetch wallet data error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Network Error',
+        text2: 'Failed to connect to server',
+      });
+      
+      // For demo, use sample data
+      const sampleData = getSampleData();
+      setTransactions(sampleData.transactions);
+      setWalletSummary(sampleData.summary);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  const calculateTotalEarnings = (earningsData) => {
-    // Calculate totals based on your business logic
-    // This is a sample calculation - adjust according to your needs
-    let dailyTotal = 0;
-    let weeklyTotal = 0;
-    let monthlyTotal = 0;
-    let overallTotal = 0;
-
-    earningsData.forEach(item => {
-      // Example: Sum of all earning prices for different time periods
-      overallTotal += item.earningPrice1 + item.earningPrice2 + item.earningPrice3 + item.earningPrice4;
+  // Calculate summary from transactions if API doesn't provide it
+  const calculateSummaryFromTransactions = (transactionsData) => {
+    let totalCredits = 0;
+    let totalDebits = 0;
+    let totalCreditPoints = 0;
+    
+    transactionsData.forEach(transaction => {
+      if (transaction.transactionType === 'Credit') {
+        totalCredits += transaction.depositAmount || 0;
+        totalCreditPoints += transaction.creditPoints || 0;
+      } else if (transaction.transactionType === 'Debit') {
+        totalDebits += transaction.depositAmount || 0;
+      }
     });
-
-    // For demo purposes, set some sample values
-    dailyTotal = overallTotal * 0.1; // 10% of total as daily
-    weeklyTotal = overallTotal * 0.3; // 30% of total as weekly
-    monthlyTotal = overallTotal * 0.6; // 60% of total as monthly
-
-    setTotalEarnings({
-      daily: dailyTotal,
-      weekly: weeklyTotal,
-      monthly: monthlyTotal,
-      total: overallTotal,
+    
+    const balance = totalCredits - totalDebits;
+    
+    setWalletSummary({
+      balance: balance,
+      totalCreditPoints: totalCreditPoints,
+      totalTransactions: transactionsData.length,
+      totalCredits: totalCredits,
+      totalDebits: totalDebits,
     });
+  };
+
+  // Sample data for demo (matching your API response structure)
+  const getSampleData = () => {
+    const sampleTransactions = [
+      {
+        "_id": "694690004d9db9014826bae2",
+        "providerId": "693fc8af129447368d022a26",
+        "creditPoints": 100,
+        "depositAmount": 1000,
+        "depositStatus": "Paid",
+        "dateOfDeposit": "2025-12-20T12:01:04.997Z",
+        "paymentMode": "Online",
+        "transactionType": "Credit",
+        "transactionId": "mhjhg",
+        "purpose": "Recharge",
+        "status": true,
+        "createdBy": "693c0e4a570a49d79868f38d",
+        "updatedBy": null,
+        "createdAt": "2025-12-20T12:01:04.999Z",
+        "updatedAt": "2025-12-20T12:01:04.999Z",
+        "__v": 0
+      },
+      {
+        "_id": "694690004d9db9014826bae3",
+        "providerId": "693fc8af129447368d022a26",
+        "creditPoints": 50,
+        "depositAmount": 500,
+        "depositStatus": "Paid",
+        "dateOfDeposit": "2025-12-19T10:30:00.000Z",
+        "paymentMode": "Online",
+        "transactionType": "Credit",
+        "transactionId": "abc123",
+        "purpose": "Service Payment",
+        "status": true,
+        "createdBy": "693c0e4a570a49d79868f38d",
+        "updatedBy": null,
+        "createdAt": "2025-12-19T10:30:00.000Z",
+        "updatedAt": "2025-12-19T10:30:00.000Z",
+        "__v": 0
+      },
+      {
+        "_id": "694690004d9db9014826bae4",
+        "providerId": "693fc8af129447368d022a26",
+        "creditPoints": 0,
+        "depositAmount": 200,
+        "depositStatus": "Paid",
+        "dateOfDeposit": "2025-12-18T15:45:00.000Z",
+        "paymentMode": "Online",
+        "transactionType": "Debit",
+        "transactionId": "def456",
+        "purpose": "Commission",
+        "status": true,
+        "createdBy": "693c0e4a570a49d79868f38d",
+        "updatedBy": null,
+        "createdAt": "2025-12-18T15:45:00.000Z",
+        "updatedAt": "2025-12-18T15:45:00.000Z",
+        "__v": 0
+      }
+    ];
+    
+    const summary = {
+      balance: 1300, // 1000 + 500 - 200
+      totalCreditPoints: 150,
+      totalTransactions: 3,
+      totalCredits: 1500,
+      totalDebits: 200,
+    };
+    
+    return {
+      transactions: sampleTransactions,
+      summary: summary
+    };
+  };
+
+  const handleAddCredit = () => {
+    navigation.navigate('AddWallet', {
+      onSuccess: () => {
+        // Refresh wallet data after adding credit
+        fetchWalletData();
+      }
+    });
+  };
+
+  const groupTransactionsByDate = () => {
+    const grouped = {};
+    
+    transactions.forEach(transaction => {
+      const date = new Date(transaction.dateOfDeposit || transaction.createdAt);
+      const dateKey = date.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+      
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = [];
+      }
+      grouped[dateKey].push(transaction);
+    });
+    
+    // Convert to array for SectionList
+    return Object.keys(grouped).map(date => ({
+      title: date,
+      data: grouped[date],
+    }));
   };
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchEarnings();
+    fetchWalletData();
   };
 
   useEffect(() => {
-    fetchEarnings();
-  }, []);
+    fetchWalletData();
+  }, [filter, selectedPeriod]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -157,117 +243,153 @@ const WalletScreen = ({ navigation }) => {
     }).format(amount);
   };
 
-  const renderEarningCard = (earning) => {
+  const formatTime = (dateString) => {
+    return new Date(dateString).toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  const getStatusColor = (status) => {
+    if (status === 'Paid' || status === true) {
+      return colors.success;
+    }
+    return colors.warning;
+  };
+
+  const getStatusText = (status) => {
+    if (status === 'Paid' || status === true) {
+      return 'Completed';
+    }
+    return 'Pending';
+  };
+
+  const getStatusIcon = (transactionType) => {
+    switch (transactionType) {
+      case 'Credit':
+        return 'add-circle';
+      case 'Debit':
+        return 'remove-circle';
+      default:
+        return 'attach-money';
+    }
+  };
+
+  const getTypeColor = (transactionType) => {
+    switch (transactionType) {
+      case 'Credit':
+        return colors.success;
+      case 'Debit':
+        return colors.error;
+      default:
+        return colors.text;
+    }
+  };
+
+  const renderTransactionItem = ({ item }) => {
+    const isCredit = item.transactionType === 'Credit';
+    const statusColor = getStatusColor(item.depositStatus || item.status);
+
     return (
-      <View key={earning._id} style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm, styles.mb4)}>
-        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
-            {earning.category.name}
-          </Text>
-          <View style={clsx(styles.px2, styles.py1, styles.bgSuccessLight, styles.roundedFull)}>
-            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textSuccess)}>
-              Active
-            </Text>
-          </View>
-        </View>
-
-        <View style={clsx(styles.mb4)}>
-          <Text style={clsx(styles.textBase, styles.fontMedium, styles.textMuted, styles.mb2)}>
-            Earning Structure
-          </Text>
-          
-          <View style={clsx(styles.bgGray, styles.p3, styles.roundedLg)}>
-            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
-              <Text style={clsx(styles.textSm, styles.textBlack)}>
-                {earning.earningHour1} Hours:
+      <TouchableOpacity
+        style={clsx(
+          styles.bgWhite,
+          styles.p4,
+          styles.roundedLg,
+          styles.shadowSm,
+          styles.mb3,
+          styles.borderLeft4,
+          isCredit ? styles.borderSuccess : styles.borderError
+        )}
+        onPress={() => handleViewTransaction(item)}
+      >
+        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb2)}>
+          <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+            <Icon 
+              name={getStatusIcon(item.transactionType)} 
+              size={24} 
+              color={getTypeColor(item.transactionType)} 
+              style={clsx(styles.mr3)}
+            />
+            <View>
+              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+                {item.purpose || 'Wallet Transaction'}
               </Text>
-              <Text style={clsx(styles.textSm, styles.fontBold, styles.textSuccess)}>
-                {formatCurrency(earning.earningPrice1)}
-              </Text>
-            </View>
-            
-            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
-              <Text style={clsx(styles.textSm, styles.textBlack)}>
-                {earning.earningHour2} Hours:
-              </Text>
-              <Text style={clsx(styles.textSm, styles.fontBold, styles.textSuccess)}>
-                {formatCurrency(earning.earningPrice2)}
+              <Text style={clsx(styles.textSm, styles.textMuted)}>
+                {item.transactionType} • {formatTime(item.dateOfDeposit || item.createdAt)}
               </Text>
             </View>
-            
-            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
-              <Text style={clsx(styles.textSm, styles.textBlack)}>
-                {earning.earningHour3} Hours:
-              </Text>
-              <Text style={clsx(styles.textSm, styles.fontBold, styles.textSuccess)}>
-                {formatCurrency(earning.earningPrice3)}
-              </Text>
-            </View>
-            
-            <View style={clsx(styles.flexRow, styles.justifyBetween)}>
-              <Text style={clsx(styles.textSm, styles.textBlack)}>
-                {earning.earningHour4} Hours:
-              </Text>
-              <Text style={clsx(styles.textSm, styles.fontBold, styles.textSuccess)}>
-                {formatCurrency(earning.earningPrice4)}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
-          <View>
-            <Text style={clsx(styles.textSm, styles.textMuted)}>
-              Updated
-            </Text>
-            <Text style={clsx(styles.textXs, styles.textBlack)}>
-              {new Date(earning.updatedAt).toLocaleDateString('en-IN')}
-            </Text>
           </View>
           
-          <TouchableOpacity
-            style={clsx(styles.px3, styles.py2, styles.bgPrimary, styles.roundedFull)}
-            onPress={() => handleViewDetails(earning)}
-          >
-            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textWhite)}>
-              View Details
+          <View style={clsx(styles.itemsEnd)}>
+            <Text style={clsx(
+              styles.textBase,
+              styles.fontBold,
+              isCredit ? styles.textSuccess : styles.textError
+            )}>
+              {isCredit ? '+' : '-'}{formatCurrency(item.depositAmount)}
             </Text>
-          </TouchableOpacity>
+            
+            {item.creditPoints > 0 && (
+              <Text style={clsx(styles.textXs, styles.textPrimary, styles.mt1)}>
+                +{item.creditPoints} Points
+              </Text>
+            )}
+            
+            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt1)}>
+              <View style={clsx(
+                styles.w2,
+                styles.h2,
+                styles.roundedFull,
+                styles.mr1,
+                { backgroundColor: statusColor }
+              )} />
+              <Text style={clsx(
+                styles.textXs,
+                styles.fontMedium,
+                { color: statusColor }
+              )}>
+                {getStatusText(item.depositStatus || item.status)}
+              </Text>
+            </View>
+          </View>
         </View>
-      </View>
+        
+        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mt2)}>
+          <Text style={clsx(styles.textXs, styles.textMuted)}>
+            Txn: {item.transactionId || item._id?.slice(-6)}
+          </Text>
+          
+          <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+            <Icon name="payment" size={14} color={colors.textMuted} style={clsx(styles.mr1)} />
+            <Text style={clsx(styles.textXs, styles.textMuted)}>
+              {item.paymentMode || 'Online'}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
     );
   };
 
-  const handleViewDetails = (earning) => {
-    navigation.navigate('EarningDetails', { earning });
+  const handleViewTransaction = (transaction) => {
+    navigation.navigate('TransactionDetails', { transaction });
   };
 
-  const handleWithdraw = () => {
-    Alert.alert(
-      'Withdraw Earnings',
-      'Are you sure you want to withdraw your earnings?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Withdraw',
-          onPress: () => {
-            // Handle withdrawal logic
-            Alert.alert('Success', 'Withdrawal request submitted successfully!');
-          },
-        },
-      ]
-    );
-  };
+  const renderSectionHeader = ({ section: { title } }) => (
+    <View style={clsx(styles.mb3)}>
+      <Text style={clsx(styles.textBase, styles.fontBold, styles.textMuted)}>
+        {title}
+      </Text>
+    </View>
+  );
 
   if (loading && !refreshing) {
     return (
       <View style={clsx(styles.flex1, styles.bgSurface, styles.justifyCenter, styles.itemsCenter)}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={clsx(styles.textBase, styles.textMuted, styles.mt3)}>
-          Loading earnings data...
+          Loading wallet...
         </Text>
       </View>
     );
@@ -275,18 +397,16 @@ const WalletScreen = ({ navigation }) => {
 
   return (
     <View style={clsx(styles.flex1, styles.bgSurface)}>
-
       <Header
-          title="Wallet"
-          showBack
-          showNotification={false}
-          type="white"
-          rightAction={false}
-          rightActionIcon="settings"
-          showProfile={false}
-          onRightActionPress={() => navigation.navigate('Settings')}
+        title="Wallet"
+        showBack
+        showNotification={false}
+        type="white"
+        rightAction={false}
+        rightActionIcon="settings"
+        showProfile={false}
+        onRightActionPress={() => navigation.navigate('Settings')}
       />
-
 
       <ScrollView 
         showsVerticalScrollIndicator={false}
@@ -300,89 +420,206 @@ const WalletScreen = ({ navigation }) => {
         }
         contentContainerStyle={clsx(styles.px4, styles.pb6, styles.pt2)}
       >
-        {/* Total Earnings Summary */}
+
+        {/* Wallet Balance Summary */}
         <View style={clsx(styles.mb6)}>
           <View style={clsx(styles.bgPrimary, styles.p4, styles.roundedLg, styles.shadowSm)}>
-            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textWhite, styles.mb2)}>
-              Total Earnings
-            </Text>
-            <Text style={clsx(styles.text3xl, styles.fontBold, styles.textWhite, styles.mb4)}>
-              {formatCurrency(totalEarnings.total)}
-            </Text>
-            
-            <View style={clsx(styles.flexRow, styles.justifyBetween)}>
-              <View style={clsx(styles.itemsCenter)}>
-                <Text style={clsx(styles.textXs, styles.textWhite)}>
-                  Today
+            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween, styles.mb4)}>
+              <View>
+                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textWhite)}>
+                  Wallet Balance
                 </Text>
-                <Text style={clsx(styles.textBase, styles.fontBold, styles.textWhite)}>
-                  {formatCurrency(totalEarnings.daily)}
+                <Text style={clsx(styles.text3xl, styles.fontBold, styles.textWhite)}>
+                  {formatCurrency(walletSummary.balance)}
                 </Text>
               </View>
               
-              <View style={clsx(styles.itemsCenter)}>
-                <Text style={clsx(styles.textXs, styles.textWhite)}>
-                  This Week
+              <TouchableOpacity
+                style={clsx(
+                  styles.flexRow,
+                  styles.itemsCenter,
+                  styles.px4,
+                  styles.py2,
+                  styles.bgWhite,
+                  styles.roundedFull,
+                  styles.shadowSm
+                )}
+                onPress={handleAddCredit}
+              >
+                <Icon name="add" size={20} color={colors.primary} style={clsx(styles.mr2)} />
+                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textPrimary)}>
+                  Add Money
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.pt-4, styles.borderTop, styles.borderWhite20)}>
+              <View style={clsx(styles.itemsCenter, styles.flex1)}>
+                <Text style={clsx(styles.textSm, styles.textWhite, styles.opacity75)}>
+                  Credit Points
                 </Text>
                 <Text style={clsx(styles.textBase, styles.fontBold, styles.textWhite)}>
-                  {formatCurrency(totalEarnings.weekly)}
+                  {walletSummary.totalCreditPoints || 0}
                 </Text>
               </View>
               
-              <View style={clsx(styles.itemsCenter)}>
-                <Text style={clsx(styles.textXs, styles.textWhite)}>
-                  This Month
+              <View style={clsx(styles.itemsCenter, styles.flex1)}>
+                <Text style={clsx(styles.textSm, styles.textWhite, styles.opacity75)}>
+                  Total Transactions
                 </Text>
                 <Text style={clsx(styles.textBase, styles.fontBold, styles.textWhite)}>
-                  {formatCurrency(totalEarnings.monthly)}
+                  {walletSummary.totalTransactions || 0}
+                </Text>
+              </View>
+              
+              <View style={clsx(styles.itemsCenter, styles.flex1)}>
+                <Text style={clsx(styles.textSm, styles.textWhite, styles.opacity75)}>
+                  Payment Mode
+                </Text>
+                <Text style={clsx(styles.textBase, styles.fontBold, styles.textWhite)}>
+                  Online
                 </Text>
               </View>
             </View>
           </View>
-
-          
         </View>
 
-        
+        {/* Filters */}
+        <View style={clsx(styles.mb6)}>
+          <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm)}>
+            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb3)}>
+              Filter by Type
+            </Text>
+            
+            <View style={clsx(styles.flexRow, styles.flexWrap)}>
+              {[
+                { key: 'all', label: 'All', icon: 'list' },
+                { key: 'credit', label: 'Credits', icon: 'add-circle' },
+                { key: 'debit', label: 'Debits', icon: 'remove-circle' },
+              ].map((item) => (
+                <TouchableOpacity
+                  key={item.key}
+                  style={clsx(
+                    styles.px3,
+                    styles.py2,
+                    styles.mr2,
+                    styles.mb2,
+                    styles.roundedFull,
+                    filter === item.key ? styles.bgPrimary : styles.bgGray
+                  )}
+                  onPress={() => setFilter(item.key)}
+                >
+                  <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+                    <Icon 
+                      name={item.icon} 
+                      size={16} 
+                      color={filter === item.key ? colors.white : colors.text}
+                      style={clsx(styles.mr1)}
+                    />
+                    <Text style={clsx(
+                      styles.textSm,
+                      styles.fontMedium,
+                      filter === item.key ? styles.textWhite : styles.textBlack
+                    )}>
+                      {item.label}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-        {/* Transaction History Link */}
-        <TouchableOpacity
-          style={clsx(
-            styles.bgWhite,
-            styles.p4,
-            styles.roundedLg,
-            styles.shadowSm,
-            styles.flexRow,
-            styles.justifyBetween,
-            styles.itemsCenter,
-            styles.mb4
-          )}
-          onPress={() => navigation.navigate('TransactionHistory')}
-        >
-          <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-            <Icon name="history" size={24} color={colors.primary} style={clsx(styles.mr3)} />
-            <View>
-              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-                Transaction History
-              </Text>
-              <Text style={clsx(styles.textSm, styles.textMuted)}>
-                View all your transactions
-              </Text>
+            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mt4, styles.mb3)}>
+              Filter by Period
+            </Text>
+            
+            <View style={clsx(styles.flexRow, styles.flexWrap)}>
+              {[
+                { key: 'all', label: 'All Time' },
+                { key: 'today', label: 'Today' },
+                { key: 'week', label: 'This Week' },
+                { key: 'month', label: 'This Month' },
+              ].map((item) => (
+                <TouchableOpacity
+                  key={item.key}
+                  style={clsx(
+                    styles.px3,
+                    styles.py2,
+                    styles.mr2,
+                    styles.mb2,
+                    styles.roundedFull,
+                    selectedPeriod === item.key ? styles.bgSecondary : styles.bgGray
+                  )}
+                  onPress={() => setSelectedPeriod(item.key)}
+                >
+                  <Text style={clsx(
+                    styles.textSm,
+                    styles.fontMedium,
+                    selectedPeriod === item.key ? styles.textWhite : styles.textBlack
+                  )}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
-          <Icon name="chevron-right" size={24} color={colors.textMuted} />
-        </TouchableOpacity>
+        </View>
+
+        {/* Transactions List */}
+        <View>
+          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
+            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
+              Recent Transactions ({transactions.length})
+            </Text>
+            <Text style={clsx(styles.textSm, styles.textMuted)}>
+              Sorted by Date
+            </Text>
+          </View>
+
+          {transactions.length === 0 ? (
+            <View style={clsx(styles.bgWhite, styles.p6, styles.roundedLg, styles.itemsCenter)}>
+              <Icon name="receipt-long" size={48} color={colors.textMuted} />
+              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textMuted, styles.mt3, styles.mb-2)}>
+                No transactions found
+              </Text>
+              <Text style={clsx(styles.textSm, styles.textMuted, styles.textCenter)}>
+                {filter !== 'all' ? `No ${filter} transactions` : 'No transactions for selected period'}
+              </Text>
+              <TouchableOpacity
+                style={clsx(styles.mt4, styles.px4, styles.py2, styles.bgPrimary, styles.roundedFull)}
+                onPress={() => {
+                  setFilter('all');
+                  setSelectedPeriod('all');
+                }}
+              >
+                <Text style={clsx(styles.textSm, styles.fontMedium, styles.textWhite)}>
+                  Clear Filters
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <SectionList
+              sections={groupTransactionsByDate()}
+              keyExtractor={(item) => item._id}
+              renderItem={renderTransactionItem}
+              renderSectionHeader={renderSectionHeader}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={clsx(styles.pb2)}
+            />
+          )}
+        </View>
 
         {/* Help Section */}
-        <View style={clsx(styles.bgInfoLight, styles.p4, styles.roundedLg)}>
+        <View style={clsx(styles.mt6, styles.bgInfoLight, styles.p4, styles.roundedLg)}>
           <Text style={clsx(styles.textBase, styles.fontBold, styles.textInfo, styles.mb2)}>
-            Need Help?
+            Wallet Information
           </Text>
           <Text style={clsx(styles.textSm, styles.textInfo)}>
-            • Earnings are calculated based on completed services
-            {'\n'}• Withdrawal takes 2-3 business days
-            {'\n'}• For any discrepancy, contact support
-            {'\n'}• Minimum withdrawal amount: ₹500
+            • Credits are added when you deposit money
+            {'\n'}• Debits include service commissions and charges
+            {'\n'}• Credit points can be used for service bookings
+            {'\n'}• All transactions are updated in real-time
+            {'\n'}• For any discrepancy, contact support within 24 hours
           </Text>
           
           <TouchableOpacity
@@ -391,7 +628,7 @@ const WalletScreen = ({ navigation }) => {
           >
             <Icon name="support-agent" size={18} color={colors.info} style={clsx(styles.mr2)} />
             <Text style={clsx(styles.textSm, styles.fontMedium, styles.textInfo)}>
-              Contact Support
+              Report Transaction Issue
             </Text>
           </TouchableOpacity>
         </View>

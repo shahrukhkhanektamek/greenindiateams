@@ -483,7 +483,7 @@ const OTPVerificationScreen = () => {
             </Text>
             
             {/* OTP Input Boxes */}
-            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb6)}>
+            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb0)}>
               {[0, 1, 2, 3].map((index) => (
                 <View key={index} style={clsx(styles.positionRelative)}>
                   <TextInput
@@ -544,7 +544,8 @@ const OTPVerificationScreen = () => {
                 styles.p3,
                 styles.bgErrorLight,
                 styles.roundedLg,
-                styles.mb4,
+                styles.mb1,
+                styles.mt1,
                 styles.border,
                 styles.borderError
               )}>
@@ -555,127 +556,10 @@ const OTPVerificationScreen = () => {
               </View>
             ) : null}
 
-            {/* OTP Send/Resend Button */}
-            <View style={clsx(styles.mb6)}>
-              {!otpSent ? (
-                <TouchableOpacity
-                  style={clsx(
-                    styles.flexRow,
-                    styles.itemsCenter,
-                    styles.justifyCenter,
-                    styles.p4,
-                    styles.bgSecondary,
-                    styles.roundedLg,
-                    styles.shadowSm,
-                    sendingOtp && styles.opacity50
-                  )}
-                  onPress={sendOtp}
-                  disabled={sendingOtp || !selectedSelfie}
-                >
-                  {sendingOtp ? (
-                    <>
-                      <ActivityIndicator size="small" color={colors.white} style={clsx(styles.mr2)} />
-                      <Text style={clsx(styles.textWhite, styles.fontBold)}>
-                        Sending OTP...
-                      </Text>
-                    </>
-                  ) : (
-                    <>
-                      <Icon name="send" size={24} color={colors.white} style={clsx(styles.mr2)} />
-                      <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
-                        Send OTP to Customer
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              ) : (
-                <View style={clsx(
-                  styles.flexRow,
-                  styles.itemsCenter,
-                  styles.justifyBetween,
-                  styles.p4,
-                  styles.bgSuccessLight,
-                  styles.roundedLg,
-                  styles.border,
-                  styles.borderSuccess,
-                  styles.shadowSm
-                )}>
-                  <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-                    <Icon name="check-circle" size={24} color={colors.success} style={clsx(styles.mr2)} />
-                    <View>
-                      <Text style={clsx(styles.textBase, styles.fontBold, styles.textSuccess)}>
-                        OTP Sent Successfully
-                      </Text>
-                      <Text style={clsx(styles.textSm, styles.textMuted)}>
-                        Valid for {formatTime(otpTimer)}
-                      </Text>
-                    </View>
-                  </View>
-                  <TouchableOpacity
-                    onPress={resendOtp}
-                    disabled={otpTimer > 0 || sendingOtp}
-                    style={clsx(
-                      styles.px4,
-                      styles.py2,
-                      styles.bgWhite,
-                      styles.roundedFull,
-                      styles.border,
-                      otpTimer > 0 ? styles.borderGray : styles.borderPrimary,
-                      styles.shadowXs
-                    )}
-                  >
-                    <Text style={clsx(
-                      styles.textSm,
-                      styles.fontBold,
-                      otpTimer > 0 ? styles.textMuted : styles.textPrimary
-                    )}>
-                      {otpTimer > 0 ? formatTime(otpTimer) : 'Resend'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
+           
           </View>
 
-          {/* Instructions Card */}
-          <View style={clsx(
-            styles.bgInfoLight,
-            styles.roundedLg,
-            styles.p4,
-            styles.mb6,
-            styles.border,
-            styles.borderInfo
-          )}>
-            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
-              📋 Instructions
-            </Text>
-            <View style={clsx(styles.spaceY2)}>
-              <View style={clsx(styles.flexRow, styles.itemsStart)}>
-                <Text style={clsx(styles.textSuccess, styles.fontBold, styles.mr2)}>1.</Text>
-                <Text style={clsx(styles.textBase, styles.textBlack)}>
-                  Take a clear selfie with good lighting
-                </Text>
-              </View>
-              <View style={clsx(styles.flexRow, styles.itemsStart)}>
-                <Text style={clsx(styles.textSuccess, styles.fontBold, styles.mr2)}>2.</Text>
-                <Text style={clsx(styles.textBase, styles.textBlack)}>
-                  Click "Send OTP to Customer" button
-                </Text>
-              </View>
-              <View style={clsx(styles.flexRow, styles.itemsStart)}>
-                <Text style={clsx(styles.textSuccess, styles.fontBold, styles.mr2)}>3.</Text>
-                <Text style={clsx(styles.textBase, styles.textBlack)}>
-                  Ask customer for the 4-digit OTP on their phone
-                </Text>
-              </View>
-              <View style={clsx(styles.flexRow, styles.itemsStart)}>
-                <Text style={clsx(styles.textSuccess, styles.fontBold, styles.mr2)}>4.</Text>
-                <Text style={clsx(styles.textBase, styles.textBlack)}>
-                  Enter OTP and click "Verify & Start Service"
-                </Text>
-              </View>
-            </View>
-          </View>
+         
 
           {/* Start Service Button */}
           <View style={clsx(styles.mb8)}>
@@ -685,6 +569,7 @@ const OTPVerificationScreen = () => {
                 styles.itemsCenter,
                 styles.justifyCenter,
                 styles.p4,
+                styles.mt0,
                 styles.roundedLg,
                 styles.shadowLg,
                 (verifyingOtp || !selectedSelfie || otp.join('').length !== 4) 
@@ -730,14 +615,7 @@ const OTPVerificationScreen = () => {
             <View style={clsx(styles.bgWhite, styles.roundedT3xl, styles.p6)}>
               {/* Modal Header */}
               <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb6)}>
-                <View>
-                  <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)}>
-                    Take Selfie
-                  </Text>
-                  <Text style={clsx(styles.textSm, styles.textMuted)}>
-                    Required for service verification
-                  </Text>
-                </View>
+                <View></View>
                 <TouchableOpacity 
                   onPress={handleSelfieModalClose}
                   disabled={takingSelfie}
@@ -752,26 +630,6 @@ const OTPVerificationScreen = () => {
                 >
                   <Icon name="close" size={20} color={colors.textMuted} />
                 </TouchableOpacity>
-              </View>
-
-              {/* Instructions */}
-              <View style={clsx(
-                styles.mb6,
-                styles.p4,
-                styles.bgInfoLight,
-                styles.roundedLg,
-                styles.border,
-                styles.borderInfo
-              )}>
-                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
-                  ⚡ Quick Instructions:
-                </Text>
-                <Text style={clsx(styles.textSm, styles.textMuted)}>
-                  • Ensure good lighting{"\n"}
-                  • Face should be clearly visible{"\n"}
-                  • Keep a neutral expression{"\n"}
-                  • Selfie will be stored for verification
-                </Text>
               </View>
 
               {/* Camera Button */}

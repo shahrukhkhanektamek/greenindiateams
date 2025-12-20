@@ -28,12 +28,12 @@ const TrainingStatusScreen = ({ navigation }) => {
   const fetchTrainingStatus = async () => {
     try {
       const response = await postData({}, Urls.trainingScheduleDetail, 'GET', { 
-        showErrorMessage: false 
+        showErrorMessage: false, showSuccessMessage: false
       });
       
       if (response?.success && response.data) {
         const apiData = response.data || {};
-        console.log('Training API Data:', apiData);
+        // console.log('Training API Data:', apiData);
         
         // Format training data
         let formattedData = {
@@ -109,7 +109,6 @@ const TrainingStatusScreen = ({ navigation }) => {
           
           formattedData.scheduledTime = timeStr;
         }
-        console.log("fafas",apiData)
         // Determine status based on trainingScheduleStatus
         switch (apiData.trainingScheduleStatus) {
           case 'New':
@@ -144,7 +143,7 @@ const TrainingStatusScreen = ({ navigation }) => {
           formattedData.status = 'cancelled';
         }
 
-        console.log('Formatted Training Data:', formattedData);
+        // console.log('Formatted Training Data:', formattedData);
         setTrainingData(formattedData);
         setLastUpdated(new Date());
         return { success: true, data: formattedData };

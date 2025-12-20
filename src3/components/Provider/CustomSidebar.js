@@ -37,7 +37,8 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
     { id: 'bookings', label: 'Bookings', icon: 'list-alt', screen: 'Bookings' },
     // { id: 'todayJobs', label: "Today's Jobs", icon: 'today', screen: 'TodayJobs' },
     { id: 'earnings', label: 'Earnings', icon: 'attach-money', screen: 'Earnings' },
-    { id: 'transaction', label: 'Transaction History', icon: 'history', screen: 'TransactionHistory' },
+    // { id: 'transaction', label: 'Transaction History', icon: 'history', screen: 'TransactionHistory' },
+    { id: 'wallet', label: 'Wallet', icon: 'wallet', screen: 'Wallet' },
     // { id: 'performance', label: 'Performance', icon: 'trending-up', screen: 'Performance' },
     // { id: 'tools', label: 'Tools & Equipment', icon: 'handyman', screen: 'Tools' },
     { id: 'support', label: 'Help & Support', icon: 'support-agent', screen: 'Support' },
@@ -195,7 +196,7 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
                 <View style={styles.ratingContainer}>
                   <Icon name="star" size={14} color={colors.warning} />
                   <Text style={styles.ratingText}>
-                    {4.5} • {user?.categories[0]?.name}
+                    {user.averageRating} • {user?.categories[0]?.name}
                   </Text>
                 </View>
               </View>
@@ -203,11 +204,11 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
             
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>100</Text>
+                <Text style={styles.statValue}>{user.totalEarning}</Text>
                 <Text style={styles.statLabel}>Total Earnings</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>120</Text>
+                <Text style={styles.statValue}>{user.completedJob}</Text>
                 <Text style={styles.statLabel}>Jobs Completed</Text>
               </View>
             </View>

@@ -31,7 +31,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
   // Selfie States
   const [selectedSelfie, setSelectedSelfie] = useState(null);
   
-  // Media Upload States - FOR CAPTURED MEDIA (NOT UPLOADED YET)
+  // Media Upload States
   const [capturedBeforeImages, setCapturedBeforeImages] = useState([]);
   const [capturedBeforeVideos, setCapturedBeforeVideos] = useState([]);
   const [capturedAfterImages, setCapturedAfterImages] = useState([]);
@@ -46,8 +46,10 @@ const BookingDetailScreen = ({ navigation, route }) => {
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [showUploadButton, setShowUploadButton] = useState(false);
   
-  // Complete Booking States
-  const [additionalItems, setAdditionalItems] = useState([]);
+  // Parts Approval States
+  const [partsAmount, setPartsAmount] = useState(0);
+  const [originalAmount, setOriginalAmount] = useState(0);
+  const [additionalParts, setAdditionalParts] = useState([]);
 
   useEffect(() => {
     loadBookingDetails();
@@ -63,19 +65,38 @@ const BookingDetailScreen = ({ navigation, route }) => {
       );
 
       if (response?.success && response.data) {
-        setBookingData(response.data);
-        if (response.data.beforeStartImages) {
-          setBeforeImages(response.data.beforeStartImages);
+        const data = response.data;
+        setBookingData(data);
+        
+        // Set media data
+        if (data.beforeStartImages) {
+          setBeforeImages(data.beforeStartImages);
         }
-        if (response.data.beforeStartVideos) {
-          setBeforeVideos(response.data.beforeStartVideos);
+        if (data.beforeStartVideos) {
+          setBeforeVideos(data.beforeStartVideos);
         }
-        if (response.data.afterCompleteImages) {
-          setAfterImages(response.data.afterCompleteImages);
+        if (data.afterCompleteImages) {
+          setAfterImages(data.afterCompleteImages);
         }
-        if (response.data.afterCompleteVideos) {
-          setAfterVideos(response.data.afterCompleteVideos);
+        if (data.afterCompleteVideos) {
+          setAfterVideos(data.afterCompleteVideos);
         }
+        
+        // Calculate original amount
+        calculateOriginalAmount(data);
+        
+        // Check for additional parts
+        if (data.additionalParts && data.additionalParts.length > 0) {
+          setAdditionalParts(data.additionalParts);
+          
+          // Calculate parts amount
+          let partsTotal = 0;
+          data.additionalParts.forEach(part => {
+            partsTotal += (part.price || 0) * (part.quantity || 1);
+          });
+          setPartsAmount(partsTotal);
+        }
+        
       } else {
         Toast.show({
           type: 'error',
@@ -95,6 +116,24 @@ const BookingDetailScreen = ({ navigation, route }) => {
     }
   };
 
+  const calculateOriginalAmount = (data) => {
+    try {
+      const booking = data.booking || {};
+      const bookingItems = booking.bookingItems || [];
+      
+      let total = 0;
+      bookingItems.forEach(item => {
+        const itemPrice = item.salePrice || 0;
+        const itemQuantity = item.quantity || 1;
+        total += itemPrice * itemQuantity;
+      });
+      
+      setOriginalAmount(total);
+    } catch (error) {
+      console.error('Error calculating original amount:', error);
+    }
+  };
+
   const formatBookingData = (data) => {
     if (!data) return null;
 
@@ -108,7 +147,11 @@ const BookingDetailScreen = ({ navigation, route }) => {
       item.service?.name || 'Service'
     ).join(', ');
 
-    const totalAmount = booking.payableAmount || booking.amount || 0;
+    // Calculate total amount including parts
+    let totalAmount = booking.payableAmount || booking.amount || 0;
+    if (additionalParts.length > 0) {
+      totalAmount += partsAmount;
+    }
 
     let formattedDate = '';
     if (booking.scheduleDate) {
@@ -148,47 +191,193 @@ const BookingDetailScreen = ({ navigation, route }) => {
 
   const formattedData = formatBookingData(bookingData);
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'complete': return colors.success;
-      case 'accept': return colors.primary;
-      case 'new': return colors.info;
-      case 'upcoming': return colors.warning;
-      case 'cancel': return colors.error;
-      case 'reject': return colors.error;
-      case 'ongoing': return colors.info;
-      default: return colors.gray;
+  // NEW: Function to get combined status with parts approval
+  const getCombinedStatus = () => {
+    const status = bookingData?.status || '';
+    
+    // Parts approval statuses
+    if (status === 'partstatusnew') {
+      return {
+        label: 'In Progress • ⏳ Parts Submitted',
+        color: colors.warning,
+        bgColor: colors.warningLight,
+        isPartsPending: true
+      };
     }
-  };
-
-  const getStatusBgColor = (status) => {
+    
+    if (status === 'partstatusconfirm') {
+      return {
+        label: 'In Progress • 📋 Parts Confirmed',
+        color: colors.info,
+        bgColor: colors.infoLight,
+        isPartsPending: true
+      };
+    }
+    
+    if (status === 'partstatusapprove') {
+      return {
+        label: 'In Progress • ✅ Parts Approved',
+        color: colors.success,
+        bgColor: colors.successLight,
+        isPartsApproved: true
+      };
+    }
+    
+    if (status === 'partstatusreject') {
+      return {
+        label: 'In Progress • ❌ Parts Rejected',
+        color: colors.error,
+        bgColor: colors.errorLight,
+        isPartsRejected: true
+      };
+    }
+    
+    // Regular booking statuses
     switch (status) {
-      case 'complete': return colors.successLight;
-      case 'accept': return colors.primaryLight;
-      case 'new': return colors.infoLight;
-      case 'upcoming': return colors.warningLight;
-      case 'cancel': return colors.errorLight;
-      case 'reject': return colors.errorLight;
-      case 'ongoing': return colors.infoLight;
-      default: return colors.gray100;
+      case 'complete':
+        return {
+          label: 'Completed',
+          color: colors.success,
+          bgColor: colors.successLight
+        };
+      case 'accept':
+        return {
+          label: 'Accepted',
+          color: colors.primary,
+          bgColor: colors.primaryLight
+        };
+      case 'new':
+        return {
+          label: 'New',
+          color: colors.info,
+          bgColor: colors.infoLight
+        };
+      case 'upcoming':
+        return {
+          label: 'Upcoming',
+          color: colors.warning,
+          bgColor: colors.warningLight
+        };
+      case 'cancel':
+        return {
+          label: 'Cancelled',
+          color: colors.error,
+          bgColor: colors.errorLight
+        };
+      case 'reject':
+        return {
+          label: 'Rejected',
+          color: colors.error,
+          bgColor: colors.errorLight
+        };
+      case 'ongoing':
+        return {
+          label: 'In Progress',
+          color: colors.info,
+          bgColor: colors.infoLight
+        };
+      default:
+        return {
+          label: status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown',
+          color: colors.gray,
+          bgColor: colors.gray100
+        };
     }
   };
 
   const getStatusLabel = (status) => {
-    switch (status) {
-      case 'new': return 'New';
-      case 'accept': return 'Accepted';
-      case 'upcoming': return 'Upcoming';
-      case 'complete': return 'Completed';
-      case 'cancel': return 'Cancelled';
-      case 'reject': return 'Rejected';
-      case 'ongoing': return 'In Progress';
-      default: return status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown';
-    }
+    const combined = getCombinedStatus();
+    return combined.label;
+  };
+
+  const getStatusColor = (status) => {
+    const combined = getCombinedStatus();
+    return combined.color;
+  };
+
+  const getStatusBgColor = (status) => {
+    const combined = getCombinedStatus();
+    return combined.bgColor;
+  };
+
+  // Check if parts approval is in progress
+  const isPartsApprovalInProgress = () => {
+    const status = bookingData?.status || '';
+    return status.includes('partstatus');
+  };
+
+  const isPartsApproved = () => {
+    return bookingData?.status === 'partstatusapprove';
+  };
+
+  const isPartsRejected = () => {
+    return bookingData?.status === 'partstatusreject';
+  };
+
+  const isPartsPending = () => {
+    const status = bookingData?.status || '';
+    return status === 'partstatusnew' || status === 'partstatusconfirm';
+  };
+
+  // Function to open parts selection
+  const openPartsSelection = () => {
+    navigation.navigate('PartsSelectionScreen', {
+      bookingData,
+      formattedData,
+      loadBookingDetails,
+    });
+  };
+
+  // Function to cancel parts request
+  const cancelPartsRequest = async () => {
+    Alert.alert(
+      'Cancel Parts Request',
+      'Are you sure you want to cancel the parts request?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+
+            console.log(bookingData)
+            console.log(bookingId)
+            try {
+              const response = await postData(
+                { bookingId: bookingData.bookingId, servicemanBookingId:bookingData._id },
+                `${Urls.cancelPartsRequest}`,
+                'POST'
+              );
+              
+              if (response?.success) {
+                Toast.show({
+                  type: 'success',
+                  text1: 'Cancelled',
+                  text2: 'Parts request cancelled successfully',
+                });
+                loadBookingDetails();
+              }
+            } catch (error) {
+              console.error('Error cancelling parts request:', error);
+            }
+          }
+        }
+      ]
+    );
   };
 
   // MEDIA UPLOAD FUNCTIONS
   const openMediaModal = (type) => {
+    // Check if parts approval is pending
+    if (isPartsPending()) {
+      Toast.show({
+        type: 'info',
+        text1: 'Parts Approval Pending',
+        text2: 'Please wait for parts approval before uploading media',
+      });
+      return;
+    }
+    
     navigation.navigate('MediaCaptureScreen', {
       mediaType: type,
       bookingId,
@@ -429,6 +618,16 @@ const BookingDetailScreen = ({ navigation, route }) => {
 
   // COMPLETE BOOKING FUNCTIONS
   const openCompleteModal = () => {
+    // Check if parts approval is pending
+    if (isPartsPending()) {
+      Toast.show({
+        type: 'info',
+        text1: 'Parts Approval Pending',
+        text2: 'Please wait for parts approval before completing service',
+      });
+      return;
+    }
+    
     navigation.navigate('CompleteBookingScreen', {
       bookingData,
       formattedData,
@@ -484,9 +683,10 @@ const BookingDetailScreen = ({ navigation, route }) => {
               styles.roundedFull
             )}
             onPress={() => openMediaModal(`${type}-image`)}
+            disabled={isPartsPending()}
           >
-            <Icon name="add-a-photo" size={16} color={colors.white} />
-            <Text style={clsx(styles.textWhite, styles.textSm, styles.ml1)}>
+            <Icon name="add-a-photo" size={16} color={isPartsPending() ? colors.gray500 : colors.white} />
+            <Text style={clsx(styles.textSm, styles.ml1, isPartsPending() ? styles.textGray500 : styles.textWhite)}>
               Add Image
             </Text>
           </TouchableOpacity>
@@ -501,9 +701,10 @@ const BookingDetailScreen = ({ navigation, route }) => {
               styles.roundedFull
             )}
             onPress={() => openMediaModal(`${type}-video`)}
+            disabled={isPartsPending()}
           >
-            <Icon name="videocam" size={16} color={colors.white} />
-            <Text style={clsx(styles.textWhite, styles.textSm, styles.ml1)}>
+            <Icon name="videocam" size={16} color={isPartsPending() ? colors.gray500 : colors.white} />
+            <Text style={clsx(styles.textSm, styles.ml1, isPartsPending() ? styles.textGray500 : styles.textWhite)}>
               Add Video
             </Text>
           </TouchableOpacity>
@@ -646,13 +847,11 @@ const BookingDetailScreen = ({ navigation, route }) => {
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {uploadedVideos.map((uri, index) => {
               const videoUri = `${UploadUrl}${uri}`;     
-              console.log(videoUri)
               
               return (
                 <View key={index} style={clsx(styles.mr3, styles.positionRelative)}>
                   <TouchableOpacity
                     onPress={() => {
-                      // Video play के लिए
                       if (videoUri) {
                         Linking.openURL(videoUri).catch(err => 
                           console.log('Failed to open video:', err)
@@ -670,7 +869,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
                       justifyContent: 'center',
                       overflow: 'hidden',
                     }}>
-                      {/* Video Thumbnail के लिए (optional) */}
                       <Image
                         source={{ uri: videoUri }}
                         style={{
@@ -831,6 +1029,195 @@ const BookingDetailScreen = ({ navigation, route }) => {
     </TouchableOpacity>
   );
 
+  // Render parts approval section
+  const renderPartsApprovalSection = () => {
+    if (!isPartsApprovalInProgress()) return null;
+    
+    const status = bookingData?.status || '';
+    
+    return (
+      <View style={clsx(styles.px4, styles.mt4)}>
+        <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
+          Parts Approval Status
+        </Text>
+        
+        <View style={clsx(
+          styles.bgWhite,
+          styles.roundedLg,
+          styles.p4,
+          styles.shadowSm
+        )}>
+          {/* Status Badge */}
+          <View style={clsx(
+            styles.flexRow,
+            styles.itemsCenter,
+            styles.justifyBetween,
+            styles.mb4
+          )}>
+            <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+              <View style={[clsx(
+                styles.w3,
+                styles.h3,
+                styles.roundedFull,
+                styles.mr3
+              ), {
+                backgroundColor: 
+                  status === 'partstatusnew' || status === 'partstatusconfirm' ? colors.warning :
+                  status === 'partstatusapprove' ? colors.success :
+                  colors.error
+              }]} />
+              <View>
+                <Text style={clsx(styles.textLg, styles.fontBold, {
+                  color: 
+                    status === 'partstatusnew' || status === 'partstatusconfirm' ? colors.warning :
+                    status === 'partstatusapprove' ? colors.success :
+                    colors.error
+                })}>
+                  {status === 'partstatusnew' ? 'Parts Submitted' :
+                   status === 'partstatusconfirm' ? 'Parts Confirmed' :
+                   status === 'partstatusapprove' ? 'Parts Approved' :
+                   'Parts Rejected'}
+                </Text>
+                <Text style={clsx(styles.textSm, styles.textMuted)}>
+                  {status === 'partstatusnew' ? 'Waiting for customer confirmation' :
+                   status === 'partstatusconfirm' ? 'Customer has confirmed parts' :
+                   status === 'partstatusapprove' ? 'Parts approved by customer' :
+                   'Parts rejected by customer'}
+                </Text>
+              </View>
+            </View>
+            
+            {isPartsPending() && (
+              <TouchableOpacity
+                onPress={cancelPartsRequest}
+                style={clsx(
+                  styles.px3,
+                  styles.py1,
+                  styles.bgErrorLight,
+                  styles.roundedFull
+                )}
+              >
+                <Text style={clsx(styles.textSm, styles.textError, styles.fontMedium)}>
+                  Cancel Request
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          {/* Parts List */}
+          {additionalParts.length > 0 && (
+            <View style={clsx(styles.mb4)}>
+              <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
+                Additional Parts:
+              </Text>
+              {additionalParts.map((part, index) => (
+                <View key={index} style={clsx(
+                  styles.flexRow,
+                  styles.justifyBetween,
+                  styles.itemsCenter,
+                  styles.p2,
+                  styles.bgGray50,
+                  styles.rounded,
+                  styles.mb1
+                )}>
+                  <Text style={clsx(styles.textSm, styles.textBlack)}>
+                    {part.name} (×{part.quantity || 1})
+                  </Text>
+                  <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
+                    ₹{part.price || 0} × {part.quantity || 1} = ₹{(part.price || 0) * (part.quantity || 1)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+          
+          {/* Amount Breakdown */}
+          {partsAmount > 0 && (
+            <View style={clsx(
+              styles.bgGray50,
+              styles.p3,
+              styles.roundedLg
+            )}>
+              <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
+                Amount Breakdown
+              </Text>
+              
+              <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
+                <Text style={clsx(styles.textSm, styles.textMuted)}>
+                  Original Service Amount:
+                </Text>
+                <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack)}>
+                  ₹{originalAmount}
+                </Text>
+              </View>
+              
+              <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
+                <Text style={clsx(styles.textSm, styles.textMuted)}>
+                  Additional Parts Amount:
+                </Text>
+                <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
+                  + ₹{partsAmount}
+                </Text>
+              </View>
+              
+              <View style={clsx(
+                styles.flexRow,
+                styles.justifyBetween,
+                styles.mt2,
+                styles.pt2,
+                styles.borderTop,
+                styles.borderGray300
+              )}>
+                <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
+                  New Total Amount:
+                </Text>
+                <Text style={clsx(styles.textLg, styles.fontBold, styles.textSuccess)}>
+                  ₹{originalAmount + partsAmount}
+                </Text>
+              </View>
+            </View>
+          )}
+          
+          {/* Status Message */}
+          <Text style={clsx(styles.textSm, styles.textMuted, styles.mt4)}>
+            {isPartsPending() 
+              ? 'Parts are pending approval. You cannot upload media or complete service until parts are approved.' 
+              : isPartsApproved()
+              ? 'Parts have been approved. You can now continue with service.'
+              : 'Parts have been rejected. Please proceed with original service only.'}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  // Render parts info in service card
+  const renderPartsInfoInServiceCard = () => {
+    if (additionalParts.length === 0) return null;
+    
+    return (
+      <View style={clsx(styles.mt4, styles.p3, styles.bgInfoLight, styles.roundedLg)}>
+        <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
+          Additional Parts Added
+        </Text>
+        
+        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
+          <Text style={clsx(styles.textSm, styles.textMuted)}>Parts Amount:</Text>
+          <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
+            ₹{partsAmount}
+          </Text>
+        </View>
+        
+        <View style={clsx(styles.flexRow, styles.justifyBetween)}>
+          <Text style={clsx(styles.textSm, styles.textMuted)}>Total Amount:</Text>
+          <Text style={clsx(styles.textLg, styles.fontBold, styles.textSuccess)}>
+            ₹{originalAmount + partsAmount}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <View style={clsx(styles.flex1, styles.bgSurface)}>
       
@@ -858,6 +1245,8 @@ const BookingDetailScreen = ({ navigation, route }) => {
               {formattedData.bookingId}
             </Text>
           </View>
+          
+          {/* Combined Status Badge */}
           <View style={clsx(
             styles.px4,
             styles.py2,
@@ -897,7 +1286,12 @@ const BookingDetailScreen = ({ navigation, route }) => {
                   {formattedData.service}
                 </Text>
                 <Text style={clsx(styles.textBase, styles.textPrimary, styles.fontMedium)}>
-                  ₹{formattedData.amount}
+                  ₹{originalAmount + partsAmount}
+                  {partsAmount > 0 && (
+                    <Text style={clsx(styles.textSm, styles.textMuted)}>
+                      {' '}(Service: ₹{originalAmount} + Parts: ₹{partsAmount})
+                    </Text>
+                  )}
                 </Text>
               </View>
             </View>
@@ -911,6 +1305,9 @@ const BookingDetailScreen = ({ navigation, route }) => {
                 {formattedData.serviceDetails}
               </Text>
             </View>
+
+            {/* Parts Info */}
+            {renderPartsInfoInServiceCard()}
 
             {/* Media Status */}
             <View style={clsx(styles.mt4)}>
@@ -957,6 +1354,9 @@ const BookingDetailScreen = ({ navigation, route }) => {
             </View>
           </View>
         </View>
+
+        {/* Parts Approval Section */}
+        {renderPartsApprovalSection()}
 
         {/* Customer Information */}
         <View style={clsx(styles.px4, styles.mt4)}>
@@ -1082,14 +1482,23 @@ const BookingDetailScreen = ({ navigation, route }) => {
         </View>
 
         {/* Media Upload Sections - Only show if booking is ongoing */}
-        {formattedData.status === 'ongoing' && (
+        {formattedData.status === 'ongoing' || isPartsApprovalInProgress() ? (
           <View style={clsx(styles.px4, styles.mt4)}>
             <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack, styles.mb4)}>
               Service Proof Upload
             </Text>
-            <Text style={clsx(styles.textBase, styles.textMuted, styles.mb6)}>
-              Capture images/videos before and after service. All media will be uploaded together.
-            </Text>
+            
+            {isPartsPending() ? (
+              <View style={clsx(styles.p4, styles.bgWarningLight, styles.roundedLg, styles.mb6)}>
+                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.textCenter)}>
+                  ⚠️ Media upload is disabled until parts are approved
+                </Text>
+              </View>
+            ) : (
+              <Text style={clsx(styles.textBase, styles.textMuted, styles.mb6)}>
+                Capture images/videos before and after service. All media will be uploaded together.
+              </Text>
+            )}
             
             <MediaSection
               title="Before Service"
@@ -1110,7 +1519,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
             />
             
             {/* Upload All Button - Only show when there are captured media */}
-            {showUploadButton && (
+            {showUploadButton && !isPartsPending() && (
               <TouchableOpacity
                 style={clsx(
                   styles.bgSuccess,
@@ -1122,7 +1531,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
                   uploadingMedia && styles.opacity50
                 )}
                 onPress={uploadAllCapturedMedia}
-                disabled={uploadingMedia}
+                disabled={uploadingMedia || isPartsPending()}
               >
                 {uploadingMedia ? (
                   <ActivityIndicator size="small" color={colors.white} />
@@ -1137,7 +1546,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
               </TouchableOpacity>
             )}
           </View>
-        )}
+        ) : null}
 
         {/* Spacer for bottom buttons */}
         <View style={clsx(styles.h24)} />
@@ -1210,18 +1619,61 @@ const BookingDetailScreen = ({ navigation, route }) => {
           </>
         ) : formattedData.status === 'ongoing' ? (
           <>
+            {/* Add Parts Button - Only show if not already in parts approval */}
+            {!isPartsApprovalInProgress() && (
+              <ActionButton
+                icon="build"
+                label="Add Parts"
+                color={colors.info}
+                outlined={true}
+                onPress={openPartsSelection}
+              />
+            )}
+            
+            <ActionButton
+              icon="add-a-photo"
+              label="Add Media"
+              color={colors.info}
+              outlined={isPartsApprovalInProgress()}
+              onPress={() => openMediaModal('before-image')}
+              disabled={isPartsPending()}
+            />
+            
+            <ActionButton
+              icon="check-circle"
+              label="Complete"
+              color={colors.success}
+              onPress={openCompleteModal}
+              disabled={isPartsPending()}
+            />
+          </>
+        ) : isPartsApprovalInProgress() ? (
+          <>
+            {isPartsPending() && (
+              <ActionButton
+                icon="schedule"
+                label="Pending Approval"
+                color={colors.warning}
+                outlined={true}
+                disabled={true}
+              />
+            )}
+            
             <ActionButton
               icon="add-a-photo"
               label="Add Media"
               color={colors.info}
               outlined={true}
               onPress={() => openMediaModal('before-image')}
+              disabled={isPartsPending()}
             />
+            
             <ActionButton
               icon="check-circle"
               label="Complete"
               color={colors.success}
               onPress={openCompleteModal}
+              disabled={isPartsPending()}
             />
           </>
         ) : null}

@@ -9,12 +9,15 @@ import {
   Modal,
   FlatList,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import { AppContext } from '../../../Context/AppContext';
 import Header from '../../../components/Common/Header';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const BookingListScreen = ({ navigation }) => {
   const {
@@ -26,7 +29,7 @@ const BookingListScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [activeTab, setActiveTab] = useState('all'); // all, upcoming, completed, cancelled, new
+  const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [bookings, setBookings] = useState([]);
@@ -39,41 +42,54 @@ const BookingListScreen = ({ navigation }) => {
     hasNextPage: false,
   });
 
+  // API filter parameters
+  const [apiFilters, setApiFilters] = useState({
+    status: '',
+    search: '',
+    category: '',
+    dateRange: '',
+    minPrice: '',
+    maxPrice: '',
+  });
+
   const tabs = [
-    { id: 'all', label: 'All', status: 'all' },
+    { id: 'all', label: 'All', status: '' },
     { id: 'new', label: 'New', status: 'new' },
-    { id: 'upcoming', label: 'Upcoming', status: 'upcoming' },
-    { id: 'completed', label: 'Completed', status: 'completed' },
-    { id: 'cancelled', label: 'Cancelled', status: 'cancelled' },
+    { id: 'assign', label: 'Assigned', status: 'assign' },
+    { id: 'accept', label: 'Accepted', status: 'accept' },
+    { id: 'ongoing', label: 'Ongoing', status: 'ongoing' },
+    { id: 'complete', label: 'Completed', status: 'complete' },
+    { id: 'cancel', label: 'Cancelled', status: 'cancel' },
+    { id: 'reject', label: 'Rejected', status: 'reject' },
   ];
 
   const serviceTypes = [
-    { id: 'all', label: 'All Services' },
-    { id: 'ac', label: 'AC Services' },
-    { id: 'cleaning', label: 'Cleaning' },
-    { id: 'plumbing', label: 'Plumbing' },
-    { id: 'electrical', label: 'Electrical' },
-    { id: 'water', label: 'Water Purifier' },
+    { id: '', label: 'All Services', category: '' },
+    { id: 'ac', label: 'AC Services', category: 'ac' },
+    { id: 'cleaning', label: 'Cleaning', category: 'cleaning' },
+    { id: 'plumbing', label: 'Plumbing', category: 'plumbing' },
+    { id: 'electrical', label: 'Electrical', category: 'electrical' },
+    { id: 'water', label: 'Water Purifier', category: 'water' },
   ];
 
   const dateRanges = [
-    { id: 'all', label: 'All Time' },
-    { id: 'today', label: 'Today' },
-    { id: 'week', label: 'This Week' },
-    { id: 'month', label: 'This Month' },
+    { id: '', label: 'All Time', dateRange: '' },
+    { id: 'today', label: 'Today', dateRange: 'today' },
+    { id: 'week', label: 'This Week', dateRange: 'week' },
+    { id: 'month', label: 'This Month', dateRange: 'month' },
   ];
 
   const priceRanges = [
-    { id: 'all', label: 'All Prices' },
-    { id: 'low', label: '₹0 - ₹1000' },
-    { id: 'medium', label: '₹1000 - ₹3000' },
-    { id: 'high', label: '₹3000+' },
+    { id: '', label: 'All Prices', minPrice: '', maxPrice: '' },
+    { id: 'low', label: '₹0 - ₹1000', minPrice: '0', maxPrice: '1000' },
+    { id: 'medium', label: '₹1000 - ₹3000', minPrice: '1000', maxPrice: '3000' },
+    { id: 'high', label: '₹3000+', minPrice: '3000', maxPrice: '' },
   ];
 
   const [selectedFilters, setSelectedFilters] = useState({
-    serviceType: 'all',
-    dateRange: 'all',
-    priceRange: 'all',
+    serviceType: '',
+    dateRange: '',
+    priceRange: '',
   });
 
   const fetchBookings = async (page = 1, isLoadMore = false) => {
@@ -86,22 +102,23 @@ const BookingListScreen = ({ navigation }) => {
         limit: 10,
       };
 
-      // Add status filter if not 'all'
-      if (activeTab !== 'all') {
-        params.status = activeTab;
-      }
+      // Add API filters
+      if (apiFilters.status) params.status = apiFilters.status;
+      if (apiFilters.search) params.search = apiFilters.search;
+      if (apiFilters.category) params.category = apiFilters.category;
+      if (apiFilters.dateRange) params.dateRange = apiFilters.dateRange;
+      if (apiFilters.minPrice) params.minPrice = apiFilters.minPrice;
+      if (apiFilters.maxPrice) params.maxPrice = apiFilters.maxPrice;
 
-      // Add search query if exists
-      if (searchQuery) {
-        params.search = searchQuery;
-      }
+      console.log('Fetching with params:', params);
 
       const response = await postData(params, Urls.booking, 'GET', {
-        showErrorMessage: false, showSuccessMessage: false
+        showErrorMessage: false, 
+        showSuccessMessage: false
       });
 
       if (response?.success) {
-        const { data, total, page: currentPage, limit, totalPages, hasPrevPage, hasNextPage, pagination: paginationData } = response;
+        const { data, total, page: currentPage, limit, totalPages, hasPrevPage, hasNextPage } = response;
 
         const formattedBookings = data.map(item => {
           const booking = item.booking || {};
@@ -135,22 +152,6 @@ const BookingListScreen = ({ navigation }) => {
             formattedTime = booking.scheduleTime;
           }
 
-          // Determine service type from services
-          let serviceType = 'other';
-          if (serviceNames.toLowerCase().includes('ac') || serviceNames.toLowerCase().includes('air')) {
-            serviceType = 'ac';
-          } else if (serviceNames.toLowerCase().includes('clean')) {
-            serviceType = 'cleaning';
-          } else if (serviceNames.toLowerCase().includes('plumb')) {
-            serviceType = 'plumbing';
-          } else if (serviceNames.toLowerCase().includes('electr')) {
-            serviceType = 'electrical';
-          } else if (serviceNames.toLowerCase().includes('water') || serviceNames.toLowerCase().includes('ro')) {
-            serviceType = 'water';
-          } else if (serviceNames.toLowerCase().includes('tv')) {
-            serviceType = 'tv';
-          }
-
           return {
             id: item._id,
             bookingId: booking.bookingId || `BK${item._id.slice(-6)}`,
@@ -162,7 +163,6 @@ const BookingListScreen = ({ navigation }) => {
             address: `${address.houseNumber || ''} ${address.landmark || ''}`.trim() || 'Address not available',
             status: item.status || booking.status || 'new',
             amount: totalAmount,
-            serviceType: serviceType,
             originalData: item,
           };
         });
@@ -207,7 +207,19 @@ const BookingListScreen = ({ navigation }) => {
 
   useEffect(() => {
     loadBookings();
-  }, [activeTab, searchQuery]);
+  }, [activeTab, apiFilters]);
+
+  useEffect(() => {
+    // Debounce search
+    const timer = setTimeout(() => {
+      setApiFilters(prev => ({
+        ...prev,
+        search: searchQuery
+      }));
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const loadBookings = async () => {
     await fetchBookings(1, false);
@@ -232,152 +244,117 @@ const BookingListScreen = ({ navigation }) => {
     });
   };
 
-  const handleStatusUpdate = async (bookingId, newStatus) => {
-    try {
-      // Show loading
-      Toast.show({
-        type: 'info',
-        text1: 'Updating status...',
-        text2: 'Please wait',
-      });
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    const tab = tabs.find(t => t.id === tabId);
+    setApiFilters(prev => ({
+      ...prev,
+      status: tab?.status || ''
+    }));
+  };
 
-      const response = await postData(
-        { status: newStatus },
-        `${Urls.bookingAccept}/${bookingId}`,
-        'POST'
-      );
+  const handleFilterApply = () => {
+    const serviceFilter = serviceTypes.find(st => st.id === selectedFilters.serviceType);
+    const dateFilter = dateRanges.find(dr => dr.id === selectedFilters.dateRange);
+    const priceFilter = priceRanges.find(pr => pr.id === selectedFilters.priceRange);
 
-      if (response?.success) {
-        // Update local state
-        setBookings(prev => prev.map(booking => 
-          booking.id === bookingId 
-            ? { ...booking, status: newStatus }
-            : booking
-        ));
+    const newFilters = {
+      ...apiFilters,
+      category: serviceFilter?.category || '',
+      dateRange: dateFilter?.dateRange || '',
+      minPrice: priceFilter?.minPrice || '',
+      maxPrice: priceFilter?.maxPrice || '',
+    };
 
-        Toast.show({
-          type: 'success',
-          text1: 'Status Updated',
-          text2: `Booking ${bookingId} updated to ${newStatus}`,
-        });
+    setApiFilters(newFilters);
+    setFilterModalVisible(false);
+  };
 
-        // Refresh list
-        await fetchBookings(1, false);
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Error',
-          text2: response?.message || 'Failed to update status',
-        });
-      }
-    } catch (error) {
-      console.error('Error updating status:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to update status. Please try again.',
-      });
-    }
+  const handleFilterReset = () => {
+    setSelectedFilters({
+      serviceType: '',
+      dateRange: '',
+      priceRange: '',
+    });
+    
+    setApiFilters({
+      status: '',
+      search: '',
+      category: '',
+      dateRange: '',
+      minPrice: '',
+      maxPrice: '',
+    });
+    
+    setActiveTab('all');
+    setSearchQuery('');
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'completed': return colors.success;
-      case 'accepted': return colors.primary;
+      case 'complete': return colors.success;
+      case 'accept': return colors.primary;
       case 'new': return colors.info;
-      case 'upcoming': return colors.warning;
-      case 'cancelled': return colors.error;
-      case 'rejected': return colors.error;
+      case 'assign': return colors.warning;
+      case 'ongoing': return colors.info;
+      case 'cancel': return colors.error;
+      case 'reject': return colors.error;
+      case 'partstatusnew': return colors.warning;
+      case 'partstatusconfirm': return colors.info;
+      case 'partstatusapprove': return colors.success;
+      case 'partstatusreject': return colors.error;
       default: return colors.gray;
     }
   };
 
   const getStatusBgColor = (status) => {
     switch (status) {
-      case 'completed': return colors.success + '20';
-      case 'accepted': return colors.primary + '20';
+      case 'complete': return colors.success + '20';
+      case 'accept': return colors.primary + '20';
       case 'new': return colors.info + '20';
-      case 'upcoming': return colors.warning + '20';
-      case 'cancelled': return colors.error + '20';
-      case 'rejected': return colors.error + '20';
+      case 'assign': return colors.warning + '20';
+      case 'ongoing': return colors.info + '20';
+      case 'cancel': return colors.error + '20';
+      case 'reject': return colors.error + '20';
+      case 'partstatusnew': return colors.warning + '20';
+      case 'partstatusconfirm': return colors.info + '20';
+      case 'partstatusapprove': return colors.success + '20';
+      case 'partstatusreject': return colors.error + '20';
       default: return colors.gray + '20';
     }
   };
 
   const getStatusLabel = (status) => {
     switch (status) {
+      case 'complete': return 'Completed';
+      case 'accept': return 'Accepted';
       case 'new': return 'New';
-      case 'accepted': return 'Accepted';
-      case 'upcoming': return 'Upcoming';
-      case 'completed': return 'Completed';
-      case 'cancelled': return 'Cancelled';
-      case 'rejected': return 'Rejected';
-      default: return status.charAt(0).toUpperCase() + status.slice(1);
+      case 'assign': return 'Assigned';
+      case 'ongoing': return 'In Progress';
+      case 'cancel': return 'Cancelled';
+      case 'reject': return 'Rejected';
+      case 'partstatusnew': return 'Parts Pending';
+      case 'partstatusconfirm': return 'Parts Confirmed';
+      case 'partstatusapprove': return 'Parts Approved';
+      case 'partstatusreject': return 'Parts Rejected';
+      default: return status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown';
     }
   };
 
-  const getServiceIcon = (serviceType) => {
-    switch (serviceType) {
-      case 'ac': return 'ac-unit';
-      case 'cleaning': return 'cleaning-services';
-      case 'plumbing': return 'plumbing';
-      case 'electrical': return 'electrical-services';
-      case 'water': return 'water-drop';
-      case 'tv': return 'tv';
-      default: return 'home-repair-service';
-    }
-  };
-
-  const getActionButtons = (booking) => {
-    const buttons = [];
+  const getServiceIcon = (serviceName) => {
+    if (!serviceName) return 'home-repair-service';
     
-    switch (booking.status) {
-      case 'new':
-        buttons.push(
-          {
-            label: 'Accept',
-            icon: 'check-circle',
-            color: colors.success,
-            action: () => handleStatusUpdate(booking.id, 'accepted'),
-          },
-          {
-            label: 'Reject',
-            icon: 'close',
-            color: colors.error,
-            action: () => handleStatusUpdate(booking.id, 'rejected'),
-          }
-        );
-        break;
-        
-      case 'accepted':
-        buttons.push(
-          {
-            label: 'Start',
-            icon: 'play-circle',
-            color: colors.primary,
-            action: () => handleStatusUpdate(booking.id, 'upcoming'),
-          }
-        );
-        break;
-        
-      case 'upcoming':
-        buttons.push(
-          {
-            label: 'Complete',
-            icon: 'check',
-            color: colors.success,
-            action: () => handleStatusUpdate(booking.id, 'completed'),
-          }
-        );
-        break;
-    }
-    
-    return buttons;
+    const service = serviceName.toLowerCase();
+    if (service.includes('ac') || service.includes('air')) return 'ac-unit';
+    if (service.includes('clean')) return 'cleaning-services';
+    if (service.includes('plumb')) return 'plumbing';
+    if (service.includes('electr')) return 'electrical-services';
+    if (service.includes('water') || service.includes('ro')) return 'water-drop';
+    if (service.includes('tv')) return 'tv';
+    return 'home-repair-service';
   };
 
   const renderBookingCard = ({ item: booking }) => {
-    const actionButtons = getActionButtons(booking);
-    
     return (
       <TouchableOpacity
         style={clsx(
@@ -388,14 +365,16 @@ const BookingListScreen = ({ navigation }) => {
           styles.shadowSm
         )}
         onPress={() => navigation.navigate('BookingDetail', { booking: booking.originalData })}
+        activeOpacity={0.7}
       >
-        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
-          <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-            <View style={[clsx(styles.roundedFull, styles.p2), { backgroundColor: getStatusBgColor(booking.status) }]}>
-              <Icon name={getServiceIcon(booking.serviceType)} size={20} color={getStatusColor(booking.status)} />
+        {/* Top Section - Service & Status */}
+        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsStart, styles.mb3)}>
+          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.flex1)}>
+            <View style={[clsx(styles.roundedFull, styles.p2, styles.mr3), { backgroundColor: getStatusBgColor(booking.status) }]}>
+              <Icon name={getServiceIcon(booking.service)} size={20} color={getStatusColor(booking.status)} />
             </View>
-            <View style={clsx(styles.ml3)}>
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
+            <View style={clsx(styles.flex1)}>
+              <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb1)} numberOfLines={1}>
                 {booking.service}
               </Text>
               <Text style={clsx(styles.textSm, styles.textMuted)}>
@@ -410,104 +389,81 @@ const BookingListScreen = ({ navigation }) => {
             { backgroundColor: getStatusBgColor(booking.status) }
           )}>
             <Text style={clsx(
-              styles.textSm,
+              styles.textXs,
               styles.fontMedium,
               { color: getStatusColor(booking.status) }
-            )}>
+            )} numberOfLines={1}>
               {getStatusLabel(booking.status)}
             </Text>
           </View>
         </View>
 
-        <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
-          <Icon name="person" size={16} color={colors.textLight} />
-          <Text style={clsx(styles.textBase, styles.textBlack, styles.ml2)}>
-            {booking.customerName}
-          </Text>
-        </View>
-
-        <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
-          <Icon name="phone" size={16} color={colors.textLight} />
-          <Text style={clsx(styles.textBase, styles.textBlack, styles.ml2)}>
-            {booking.mobile}
-          </Text>
-        </View>
-
-        {booking.date && (
+        {/* Customer Details */}
+        <View style={clsx(styles.mb3)}>
           <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
-            <Icon name="calendar-today" size={16} color={colors.textLight} />
-            <Text style={clsx(styles.textBase, styles.textBlack, styles.ml2)}>
-              {booking.date} {booking.time ? `• ${booking.time}` : ''}
+            <Icon name="person" size={16} color={colors.textMuted} style={clsx(styles.mr2)} />
+            <Text style={clsx(styles.textSm, styles.textBlack, styles.flex1)} numberOfLines={1}>
+              {booking.customerName}
             </Text>
           </View>
-        )}
 
-        <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
-          <Icon name="location-on" size={16} color={colors.textLight} />
-          <Text style={clsx(styles.textBase, styles.textBlack, styles.ml2, styles.flex1)}>
-            {booking.address}
-          </Text>
+          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
+            <Icon name="phone" size={16} color={colors.textMuted} style={clsx(styles.mr2)} />
+            <Text style={clsx(styles.textSm, styles.textBlack, styles.flex1)} numberOfLines={1}>
+              {booking.mobile}
+            </Text>
+          </View>
+
+          {booking.date && (
+            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
+              <Icon name="calendar-today" size={16} color={colors.textMuted} style={clsx(styles.mr2)} />
+              <Text style={clsx(styles.textSm, styles.textBlack, styles.flex1)} numberOfLines={1}>
+                {booking.date} {booking.time ? `• ${booking.time}` : ''}
+              </Text>
+            </View>
+          )}
+
+          <View style={clsx(styles.flexRow, styles.itemsStart, styles.mb2)}>
+            <Icon name="location-on" size={16} color={colors.textMuted} style={clsx(styles.mr2, styles.mt1)} />
+            <Text style={clsx(styles.textSm, styles.textBlack, styles.flex1)} numberOfLines={2}>
+              {booking.address}
+            </Text>
+          </View>
         </View>
 
+        {/* Bottom Section - Amount & Button */}
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
           <View>
-            <Text style={clsx(styles.textSm, styles.textMuted)}>
+            <Text style={clsx(styles.textSm, styles.textMuted, styles.mb1)}>
               Total Amount
             </Text>
-            <Text style={clsx(styles.text2xl, styles.fontBold, styles.textPrimary)}>
+            <Text style={clsx(styles.textXl, styles.fontBold, styles.textPrimary)}>
               ₹{booking.amount}
             </Text>
           </View>
           
-          {actionButtons.length > 0 ? (
-            <View style={clsx(styles.flexRow)}>
-              {actionButtons.map((button, index) => (
-                <TouchableOpacity 
-                  key={index}
-                  style={clsx(
-                    styles.flexRow,
-                    styles.itemsCenter,
-                    styles.px3,
-                    styles.py2,
-                    styles.mr2,
-                    styles.roundedFull,
-                    { backgroundColor: button.color }
-                  )}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    button.action();
-                  }}
-                >
-                  <Icon name={button.icon} size={16} color={colors.white} />
-                  <Text style={clsx(styles.textWhite, styles.fontMedium, styles.ml1)}>
-                    {button.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : (
-            <TouchableOpacity 
-              style={clsx(
-                styles.flexRow,
-                styles.itemsCenter,
-                styles.px3,
-                styles.py2,
-                styles.border,
-                styles.borderPrimary,
-                styles.bgWhite,
-                styles.roundedFull
-              )}
-              onPress={(e) => {
-                e.stopPropagation();
-                navigation.navigate('BookingDetail', { booking: booking.originalData });
-              }}
-            >
-              <Text style={clsx(styles.textPrimary, styles.fontMedium, styles.mr1)}>
-                Details
-              </Text>
-              <Icon name="chevron-right" size={16} color={colors.primary} />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity 
+            style={clsx(
+              styles.flexRow,
+              styles.itemsCenter,
+              styles.px3,
+              styles.py2,
+              styles.border,
+              styles.borderPrimary,
+              styles.bgWhite,
+              styles.roundedFull
+            )}
+            onPress={(e) => {
+              e.stopPropagation();
+              navigation.navigate('BookingDetail', { booking: booking.originalData });
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={clsx(styles.textPrimary, styles.fontMedium, styles.mr1)}>
+              Details
+            </Text>
+            <Icon name="chevron-right" size={16} color={colors.primary} />
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
@@ -517,18 +473,22 @@ const BookingListScreen = ({ navigation }) => {
     <TouchableOpacity
       key={tab.id}
       style={clsx(
-        styles.px4,
+        styles.px3,
         styles.py2,
-        styles.mr3,
+        styles.mr2,
         styles.roundedFull,
-        activeTab === tab.id ? styles.bgPrimary : styles.bgGray100
+        activeTab === tab.id ? styles.bgPrimary : styles.bgGray100,
+        { minWidth: 80 }
       )}
-      onPress={() => setActiveTab(tab.id)}
+      onPress={() => handleTabChange(tab.id)}
+      activeOpacity={0.7}
     >
       <Text style={clsx(
+        styles.textSm,
         styles.fontMedium,
+        styles.textCenter,
         activeTab === tab.id ? styles.textWhite : styles.textBlack
-      )}>
+      )} numberOfLines={1}>
         {tab.label}
       </Text>
     </TouchableOpacity>
@@ -549,18 +509,22 @@ const BookingListScreen = ({ navigation }) => {
           <TouchableOpacity
             key={option.id}
             style={clsx(
-              styles.px4,
+              styles.px3,
               styles.py2,
-              styles.mr3,
+              styles.mr2,
               styles.roundedFull,
-              selectedFilters[filterType] === option.id ? styles.bgPrimary : styles.bgGray100
+              selectedFilters[filterType] === option.id ? styles.bgPrimary : styles.bgGray100,
+              { minWidth: 80 }
             )}
             onPress={() => setSelectedFilters({...selectedFilters, [filterType]: option.id})}
+            activeOpacity={0.7}
           >
             <Text style={clsx(
+              styles.textSm,
               styles.fontMedium,
+              styles.textCenter,
               selectedFilters[filterType] === option.id ? styles.textWhite : styles.textBlack
-            )}>
+            )} numberOfLines={1}>
               {option.label}
             </Text>
           </TouchableOpacity>
@@ -600,7 +564,7 @@ const BookingListScreen = ({ navigation }) => {
         showBack
         showNotification={false}
         type="white"
-        rightAction={true}
+        rightAction={false}
         rightActionIcon="filter-list"
         showProfile={false}
         onRightActionPress={() => setFilterModalVisible(true)}
@@ -626,19 +590,20 @@ const BookingListScreen = ({ navigation }) => {
             returnKeyType="search"
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <TouchableOpacity onPress={() => setSearchQuery('')} style={clsx(styles.p1)}>
               <Icon name="close" size={20} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {/* Tab Navigation */}
-      <View style={clsx(styles.bgWhite, styles.px4, styles.py3, styles.shadowSm)}>
+      {/* Tab Navigation - Fixed Horizontal Scroll */}
+      <View style={clsx(styles.bgWhite, styles.py3, styles.shadowSm)}>
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={clsx(styles.flexRow)}
+          contentContainerStyle={clsx(styles.px4)}
+          style={clsx(styles.flexGrow0)}
         >
           {tabs.map(renderTabItem)}
         </ScrollView>
@@ -658,32 +623,36 @@ const BookingListScreen = ({ navigation }) => {
             tintColor={colors.primary}
           />
         }
-        contentContainerStyle={clsx(styles.px4, styles.py4)}
+        contentContainerStyle={clsx(styles.px4, styles.py3)}
         ListEmptyComponent={
-          <View style={clsx(styles.itemsCenter, styles.justifyCenter, styles.p8)}>
+          <View style={clsx(styles.itemsCenter, styles.justifyCenter, styles.py12, styles.px4)}>
             <Icon name="inbox" size={80} color={colors.gray300} />
-            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mt4)}>
+            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mt4, styles.textCenter)}>
               No bookings found
             </Text>
             <Text style={clsx(styles.textBase, styles.textMuted, styles.textCenter, styles.mt2)}>
-              {searchQuery ? 'Try changing your search query' : 'No bookings match your current filters'}
+              {searchQuery || apiFilters.status || apiFilters.category 
+                ? 'No bookings match your current filters'
+                : 'You have no bookings yet'
+              }
             </Text>
-            {searchQuery && (
+            {(searchQuery || apiFilters.status || apiFilters.category) && (
               <TouchableOpacity
                 style={clsx(
                   styles.flexRow,
                   styles.itemsCenter,
-                  styles.mt4,
+                  styles.mt6,
                   styles.px4,
-                  styles.py2,
+                  styles.py3,
                   styles.bgPrimary,
                   styles.roundedFull
                 )}
-                onPress={() => setSearchQuery('')}
+                onPress={handleFilterReset}
+                activeOpacity={0.7}
               >
-                <Icon name="refresh" size={16} color={colors.white} />
+                <Icon name="refresh" size={18} color={colors.white} />
                 <Text style={clsx(styles.textWhite, styles.fontMedium, styles.ml2)}>
-                  Clear Search
+                  Reset Filters
                 </Text>
               </TouchableOpacity>
             )}
@@ -691,16 +660,40 @@ const BookingListScreen = ({ navigation }) => {
         }
         ListHeaderComponent={
           bookings.length > 0 ? (
-            <Text style={clsx(styles.textBase, styles.textMuted, styles.mb3)}>
-              Showing {bookings.length} of {pagination.total} booking{bookings.length !== 1 ? 's' : ''}
-            </Text>
+            <View style={clsx(styles.mb3)}>
+              <Text style={clsx(styles.textBase, styles.textMuted)}>
+                Showing {bookings.length} of {pagination.total} booking{bookings.length !== 1 ? 's' : ''}
+              </Text>
+              {(apiFilters.status || apiFilters.category || apiFilters.search) && (
+                <TouchableOpacity
+                  style={clsx(
+                    styles.flexRow,
+                    styles.itemsCenter,
+                    styles.mt2,
+                    styles.selfStart,
+                    styles.px3,
+                    styles.py1,
+                    styles.bgGray100,
+                    styles.roundedFull
+                  )}
+                  onPress={handleFilterReset}
+                  activeOpacity={0.7}
+                >
+                  <Text style={clsx(styles.textSm, styles.textMuted)}>
+                    Clear filters
+                  </Text>
+                  <Icon name="close" size={14} color={colors.textMuted} style={clsx(styles.ml1)} />
+                </TouchableOpacity>
+              )}
+            </View>
           ) : null
         }
         ListFooterComponent={renderFooter}
         onEndReached={loadMoreBookings}
-        onEndReachedThreshold={0.5}
+        onEndReachedThreshold={0.3}
       />
 
+      {/* Filter Modal */}
       {/* Filter Modal */}
       <Modal
         animationType="slide"
@@ -709,17 +702,17 @@ const BookingListScreen = ({ navigation }) => {
         onRequestClose={() => setFilterModalVisible(false)}
       >
         <View style={clsx(styles.flex1, styles.justifyEnd, styles.bgBlack50)}>
-          <View style={clsx(styles.bgWhite, styles.roundedT3xl, styles.p6, styles.maxH80)}>
+          <View style={clsx(styles.bgWhite, styles.roundedT3xl, styles.p6, { maxHeight: SCREEN_WIDTH * 1.2 })}>
             <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb6)}>
               <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)}>
                 Filter Bookings
               </Text>
-              <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
+              <TouchableOpacity onPress={() => setFilterModalVisible(false)} activeOpacity={0.7}>
                 <Icon name="close" size={24} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} style={clsx(styles.flex1)}>
               {/* Service Type Filter */}
               {renderFilterOption('serviceType', serviceTypes)}
 
@@ -730,27 +723,22 @@ const BookingListScreen = ({ navigation }) => {
               {renderFilterOption('dateRange', dateRanges)}
 
               {/* Action Buttons */}
-              <View style={clsx(styles.flexRow, styles.gap3, styles.mt4)}>
+              <View style={clsx(styles.flexRow, styles.gap3, styles.mt4, styles.mb6)}>
                 <TouchableOpacity
                   style={clsx(
                     styles.flex1,
                     styles.border,
                     styles.borderPrimary,
                     styles.roundedLg,
-                    styles.p4,
+                    styles.p3,
                     styles.itemsCenter,
                     styles.justifyCenter
                   )}
-                  onPress={() => {
-                    setSelectedFilters({
-                      serviceType: 'all',
-                      dateRange: 'all',
-                      priceRange: 'all',
-                    });
-                  }}
+                  onPress={handleFilterReset}
+                  activeOpacity={0.7}
                 >
                   <Text style={clsx(styles.textPrimary, styles.fontBold)}>
-                    Reset Filters
+                    Reset All
                   </Text>
                 </TouchableOpacity>
                 
@@ -759,11 +747,12 @@ const BookingListScreen = ({ navigation }) => {
                     styles.flex1,
                     styles.bgPrimary,
                     styles.roundedLg,
-                    styles.p4,
+                    styles.p3,
                     styles.itemsCenter,
                     styles.justifyCenter
                   )}
-                  onPress={() => setFilterModalVisible(false)}
+                  onPress={handleFilterApply}
+                  activeOpacity={0.7}
                 >
                   <Text style={clsx(styles.textWhite, styles.fontBold)}>
                     Apply Filters

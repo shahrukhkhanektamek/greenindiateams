@@ -14,7 +14,7 @@ import OTPVerificationScreen from '../screens/Provider/Booking/OTPVerificationSc
 import SelfieCaptureScreen from '../screens/Provider/Booking/SelfieCaptureScreen';
 import MediaCaptureScreen from '../screens/Provider/Booking/MediaCaptureScreen';
 import CompleteBookingScreen from '../screens/Provider/Booking/CompleteBookingScreen';
-import AddItemScreen from '../screens/Provider/Booking/AddItemScreen';
+import PartsSelectionScreen from '../screens/Provider/Booking/PartsSelectionScreen';
 
 
 import ProviderProfileScreen from '../screens/Provider/Profile/ProviderProfileScreen';
@@ -143,12 +143,12 @@ function ProviderNavigator() {
           <Stack.Screen name="SelfieCaptureScreen" component={SelfieCaptureScreen}/> 
           <Stack.Screen name="MediaCaptureScreen" component={MediaCaptureScreen}/> 
           <Stack.Screen name="CompleteBookingScreen" component={CompleteBookingScreen}/> 
-          <Stack.Screen name="AddItemScreen" component={AddItemScreen}/> 
+          <Stack.Screen name="PartsSelectionScreen" component={PartsSelectionScreen}/> 
 
           <Stack.Screen name="ProviderProfile" component={ProviderProfileScreen}/>
           <Stack.Screen name="ProfileUpdate" component={ProfileUpdateScreen} />
 
-          <Stack.Screen name="KycScreen" component={KYCUpdateScreen} />
+          <Stack.Screen name="KycScreen" component={KYCUpdateScreen} /> 
 
           <Stack.Screen name="Training" component={TrainingScheduleScreen} />
           <Stack.Screen name="TrainingStatus" component={TrainingStatusScreen} />

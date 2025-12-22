@@ -11,18 +11,18 @@ export const AppContext = createContext();
 
 // API URLs configuration - Consider moving to environment variables
 // const UploadUrl = 'http://192.168.1.61:8080/';
-const UploadUrl = 'http://192.168.1.25:8080/';
-// const UploadUrl = 'http://145.223.18.56:3001/';
+// const UploadUrl = 'http://192.168.1.25:8080/';
+const UploadUrl = 'http://145.223.18.56:3001/';
 const BASE_URLS = {
   development: "http://192.168.1.25:8080/",
-  // production: "http://145.223.18.56:3001/",
+  production: "http://145.223.18.56:3001/",
   
   // development: "http://192.168.1.61:8080/",
   // production: "https://api.example.com/"
 };
 
 export const AppProvider = ({ children }) => {
-  const ENVIRONMENT = "development"; 
+  const ENVIRONMENT = "production"; 
   const mainUrl = BASE_URLS[ENVIRONMENT];
   
   // App states
@@ -93,21 +93,31 @@ export const AppProvider = ({ children }) => {
 
       review: `${serviceManUrl}review`,
       booking: `${serviceManUrl}booking`,
+      bookingAccept: `${serviceManUrl}booking/accept`,
       getBookingDetail: `${serviceManUrl}booking`,
       sendOtp: `${serviceManUrl}booking/booking-start-otp`,
       verifyOtpAndStart: `${serviceManUrl}booking/booking-start-otp-verify`,
       
       uploadBeforeStartMedia: `${serviceManUrl}bookingUpload/upload-before-start`,
       uploadAfterCompleteMedia: `${serviceManUrl}bookingUpload/upload-after-complete`,
-
+      
       removeBeforeStartMedia: `${serviceManUrl}bookingUpload/remove-before-start`,
       removeAfterCompleteMedia: `${serviceManUrl}bookingUpload/remove-after-complete`,
+      
+      getRateGroups: `${serviceManUrl}rate-card`,
+      submitPartsForApproval: `${serviceManUrl}booking-additional-item`,
+      cancelPartsRequest: `${serviceManUrl}booking-additional-item/cancel`,
+
+      bookingComplete: `${serviceManUrl}booking/complete`,
+
+      // checkPartsApprovalStatus: `${serviceManUrl}booking-additional-item`,
+      // approveParts: `${serviceManUrl}bookingUpload/remove-before-start`,
+      // rejectParts: `${serviceManUrl}bookingUpload/remove-before-start`,
+
 
       walletHistory: `${serviceManUrl}wallet`,
       addWalletCredit: `${serviceManUrl}wallet`,
 
-      bookingAccept: `${serviceManUrl}booking/accept`,
-      bookingComplete: `${serviceManUrl}booking/complete`,
       logout: `${serviceManUrl}auth/logout`
     };
   }, [mainUrl]);

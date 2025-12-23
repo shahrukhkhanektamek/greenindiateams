@@ -11,6 +11,8 @@ import styles, { clsx } from '../../styles/globalStyles';
 import { colors } from '../../styles/colors';
 import { AppContext } from '../../Context/AppContext';
 
+import { goBack } from '../../navigation/navigationService';
+
 const Header = ({
   title,
   subtitle,
@@ -70,7 +72,7 @@ const Header = ({
           {showBack && (
             <>
               {isheaderback?
-                <TouchableOpacity onPress={() => navigation.goBack()}>
+                <TouchableOpacity onPress={() => goBack()}>
                   <Icon name="arrow-back" size={24} color={colors.white} />
                 </TouchableOpacity>
               :null}

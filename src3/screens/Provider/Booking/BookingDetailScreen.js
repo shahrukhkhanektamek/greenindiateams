@@ -1452,7 +1452,15 @@ const BookingDetailScreen = ({ navigation, route }) => {
             title="Address"
             value={formattedData.address}
             icon="location-on"
-            onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formattedData.address)}`)}
+            onPress={() => { 
+                if (formattedData?.originalData?.booking?.addressId?.lat && formattedData?.originalData?.booking?.addressId?.long) {
+                  // Use coordinates if available (more accurate)
+                  Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${formattedData.originalData.booking.addressId.lat},${formattedData.originalData.booking.addressId.long}`);
+                } else if (formattedData.address) {
+                  // Fallback to address search
+                  Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formattedData.address)}`);
+                }
+              }}
           />
 
           <InfoCard

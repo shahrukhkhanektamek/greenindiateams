@@ -16,6 +16,7 @@ import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import Header from '../../../components/Common/Header';
 import { AppContext } from '../../../Context/AppContext';
+import { FlatList } from 'react-native-gesture-handler';
 
 const ProviderProfileScreen = ({ navigation, route }) => {
   const { Toast, Urls, postData, user, UploadUrl } = useContext(AppContext);
@@ -35,19 +36,19 @@ const ProviderProfileScreen = ({ navigation, route }) => {
   });
 
   const menuItems = [
-    {
-      id: 'bank',
-      title: 'Bank & Payment',
-      icon: 'account-balance',
-      color: colors.secondary,
-      onPress: () => navigation.navigate('BankDetails'),
-    },
+    // {
+    //   id: 'bank',
+    //   title: 'Bank & Payment',
+    //   icon: 'account-balance',
+    //   color: colors.secondary,
+    //   onPress: () => navigation.navigate('BankDetails'),
+    // },
     {
       id: 'areas',
       title: 'Service Areas',
       icon: 'location-on',
       color: colors.error,
-      onPress: () => navigation.navigate('ServiceAreas'),
+      onPress: () => navigation.navigate('ZonesScreen'),
     },
     {
       id: 'support',
@@ -81,7 +82,7 @@ const ProviderProfileScreen = ({ navigation, route }) => {
         
         // Set profile image if exists
         if (response.data.profileImage) {
-          setProfileImage(`${UploadUrl}/${response.data.profileImage}`);
+          setProfileImage(`${UploadUrl}${response.data.profileImage}`);
         }
         
         // Check if refresh was triggered from route params
@@ -362,7 +363,7 @@ const ProviderProfileScreen = ({ navigation, route }) => {
         showBack
         showNotification={false}
         type="white"
-        rightAction={true}
+        rightAction={false}
         rightActionIcon="refresh"
         showProfile={false}
         onRightActionPress={refreshProfile}
@@ -384,7 +385,7 @@ const ProviderProfileScreen = ({ navigation, route }) => {
           <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p4, styles.shadow, styles.itemsCenter)}>
             <TouchableOpacity
               style={clsx(styles.positionRelative)}
-              onPress={handleImagePick}
+              // onPress={handleImagePick}
             >
               {profileImage ? (
                 <Image
@@ -402,32 +403,20 @@ const ProviderProfileScreen = ({ navigation, route }) => {
                   <Icon name="person" size={48} color={colors.gray500} />
                 </View>
               )}
-              <View style={clsx(
-                styles.positionAbsolute,
-                styles.bottom0,
-                styles.right0,
-                styles.bgPrimary,
-                styles.roundedFull,
-                styles.p2,
-                styles.border,
-                styles.borderWhite,
-                styles.border4
-              )}>
-                <Icon name="camera-alt" size={16} color={colors.white} />
-              </View>
+              
             </TouchableOpacity>
 
             <Text style={clsx(styles.text2xl, styles.fontBold, styles.textBlack, styles.mt4)}>
               {profileData.name || 'Not provided'}
             </Text>
             <Text style={clsx(styles.textBase, styles.textMuted, styles.mt1)}>
-              {profileData.categories?.[0]?.name || 'Service Provider'}
+              {profileData.categories?.[0]?.name || 'Service Provider'} 
             </Text>
 
             <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt2)}>
               <Icon name="star" size={16} color="#FFD700" />
               <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mx1)}>
-                {profileData.averageRating || 'N/A'}
+                {profileData.averageRating}
               </Text>
               <Text style={clsx(styles.textSm, styles.textMuted)}>
                 ({profileData.completedJob || 0} completed jobs)
@@ -650,6 +639,7 @@ const ProviderProfileScreen = ({ navigation, route }) => {
         )}
 
         {/* Categories */}
+        {/* Categories */}
         {profileData.categories && profileData.categories.length > 0 && (
           <View style={clsx(styles.mx4, styles.mt4)}>
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
@@ -657,27 +647,30 @@ const ProviderProfileScreen = ({ navigation, route }) => {
             </Text>
             
             <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p4, styles.shadow)}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={clsx(styles.flexRow, styles.gap2)}>
-                  {profileData.categories.map((category, index) => (
-                    <View
-                      key={category._id || index}
-                      style={clsx(
-                        styles.px3,
-                        styles.py2,
-                        styles.bgPrimaryLight,
-                        styles.roundedFull,
-                        styles.border,
-                        styles.borderPrimary
-                      )}
-                    >
-                      <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
-                        {category.name}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </ScrollView>
+              <FlatList
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                data={profileData.categories}
+                keyExtractor={(item, index) => item._id || index.toString()}
+                renderItem={({ item }) => (
+                  <View
+                    style={clsx(
+                      styles.px3,
+                      styles.py2,
+                      styles.bgPrimaryLight,
+                      styles.roundedFull,
+                      styles.border,
+                      styles.borderPrimary,
+                      styles.mr2 // gap की जगह mr2 use करें
+                    )}
+                  >
+                    <Text style={clsx(styles.textSm, styles.fontMedium, styles.textWhite)}>
+                      {item.name}
+                    </Text>
+                  </View>
+                )}
+                contentContainerStyle={clsx(styles.flexGrow)}
+              />
             </View>
           </View>
         )}

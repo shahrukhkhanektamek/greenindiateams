@@ -21,6 +21,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
     Urls,
     postData,
     fetchProfile,
+    userProfile,
   } = useContext(AppContext);
 
   const [loading, setLoading] = useState(false);
@@ -47,6 +48,9 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
     type: '',
     description: '',
     trainingId: '',
+    startTime: '',
+    endTime: '',
+    maxParticipant: '',
   });
 
   // Fetch training schedule data
@@ -61,34 +65,39 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
         const apiData = response.data || {};
         console.log('API Data:', apiData);
         
-        // Extract training details from trainingId object
-        if (apiData.trainingId) {
-          const training = apiData.trainingId;
+        // Extract training details from trainer object
+        if (apiData.trainer) {
+          const trainer = apiData.trainer;
           setTrainingDetails({
-            title: training.subject || 'Technical Training',
-            instructor: training.fullName || 'Trainer Name',
-            duration: training.duration || '2 hours',
-            location: training.location || 'Training Center',
-            type: training.type || 'Classroom',
-            description: training.description || 'Technical training session',
-            trainingId: training._id || '',
+            title: trainer.subject || 'Technical Training',
+            instructor: trainer.fullName || 'Trainer Name',
+            duration: `${trainer.startTime || '10:00'} - ${trainer.endTime || '12:00'}`,
+            startTime: trainer.startTime || '10:00',
+            endTime: trainer.endTime || '12:00',
+            location: trainer.location || 'Training Center',
+            type: 'Classroom',
+            description: trainer.description || 'Technical training session',
+            maxParticipant: trainer.maxParticipant || '50',
+            trainingId: apiData._id || '',
           });
         }
         
-        // Set schedule data if exists
-        if (apiData._id) {
+        // Set schedule data if exists (from trainigSubmit object)
+        if (apiData.trainigSubmit && apiData.trainigSubmit._id) {
+          const schedule = apiData.trainigSubmit;
+          
           // Create Date objects from scheduleDate and scheduleTime
           let trainingDate = new Date();
           let trainingTime = new Date();
           
-          if (apiData.scheduleDate) {
-            // Parse date string (e.g., "2026-01-01T00:00:00.000Z")
-            trainingDate = new Date(apiData.scheduleDate);
+          if (schedule.scheduleDate) {
+            // Parse date string
+            trainingDate = new Date(schedule.scheduleDate);
             
             // If we have scheduleTime, combine with date
-            if (apiData.scheduleTime) {
-              // Parse time string (e.g., "14:45")
-              const [hours, minutes] = apiData.scheduleTime.split(':').map(Number);
+            if (schedule.scheduleTime) {
+              // Parse time string (e.g., "15:30")
+              const [hours, minutes] = schedule.scheduleTime.split(':').map(Number);
               trainingDate.setHours(hours, minutes, 0, 0);
               trainingTime = new Date(trainingDate);
             } else {
@@ -99,23 +108,18 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
           
           // Determine status based on API data
           let status = 'pending';
-          if (apiData.trainingScheduleStatus === 1) {
+          if (schedule.trainingScheduleStatus === 'New' || schedule.status === true) {
             status = 'scheduled';
+          } else if (schedule.status === false) {
+            status = 'cancelled';
           }
-          //  else if (apiData.trainingScheduleStatus === false) {
-          //   status = 'cancelled';
-          // } else if (apiData.trainingScheduleStatus === 'completed') {
-          //   status = 'completed';
-          // } else if (apiData.trainingScheduleStatus === 'rescheduled') {
-          //   status = 'rescheduled';
-          // }
           
-          // console.log('Setting schedule data:', {
-          //   trainingDate,
-          //   trainingTime,
-          //   status,
-          //   scheduleId: apiData._id,
-          // });
+          console.log('Setting schedule data:', {
+            trainingDate,
+            trainingTime,
+            status,
+            scheduleId: schedule._id,
+          });
           
           setScheduleData({
             trainingDate: trainingDate,
@@ -123,18 +127,21 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
             status: status,
             originalDate: new Date(trainingDate),
             originalTime: new Date(trainingTime),
-            scheduleId: apiData._id,
+            scheduleId: schedule._id,
           });
         } else {
           // No schedule exists, set as pending
           const tomorrow = new Date();
           tomorrow.setDate(tomorrow.getDate() + 1);
+          const defaultTime = new Date(tomorrow);
+          defaultTime.setHours(10, 0, 0, 0);
+          
           setScheduleData({
             trainingDate: tomorrow,
-            trainingTime: new Date(tomorrow.setHours(10, 0, 0, 0)),
+            trainingTime: defaultTime,
             status: 'pending',
             originalDate: new Date(tomorrow),
-            originalTime: new Date(tomorrow.setHours(10, 0, 0, 0)),
+            originalTime: new Date(defaultTime),
             scheduleId: null,
           });
         }
@@ -157,22 +164,28 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
     setTrainingDetails({
       title: 'Technical Training',
       instructor: 'Trainer Name',
-      duration: '2 hours',
+      duration: '10:00 - 12:00',
+      startTime: '10:00',
+      endTime: '12:00',
       location: 'Training Center',
       type: 'Classroom',
       description: 'Technical training session',
+      maxParticipant: '50',
       trainingId: '',
     });
     
     // Set default date to tomorrow with pending status
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
+    const defaultTime = new Date(tomorrow);
+    defaultTime.setHours(10, 0, 0, 0);
+    
     setScheduleData({
       trainingDate: tomorrow,
-      trainingTime: new Date(tomorrow.setHours(10, 0, 0, 0)),
+      trainingTime: defaultTime,
       status: 'pending',
       originalDate: new Date(tomorrow),
-      originalTime: new Date(tomorrow.setHours(10, 0, 0, 0)),
+      originalTime: new Date(defaultTime),
       scheduleId: null,
     });
   };
@@ -280,29 +293,33 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
     setLoading(true);
 
     try {
-      // Format date as YYYY-MM-DD
+      // Format date as ISO string (YYYY-MM-DDTHH:mm:ss.sssZ)
       const year = scheduleData.trainingDate.getFullYear();
       const month = String(scheduleData.trainingDate.getMonth() + 1).padStart(2, '0');
       const day = String(scheduleData.trainingDate.getDate()).padStart(2, '0');
-      const formattedDate = `${year}-${month}-${day}`;
+      const formattedDate = `${year}-${month}-${day}T00:00:00.000Z`;
       
       // Format time as HH:mm
       const hours = String(scheduleData.trainingTime.getHours()).padStart(2, '0');
       const minutes = String(scheduleData.trainingTime.getMinutes()).padStart(2, '0');
       const formattedTime = `${hours}:${minutes}`;
 
-      // Prepare data for API
+      // Prepare data for API based on your response structure
       const submitData = {
         scheduleDate: formattedDate,
         scheduleTime: formattedTime,
         status: true, // true for scheduled
-        trainingId: scheduleData.scheduleId,
+        trainingScheduleStatus: 'New',
+        trainingId: trainingDetails.trainingId,
+        // Add user and provider ID from context/profile if available
+        ...(userProfile?.id && { user: userProfile.id }),
+        ...(userProfile?.providerId && { providerId: userProfile.providerId }),
       };
 
-      // Add scheduleId if exists (for update)
-      // if (scheduleData.scheduleId) {
-      //   submitData.scheduleId = scheduleData.scheduleId;
-      // }
+      // If updating existing schedule, add scheduleId
+      if (scheduleData.scheduleId) {
+        submitData.scheduleId = scheduleData.scheduleId;
+      }
 
       console.log('Submitting training schedule:', submitData);
 
@@ -318,25 +335,42 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
         });
         
         // Update local state with new schedule
-        setScheduleData(prev => ({
-          ...prev,
-          originalDate: new Date(scheduleData.trainingDate),
-          originalTime: new Date(scheduleData.trainingTime),
-          status: 'scheduled',
-          scheduleId: response.data?._id || scheduleData.scheduleId,
-        }));
+        const newSchedule = response.data?.trainigSubmit || response.data;
         
-        // Navigate back after delay
-        // setTimeout(() => {
-        //   navigation.goBack();
-        // }, 1500);
-
+        if (newSchedule) {
+          // Create Date objects from new schedule
+          let newDate = new Date();
+          let newTime = new Date();
+          
+          if (newSchedule.scheduleDate) {
+            newDate = new Date(newSchedule.scheduleDate);
+            
+            if (newSchedule.scheduleTime) {
+              const [hours, minutes] = newSchedule.scheduleTime.split(':').map(Number);
+              newDate.setHours(hours, minutes, 0, 0);
+              newTime = new Date(newDate);
+            }
+          }
+          
+          setScheduleData(prev => ({
+            ...prev,
+            trainingDate: newDate,
+            trainingTime: newTime,
+            originalDate: new Date(newDate),
+            originalTime: new Date(newTime),
+            status: 'scheduled',
+            scheduleId: newSchedule._id,
+          }));
+        }
+        
         await fetchProfile();
-
-        navigate('TrainingStatus')
-
+        navigate('TrainingStatus');
       } else {
-        // Alert.alert('Error', response?.message || 'Failed to schedule training');
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: response?.message || 'Failed to schedule training',
+        });
       }
     } catch (error) {
       Toast.show({
@@ -352,27 +386,25 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
 
   // API to reschedule training
   const handleReschedule = () => {
-    // navigate('ProviderDashboard')
-    navigate('TrainingStatus')
     // First show date/time pickers for rescheduling
-    // Alert.alert(
-    //   'Reschedule Training',
-    //   'Select new date and time for training',
-    //   [
-    //     {
-    //       text: 'Cancel',
-    //       style: 'cancel',
-    //     },
-    //     {
-    //       text: 'Select Date',
-    //       onPress: () => setShowDatePicker(true),
-    //     },
-    //     {
-    //       text: 'Select Time',
-    //       onPress: () => setShowTimePicker(true),
-    //     },
-    //   ]
-    // );
+    Alert.alert(
+      'Reschedule Training',
+      'Select new date and time for training',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Select Date',
+          onPress: () => setShowDatePicker(true),
+        },
+        {
+          text: 'Select Time',
+          onPress: () => setShowTimePicker(true),
+        },
+      ]
+    );
   };
 
   const confirmReschedule = async () => {
@@ -383,11 +415,11 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
     setLoading(true);
 
     try {
-      // Format date as YYYY-MM-DD
+      // Format date as ISO string (YYYY-MM-DDTHH:mm:ss.sssZ)
       const year = scheduleData.trainingDate.getFullYear();
       const month = String(scheduleData.trainingDate.getMonth() + 1).padStart(2, '0');
       const day = String(scheduleData.trainingDate.getDate()).padStart(2, '0');
-      const formattedDate = `${year}-${month}-${day}`;
+      const formattedDate = `${year}-${month}-${day}T00:00:00.000Z`;
       
       // Format time as HH:mm
       const hours = String(scheduleData.trainingTime.getHours()).padStart(2, '0');
@@ -398,9 +430,13 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
       const submitData = {
         scheduleDate: formattedDate,
         scheduleTime: formattedTime,
-        status: true, // true for scheduled
-        scheduleId: scheduleData.scheduleId,
-        rescheduled: true, // flag for rescheduling
+        status: true,
+        trainingScheduleStatus: 'New',
+        scheduleId: scheduleData.scheduleId, 
+        trainingId: trainingDetails.trainingId, 
+        rescheduled: true,
+        ...(userProfile?.id && { user: userProfile.id }),
+        ...(userProfile?.providerId && { providerId: userProfile.providerId }),
       };
 
       console.log('Rescheduling training:', submitData);
@@ -417,18 +453,40 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
         });
         
         // Update local state
-        setScheduleData(prev => ({
-          ...prev,
-          originalDate: new Date(scheduleData.trainingDate),
-          originalTime: new Date(scheduleData.trainingTime),
-          status: 'rescheduled',
-        }));
+        const newSchedule = response.data?.trainigSubmit || response.data;
         
-        setTimeout(() => {
-          navigation.goBack();
-        }, 1500);
+        if (newSchedule) {
+          let newDate = new Date();
+          let newTime = new Date();
+          
+          if (newSchedule.scheduleDate) {
+            newDate = new Date(newSchedule.scheduleDate);
+            
+            if (newSchedule.scheduleTime) {
+              const [hours, minutes] = newSchedule.scheduleTime.split(':').map(Number);
+              newDate.setHours(hours, minutes, 0, 0);
+              newTime = new Date(newDate);
+            }
+          }
+          
+          setScheduleData(prev => ({
+            ...prev,
+            trainingDate: newDate,
+            trainingTime: newTime,
+            originalDate: new Date(newDate),
+            originalTime: new Date(newTime),
+            status: 'rescheduled',
+          }));
+        }
+        
+        await fetchProfile();
+        navigate('TrainingStatus');
       } else {
-        Alert.alert('Error', response?.message || 'Failed to reschedule training');
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: response?.message || 'Failed to reschedule training',
+        });
       }
     } catch (error) {
       Toast.show({
@@ -465,8 +523,12 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
     setLoading(true);
     try {
       const submitData = {
-        status: false, // false for cancelled
+        status: false,
         scheduleId: scheduleData.scheduleId,
+        trainingScheduleStatus: 'Cancelled',
+        trainingId: trainingDetails.trainingId,
+        ...(userProfile?.id && { user: userProfile.id }),
+        ...(userProfile?.providerId && { providerId: userProfile.providerId }),
       };
 
       const response = await postData(
@@ -482,9 +544,18 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
           text1: 'Success',
           text2: 'Training cancelled successfully',
         });
-        navigation.goBack();
+        
+        // Update local status
+        setScheduleData(prev => ({
+          ...prev,
+          status: 'cancelled',
+        }));
       } else {
-        Alert.alert('Error', response?.message || 'Failed to cancel training');
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: response?.message || 'Failed to cancel training',
+        });
       }
     } catch (error) {
       Toast.show({
@@ -595,15 +666,29 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
             </View>
             
             <View style={clsx(styles.flexRow, styles.mb2)}>
+              <Icon name="schedule" size={18} color={colors.textMuted} style={clsx(styles.mr2)} />
+              <Text style={clsx(styles.textBase, styles.textBlack)}>
+                Training Time: <Text style={styles.fontMedium}>{trainingDetails.duration}</Text>
+              </Text>
+            </View>
+            
+            <View style={clsx(styles.flexRow, styles.mb2)}>
               <Icon name="location-on" size={18} color={colors.textMuted} style={clsx(styles.mr2)} />
               <Text style={clsx(styles.textBase, styles.textBlack)}>
                 Location: <Text style={styles.fontMedium}>{trainingDetails.location}</Text>
               </Text>
             </View>
             
+            <View style={clsx(styles.flexRow, styles.mb2)}>
+              <Icon name="people" size={18} color={colors.textMuted} style={clsx(styles.mr2)} />
+              <Text style={clsx(styles.textBase, styles.textBlack)}>
+                Max Participants: <Text style={styles.fontMedium}>{trainingDetails.maxParticipant}</Text>
+              </Text>
+            </View>
+            
             <View style={clsx(styles.flexRow)}>
               <Icon name="description" size={18} color={colors.textMuted} style={clsx(styles.mr2)} />
-              <Text style={clsx(styles.textBase, styles.textBlack)}>
+              <Text style={clsx(styles.textBase, styles.textBlack, styles.flex1)}>
                 Description: <Text style={styles.fontMedium}>{trainingDetails.description}</Text>
               </Text>
             </View>
@@ -638,7 +723,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
                 styles.itemsCenter,
                 styles.p3
               )}
-              onPress={() => setShowDatePicker(true)}
+              // onPress={() => setShowDatePicker(true)}
               disabled={loading || scheduleData.status === 'cancelled' || scheduleData.status === 'completed'}
             >
               <View>
@@ -647,12 +732,8 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
                   {formatDate(scheduleData.trainingDate)}
                 </Text>
               </View>
-              <Icon name="calendar-today" size={24} color={colors.primary} />
+              {/* <Icon name="calendar-today" size={24} color={colors.primary} /> */}
             </TouchableOpacity>
-
-            <Text style={clsx(styles.textSm, styles.textMuted, styles.mt2)}>
-              Please select a future date (from tomorrow onwards)
-            </Text>
           </View>
 
           {/* Time Selection */}
@@ -669,7 +750,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
                 styles.itemsCenter,
                 styles.p3
               )}
-              onPress={() => setShowTimePicker(true)}
+              // onPress={() => setShowTimePicker(true)}
               disabled={loading || scheduleData.status === 'cancelled' || scheduleData.status === 'completed'}
             >
               <View>
@@ -678,7 +759,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
                   {formatTime(scheduleData.trainingTime)}
                 </Text>
               </View>
-              <Icon name="access-time" size={24} color={colors.primary} />
+              {/* <Icon name="access-time" size={24} color={colors.primary} /> */}
             </TouchableOpacity>
           </View>
 
@@ -713,7 +794,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
                   styles.justifyCenter,
                   styles.itemsCenter
                 )}
-                onPress={handleReschedule}
+                onPress={confirmReschedule}
                 disabled={loading}
               >
                 <Icon name="update" size={20} color={colors.primary} style={clsx(styles.mr2)} />
@@ -723,27 +804,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
               </TouchableOpacity>
             )}
 
-            {/* Cancel Button (only for scheduled/rescheduled/pending status) */}
-            {(scheduleData.status === 'scheduled' || scheduleData.status === 'rescheduled' || scheduleData.status === 'pending') && (
-              <TouchableOpacity
-                style={clsx(
-                  styles.buttonOutline,
-                  styles.mb3,
-                  styles.borderError,
-                  styles.flexRow,
-                  styles.justifyCenter,
-                  styles.itemsCenter
-                )}
-                onPress={handleCancelTraining}
-                disabled={loading}
-              >
-                <Icon name="cancel" size={20} color={colors.error} style={clsx(styles.mr2)} />
-                <Text style={clsx(styles.buttonOutlineText, styles.textError)}>
-                  Cancel Training
-                </Text>
-              </TouchableOpacity>
-            )}
-
+          
             {/* Confirm/Schedule Button (for pending status or when modified) */}
             {(scheduleData.status === 'pending' || isScheduleModified()) && (
               <TouchableOpacity
@@ -772,28 +833,8 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
               </TouchableOpacity>
             )}
 
-            {/* View Only Mode (for completed/cancelled status) */}
-            {(scheduleData.status === 'completed' || scheduleData.status === 'cancelled') && (
-              <View style={clsx(styles.p4, styles.bgGray, styles.rounded, styles.mb3)}>
-                <Text style={clsx(styles.textBase, styles.textCenter, styles.textMuted)}>
-                  This training has been {scheduleData.status}. No further actions available.
-                </Text>
-              </View>
-            )}
+            
 
-            {/* Back Button */}
-            <TouchableOpacity
-              style={clsx(
-                styles.buttonOutline,
-                styles.mt3
-              )}
-              onPress={() => navigation.goBack()}
-              disabled={loading}
-            >
-              <Text style={clsx(styles.buttonOutlineText)}>
-                Back
-              </Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -806,7 +847,9 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
             • Training duration: {trainingDetails.duration}
             {'\n'}• Please arrive 15 minutes before scheduled time
             {'\n'}• Bring your ID proof and notebook
+            {'\n'}• Maximum participants: {trainingDetails.maxParticipant}
             {'\n'}• Rescheduling is allowed up to 24 hours before training
+            {'\n'}• Location: {trainingDetails.location}
             {'\n'}• For any queries, contact support: +91-9876543210
           </Text>
         </View>

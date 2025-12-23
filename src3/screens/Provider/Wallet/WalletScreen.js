@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   SectionList,
+  FlatList,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../../styles/globalStyles';
@@ -20,9 +21,20 @@ const WalletScreen = ({ navigation }) => {
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [filter, setFilter] = useState('all'); // 'all', 'credit', 'debit'
   const [selectedPeriod, setSelectedPeriod] = useState('all'); // 'all', 'today', 'week', 'month'
+  
+  // Pagination states from API response
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+    hasPrevPage: false,
+    hasNextPage: false,
+  });
   
   // Wallet summary states from API
   const [walletSummary, setWalletSummary] = useState({
@@ -32,16 +44,21 @@ const WalletScreen = ({ navigation }) => {
   });
 
   // Fetch wallet data from API
-  const fetchWalletData = async () => {
+  const fetchWalletData = async (isLoadMore = false) => {
     try {
-      setLoading(true);
+      if (!isLoadMore) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
       
       // Prepare API parameters
+      const currentPage = isLoadMore ? pagination.page + 1 : 1;
       const params = {
         type: filter === 'all' ? 'all' : filter,
         period: selectedPeriod,
-        page: 1,
-        limit: 20
+        page: currentPage,
+        limit: pagination.limit
       };
       
       // Call API to get wallet transactions and summary
@@ -53,14 +70,39 @@ const WalletScreen = ({ navigation }) => {
 
       if (response?.success && response.data) {
         // Set transactions from API response
-        setTransactions(response.data || []);
+        if (isLoadMore) {
+          // Append new data for load more
+          setTransactions(prev => [...prev, ...(response.data || [])]);
+        } else {
+          // Set fresh data
+          setTransactions(response.data || []);
+        }
         
         // Set wallet summary from API response
         if (response.summary) {
           setWalletSummary(response.summary);
+        }
+        
+        // Set pagination data from API response
+        if (response.pagination) {
+          setPagination({
+            page: response.pagination.currentPage || currentPage,
+            limit: response.pagination.limit || params.limit,
+            total: response.pagination.total || 0,
+            totalPages: response.pagination.totalPages || 1,
+            hasPrevPage: response.pagination.hasPrevPage || false,
+            hasNextPage: response.pagination.hasNextPage || false,
+          });
         } else {
-          // Calculate summary from transactions if not provided by API
-          calculateSummaryFromTransactions(response.data);
+          // Set pagination from root level if not in pagination object
+          setPagination({
+            page: response.page || currentPage,
+            limit: response.limit || params.limit,
+            total: response.total || 0,
+            totalPages: response.totalPages || 1,
+            hasPrevPage: response.hasPrevPage || false,
+            hasNextPage: response.hasNextPage || false,
+          });
         }
         
       } else {
@@ -71,9 +113,12 @@ const WalletScreen = ({ navigation }) => {
         });
         
         // For demo, use sample data if API fails
-        const sampleData = getSampleData();
-        setTransactions(sampleData.transactions);
-        setWalletSummary(sampleData.summary);
+        if (!isLoadMore) {
+          const sampleData = getSampleData();
+          setTransactions(sampleData.transactions);
+          setWalletSummary(sampleData.summary);
+          setPagination(sampleData.pagination);
+        }
       }
       
     } catch (error) {
@@ -85,42 +130,20 @@ const WalletScreen = ({ navigation }) => {
       });
       
       // For demo, use sample data
-      const sampleData = getSampleData();
-      setTransactions(sampleData.transactions);
-      setWalletSummary(sampleData.summary);
+      if (!isLoadMore) {
+        const sampleData = getSampleData();
+        setTransactions(sampleData.transactions);
+        setWalletSummary(sampleData.summary);
+        setPagination(sampleData.pagination);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     }
   };
 
-  // Calculate summary from transactions if API doesn't provide it
-  const calculateSummaryFromTransactions = (transactionsData) => {
-    let totalCredits = 0;
-    let totalDebits = 0;
-    let totalCreditPoints = 0;
-    
-    transactionsData.forEach(transaction => {
-      if (transaction.transactionType === 'Credit') {
-        totalCredits += transaction.depositAmount || 0;
-        totalCreditPoints += transaction.creditPoints || 0;
-      } else if (transaction.transactionType === 'Debit') {
-        totalDebits += transaction.depositAmount || 0;
-      }
-    });
-    
-    const balance = totalCredits - totalDebits;
-    
-    setWalletSummary({
-      balance: balance,
-      totalCreditPoints: totalCreditPoints,
-      totalTransactions: transactionsData.length,
-      totalCredits: totalCredits,
-      totalDebits: totalDebits,
-    });
-  };
-
-  // Sample data for demo (matching your API response structure)
+  // Sample data for demo (updated with pagination)
   const getSampleData = () => {
     const sampleTransactions = [
       {
@@ -140,42 +163,6 @@ const WalletScreen = ({ navigation }) => {
         "createdAt": "2025-12-20T12:01:04.999Z",
         "updatedAt": "2025-12-20T12:01:04.999Z",
         "__v": 0
-      },
-      {
-        "_id": "694690004d9db9014826bae3",
-        "providerId": "693fc8af129447368d022a26",
-        "creditPoints": 50,
-        "depositAmount": 500,
-        "depositStatus": "Paid",
-        "dateOfDeposit": "2025-12-19T10:30:00.000Z",
-        "paymentMode": "Online",
-        "transactionType": "Credit",
-        "transactionId": "abc123",
-        "purpose": "Service Payment",
-        "status": true,
-        "createdBy": "693c0e4a570a49d79868f38d",
-        "updatedBy": null,
-        "createdAt": "2025-12-19T10:30:00.000Z",
-        "updatedAt": "2025-12-19T10:30:00.000Z",
-        "__v": 0
-      },
-      {
-        "_id": "694690004d9db9014826bae4",
-        "providerId": "693fc8af129447368d022a26",
-        "creditPoints": 0,
-        "depositAmount": 200,
-        "depositStatus": "Paid",
-        "dateOfDeposit": "2025-12-18T15:45:00.000Z",
-        "paymentMode": "Online",
-        "transactionType": "Debit",
-        "transactionId": "def456",
-        "purpose": "Commission",
-        "status": true,
-        "createdBy": "693c0e4a570a49d79868f38d",
-        "updatedBy": null,
-        "createdAt": "2025-12-18T15:45:00.000Z",
-        "updatedAt": "2025-12-18T15:45:00.000Z",
-        "__v": 0
       }
     ];
     
@@ -183,13 +170,21 @@ const WalletScreen = ({ navigation }) => {
       balance: 1300, // 1000 + 500 - 200
       totalCreditPoints: 150,
       totalTransactions: 3,
-      totalCredits: 1500,
-      totalDebits: 200,
+    };
+    
+    const paginationData = {
+      page: 1,
+      limit: 10,
+      total: 3,
+      totalPages: 1,
+      hasPrevPage: false,
+      hasNextPage: false,
     };
     
     return {
       transactions: sampleTransactions,
-      summary: summary
+      summary: summary,
+      pagination: paginationData
     };
   };
 
@@ -229,6 +224,12 @@ const WalletScreen = ({ navigation }) => {
   const onRefresh = () => {
     setRefreshing(true);
     fetchWalletData();
+  };
+
+  const handleLoadMore = () => {
+    if (pagination.hasNextPage && !loadingMore) {
+      fetchWalletData(true);
+    }
   };
 
   useEffect(() => {
@@ -383,6 +384,53 @@ const WalletScreen = ({ navigation }) => {
       </Text>
     </View>
   );
+
+  const renderFooter = () => {
+    if (!pagination.hasNextPage) {
+      if (transactions.length === 0) {
+        return null;
+      }
+      return (
+        <View style={clsx(styles.py4, styles.itemsCenter)}>
+          <Text style={clsx(styles.textSm, styles.textMuted)}>
+            No more transactions to load
+          </Text>
+        </View>
+      );
+    }
+
+    if (loadingMore) {
+      return (
+        <View style={clsx(styles.py4, styles.itemsCenter)}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={clsx(styles.textSm, styles.textMuted, styles.mt2)}>
+            Loading more...
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <TouchableOpacity
+        style={clsx(
+          styles.py3,
+          styles.itemsCenter,
+          styles.bgWhite,
+          styles.roundedLg,
+          styles.mt2,
+          styles.shadowSm
+        )}
+        onPress={handleLoadMore}
+      >
+        <Text style={clsx(styles.textBase, styles.fontMedium, styles.textPrimary)}>
+          Load More Transactions
+        </Text>
+        <Text style={clsx(styles.textXs, styles.textMuted, styles.mt1)}>
+          Showing {transactions.length} of {pagination.total}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   if (loading && !refreshing) {
     return (
@@ -568,10 +616,10 @@ const WalletScreen = ({ navigation }) => {
         <View>
           <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
-              Recent Transactions ({transactions.length})
+              Recent Transactions ({pagination.total})
             </Text>
             <Text style={clsx(styles.textSm, styles.textMuted)}>
-              Sorted by Date
+              Page {pagination.page} of {pagination.totalPages}
             </Text>
           </View>
 
@@ -597,15 +645,20 @@ const WalletScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           ) : (
-            <SectionList
-              sections={groupTransactionsByDate()}
-              keyExtractor={(item) => item._id}
-              renderItem={renderTransactionItem}
-              renderSectionHeader={renderSectionHeader}
-              scrollEnabled={false}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={clsx(styles.pb2)}
-            />
+            <>
+              <SectionList
+                sections={groupTransactionsByDate()}
+                keyExtractor={(item) => item._id}
+                renderItem={renderTransactionItem}
+                renderSectionHeader={renderSectionHeader}
+                scrollEnabled={false}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={clsx(styles.pb2)}
+              />
+              
+              {/* Load More Footer */}
+              {renderFooter()}
+            </>
           )}
         </View>
 
@@ -633,7 +686,7 @@ const WalletScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+    </View> 
   );
 };
 

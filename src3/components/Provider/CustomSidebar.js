@@ -35,6 +35,7 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
     { id: 'kyc', label: 'KYC', icon: 'verified', screen: 'KycScreen' },
     { id: 'training', label: 'Training', icon: 'school', screen: 'Training' },
     { id: 'bookings', label: 'Bookings', icon: 'list-alt', screen: 'Bookings' },
+    { id: 'zones', label: 'Zones', icon: 'list-alt', screen: 'ZonesScreen' },
     // { id: 'todayJobs', label: "Today's Jobs", icon: 'today', screen: 'TodayJobs' },
     { id: 'earnings', label: 'Earnings', icon: 'attach-money', screen: 'Earnings' },
     // { id: 'transaction', label: 'Transaction History', icon: 'history', screen: 'TransactionHistory' },

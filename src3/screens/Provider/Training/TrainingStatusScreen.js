@@ -52,7 +52,9 @@ const TrainingStatusScreen = ({ navigation }) => {
           statusMessage: '',
           scheduledDate: null,
           scheduledTime: null,
-          trainingScheduleStatus: apiData.trainingScheduleStatus || 'New'
+          trainingScheduleStatus: apiData.trainingScheduleStatus || 'New',
+          attendanceStatus: apiData.attendanceStatus || null,
+          testStatus: apiData.testStatus || null
         };
 
         // Extract from training object if exists
@@ -109,7 +111,8 @@ const TrainingStatusScreen = ({ navigation }) => {
           
           formattedData.scheduledTime = timeStr;
         }
-        // Determine status based on trainingScheduleStatus
+
+        // Determine status based on trainingScheduleStatus enum
         switch (apiData.trainingScheduleStatus) {
           case 'New':
             formattedData.status = 'pending';
@@ -122,25 +125,33 @@ const TrainingStatusScreen = ({ navigation }) => {
             break;
             
           case 'Reject':
-            formattedData.status = 'cancelled';
-            formattedData.statusMessage = 'Training request has been rejected.';
+            formattedData.status = 'rejected';
+            formattedData.statusMessage = 'Training request has been rejected by admin.';
+            break;
+            
+          case 'Present':
+            formattedData.status = 'attended';
+            formattedData.statusMessage = 'Attendance marked as Present. Training completed successfully.';
+            break;
+            
+          case 'Absent':
+            formattedData.status = 'absent';
+            formattedData.statusMessage = 'Attendance marked as Absent. Training not attended.';
+            break;
+            
+          case 'Fail':
+            formattedData.status = 'failed';
+            formattedData.statusMessage = 'Training test failed. Please retake the test.';
             break;
             
           case 'Complete':
-            formattedData.status = 'Complete';
-            formattedData.statusMessage = 'Training successfully Complete.';
+            formattedData.status = 'completed';
+            formattedData.statusMessage = 'Training successfully completed and passed.';
             break;
             
           default:
             formattedData.status = 'pending';
             formattedData.statusMessage = 'Training status unknown.';
-        }
-        
-        // Also check status field as backup
-        if (apiData.status === true && formattedData.status === 'pending') {
-          formattedData.status = 'scheduled';
-        } else if (apiData.status === false && formattedData.status === 'pending') {
-          formattedData.status = 'cancelled';
         }
 
         // console.log('Formatted Training Data:', formattedData);
@@ -240,7 +251,6 @@ const TrainingStatusScreen = ({ navigation }) => {
   };
 
   const getStatusConfig = (status, trainingData) => {
-    // Use custom message if available
     const customMessage = trainingData?.statusMessage || '';
     
     switch (status) {
@@ -273,39 +283,72 @@ const TrainingStatusScreen = ({ navigation }) => {
           buttonText: trainingData?.trainingScheduleStatus === 'New' 
             ? 'Check Status' 
             : 'Schedule Now',
-          buttonAction: () => navigation.navigate('TrainingSchedule'),
+          buttonAction: () => handleManualRefresh(),
         };
       
-      case 'Complete':
+      case 'completed':
         return {
           icon: 'check-circle',
-          iconColor: colors.primary,
-          title: 'Training Complete',
-          subtitle: '',
-          message: customMessage || 'You have successfully Complete the training.',
-          bgColor: colors.primaryLight,
-          textColor: colors.primary,
+          iconColor: colors.success,
+          title: 'Training Completed',
+          subtitle: trainingData?.trainingScheduleStatus === 'Complete' ? '(Passed)' : '',
+          message: customMessage || 'You have successfully completed the training.',
+          bgColor: colors.successLight,
+          textColor: colors.success,
           buttonText: 'Go To Dashboard',
           buttonAction: () => navigation.navigate('ProviderDashboard'),
         };
       
-      case 'cancelled':
+      case 'attended':
         return {
-          icon: trainingData?.trainingScheduleStatus === 'Reject' ? 'block' : 'cancel',
+          icon: 'check',
+          iconColor: colors.success,
+          title: 'Training Attended',
+          subtitle: trainingData?.trainingScheduleStatus === 'Present' ? '(Present)' : '',
+          message: customMessage || 'You have attended the training session.',
+          bgColor: colors.successLight,
+          textColor: colors.success,
+          buttonText: 'View Results',
+          buttonAction: () => navigation.navigate('TrainingResults'),
+        };
+      
+      case 'failed':
+        return {
+          icon: 'cancel',
           iconColor: colors.error,
-          title: trainingData?.trainingScheduleStatus === 'Reject' 
-            ? 'Training Rejected' 
-            : 'Training Cancelled',
-          subtitle: '',
-          message: customMessage || 'Your training session has been cancelled.',
+          title: 'Training Failed',
+          subtitle: trainingData?.trainingScheduleStatus === 'Fail' ? '(Test Failed)' : '',
+          message: customMessage || 'You failed the training test.',
           bgColor: colors.errorLight,
           textColor: colors.error,
-          buttonText: trainingData?.trainingScheduleStatus === 'Reject' 
-            ? 'Contact Support' 
-            : 'Reschedule',
-          buttonAction: trainingData?.trainingScheduleStatus === 'Reject' 
-            ? () => navigation.navigate('Support')
-            : () => navigation.navigate('TrainingSchedule'),
+          buttonText: 'Retake Test',
+          buttonAction: () => navigation.navigate('TrainingTest'),
+        };
+      
+      case 'absent':
+        return {
+          icon: 'person-off',
+          iconColor: colors.error,
+          title: 'Absent',
+          subtitle: trainingData?.trainingScheduleStatus === 'Absent' ? '(Missed Training)' : '',
+          message: customMessage || 'You were absent for the training session.',
+          bgColor: colors.errorLight,
+          textColor: colors.error,
+          buttonText: 'Reschedule',
+          buttonAction: () => navigation.navigate('TrainingSchedule'),
+        };
+      
+      case 'rejected':
+        return {
+          icon: 'block',
+          iconColor: colors.error,
+          title: 'Training Rejected',
+          subtitle: trainingData?.trainingScheduleStatus === 'Reject' ? '(By Admin)' : '',
+          message: customMessage || 'Your training request has been rejected.',
+          bgColor: colors.errorLight,
+          textColor: colors.error,
+          buttonText: 'Contact Support',
+          buttonAction: () => navigation.navigate('Support'),
         };
       
       case 'no-training':
@@ -354,8 +397,7 @@ const TrainingStatusScreen = ({ navigation }) => {
     );
   }
 
-  // const status = trainingData?.status || 'no-training';
-  const status = 'Complete';
+  const status = trainingData?.status || 'no-training';
   const statusConfig = getStatusConfig(status, trainingData);
 
   const formatLastUpdated = () => {
@@ -533,8 +575,8 @@ const TrainingStatusScreen = ({ navigation }) => {
                 </View>
               </View>
 
-              {/* Schedule Details (for scheduled/Complete status) */}
-              {(status === 'scheduled' || status === 'Complete') && (trainingData.date || trainingData.timeDisplay) && (
+              {/* Schedule Details (for scheduled/attended/completed status) */}
+              {(status === 'scheduled' || status === 'attended' || status === 'completed') && (trainingData.date || trainingData.timeDisplay) && (
                 <View style={clsx(styles.p4, styles.bgPrimaryLight, styles.roundedLg)}>
                   <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary, styles.mb3)}>
                     Schedule Details:
@@ -585,7 +627,6 @@ const TrainingStatusScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-
         {/* Important Information */}
         <View style={clsx(styles.mt8, styles.p4, styles.bgInfoLight, styles.roundedLg)}>
           <Text style={clsx(styles.textLg, styles.fontBold, styles.textInfo, styles.mb3)}>
@@ -621,31 +662,52 @@ const TrainingStatusScreen = ({ navigation }) => {
             </Text>
           )}
           
-          {status === 'Complete' && (
+          {status === 'completed' && (
             <Text style={clsx(styles.textBase, styles.textInfo)}>
-              • Congratulations! You have Complete the training
-              {'\n'}• Status: Complete ✓
+              • Congratulations! You have completed the training
+              {'\n'}• Status: Completed & Passed ✓
               {'\n'}• Your certificate is now available
               {'\n'}• You can now access all platform features
               {'\n'}• For any queries, contact support
             </Text>
           )}
           
-          {status === 'cancelled' && trainingData?.trainingScheduleStatus === 'Reject' && (
+          {status === 'attended' && (
+            <Text style={clsx(styles.textBase, styles.textInfo)}>
+              • Training Attendance: Present ✓
+              {'\n'}• You have successfully attended the training
+              {'\n'}• Test results will be available shortly
+              {'\n'}• Check your training results for updates
+              {'\n'}• For any queries, contact support
+            </Text>
+          )}
+          
+          {status === 'failed' && (
+            <Text style={clsx(styles.textBase, styles.textInfo)}>
+              • Training Status: Failed
+              {'\n'}• You need to retake the training test
+              {'\n'}• Click the button above to retake test
+              {'\n'}• Passing score is required for completion
+              {'\n'}• Contact support for assistance
+            </Text>
+          )}
+          
+          {status === 'absent' && (
+            <Text style={clsx(styles.textBase, styles.textInfo)}>
+              • Attendance Status: Absent
+              {'\n'}• You missed the scheduled training
+              {'\n'}• Please reschedule for another session
+              {'\n'}• Training is mandatory for activation
+              {'\n'}• Click above to reschedule
+            </Text>
+          )}
+          
+          {status === 'rejected' && (
             <Text style={clsx(styles.textBase, styles.textInfo)}>
               • Your training request has been rejected
               {'\n'}• Status: Rejected by admin
               {'\n'}• Please contact support for more details
               {'\n'}• You may need to submit a new request
-            </Text>
-          )}
-          
-          {status === 'cancelled' && trainingData?.trainingScheduleStatus !== 'Reject' && (
-            <Text style={clsx(styles.textBase, styles.textInfo)}>
-              • Your training has been cancelled
-              {'\n'}• You can reschedule it anytime
-              {'\n'}• Please schedule new training to proceed
-              {'\n'}• For assistance, contact support
             </Text>
           )}
           
@@ -690,8 +752,6 @@ const TrainingStatusScreen = ({ navigation }) => {
           </Text>
         </TouchableOpacity>
       </ScrollView>
-
-     
     </View>
   );
 };

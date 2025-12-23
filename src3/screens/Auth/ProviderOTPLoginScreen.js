@@ -259,16 +259,21 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
         }
         else if(user?.trainingScheduleSubmit)
         {
-          // "New", "Confirm", "Reject", "Complete"
+          console.log(user?.trainingScheduleSubmit)
+          // "New", "Confirm", "Reject", "Complete"  
           if(
             user?.trainingScheduleSubmit.trainingScheduleStatus=='New' ||
             user?.trainingScheduleSubmit.trainingScheduleStatus=='Confirm' ||
+            user?.trainingScheduleSubmit.trainingScheduleStatus=='Present' ||
+            user?.trainingScheduleSubmit.trainingScheduleStatus=='Absent' || 
+            user?.trainingScheduleSubmit.trainingScheduleStatus=='Fail' || 
             user?.trainingScheduleSubmit.trainingScheduleStatus=='Reject'
           )
           {
             Goscreen = 'TrainingStatus';
           }
           else{
+            setisheaderback(true) 
             Goscreen = 'ProviderDashboard';
           }
         }
@@ -283,11 +288,14 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
         setisheaderback(true) 
         Goscreen = 'ProviderDashboard';
       }
-      navigation.reset({
-        index: 0,
-        routes: [{ name: Goscreen }],
-      });
+        navigation.reset({
+          index: 0,
+          routes: [{ name: Goscreen }],
+        });
     }
+
+
+
   }, [user]);
 
   const handleOtpChange = (text, index) => {

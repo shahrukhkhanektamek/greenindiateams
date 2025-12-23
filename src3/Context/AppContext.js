@@ -11,8 +11,8 @@ export const AppContext = createContext();
 
 // API URLs configuration - Consider moving to environment variables
 // const UploadUrl = 'http://192.168.1.61:8080/';
-// const UploadUrl = 'http://192.168.1.25:8080/';
-const UploadUrl = 'http://145.223.18.56:3001/';
+const UploadUrl = 'http://192.168.1.25:8080/';
+// const UploadUrl = 'http://145.223.18.56:3001/';
 const BASE_URLS = {
   development: "http://192.168.1.25:8080/",
   production: "http://145.223.18.56:3001/",
@@ -22,7 +22,7 @@ const BASE_URLS = {
 };
 
 export const AppProvider = ({ children }) => {
-  const ENVIRONMENT = "production"; 
+  const ENVIRONMENT = "development"; 
   const mainUrl = BASE_URLS[ENVIRONMENT];
   
   // App states
@@ -71,7 +71,7 @@ export const AppProvider = ({ children }) => {
       subSubCategoryList: `${commUrl}sub-sub-category`,
       subSubSubCategoryList: `${commUrl}sub-sub-sub-category`,
       serviceList: `${commUrl}service`,
-      timeSlot: `${commUrl}time-slot/available/by-date`,
+      timeSlot: `${commUrl}time-slot/available/by-date`, 
       addRemoveCart: `${commUrl}cart/create-cart`,
       createTransaction: `${commUrl}payment/create-order`,
       verifyTransaction: `${commUrl}payment/verify-payment`,
@@ -83,6 +83,8 @@ export const AppProvider = ({ children }) => {
       
       profileDetail: `${serviceManUrl}profile/detail`,
       profileUpdate: `${serviceManUrl}profile`,
+
+      zonesList: `${serviceManUrl}profile/zone`,
 
       trainingSchedule: `${serviceManUrl}training-schedule/next/upcoming`,
       trainingScheduleUpdate: `${serviceManUrl}training-schedule-submit`,
@@ -562,22 +564,26 @@ export const AppProvider = ({ children }) => {
       {
         if(user.kyc.status=='pending' || user.kyc.status=='rejected')
           setrootScreen('KYCStatus');
-        // else if(!user?.trainingScheduleSubmit)
-        // {
-        //   setrootScreen('Training');
-        // }
+        else if(!user?.trainingScheduleSubmit)
+        {
+          setrootScreen('Training');
+        }
         else if(user?.trainingScheduleSubmit)
         {
-          // "New", "Confirm", "Reject", "Complete"
+          // "New", "Confirm", "Reject", "Complete"  
           if(
             user?.trainingScheduleSubmit.trainingScheduleStatus=='New' ||
             user?.trainingScheduleSubmit.trainingScheduleStatus=='Confirm' ||
+            user?.trainingScheduleSubmit.trainingScheduleStatus=='Present' ||
+            user?.trainingScheduleSubmit.trainingScheduleStatus=='Absent' || 
+            user?.trainingScheduleSubmit.trainingScheduleStatus=='Fail' || 
             user?.trainingScheduleSubmit.trainingScheduleStatus=='Reject'
           )
           {
             setrootScreen('TrainingStatus');
           }
           else{
+            setisheaderback(true) 
             setrootScreen('ProviderDashboard');
           }
         }

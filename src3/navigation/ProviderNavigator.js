@@ -26,6 +26,8 @@ import KYCStatusScreen from '../screens/Provider/Kyc/KYCStatusScreen';
 import TrainingScheduleScreen from '../screens/Provider/Training/TrainingScheduleScreen';
 import TrainingStatusScreen from '../screens/Provider/Training/TrainingStatusScreen';
 
+import ZonesScreen from '../screens/Provider/Zone/ZonesScreen';
+
 import TodayJobsScreen from '../screens/Provider/TodayJobsScreen';
 
 import JobDetailsScreen from '../screens/Provider/JobDetailsScreen';
@@ -150,8 +152,10 @@ function ProviderNavigator() {
 
           <Stack.Screen name="KycScreen" component={KYCUpdateScreen} /> 
 
-          <Stack.Screen name="Training" component={TrainingScheduleScreen} />
+          <Stack.Screen name="Training" component={TrainingScheduleScreen} /> 
           <Stack.Screen name="TrainingStatus" component={TrainingStatusScreen} />
+
+          <Stack.Screen name="ZonesScreen" component={ZonesScreen} />
 
           <Stack.Screen name="TodayJobs" component={TodayJobsScreen}/>            
           <Stack.Screen name="JobDetails" component={JobDetailsScreen}/>                        

@@ -4,18 +4,21 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  StatusBar,
   Image,
   Alert,
   Linking,
   Share,
   ActivityIndicator,
   Dimensions,
+  Modal,
+  Platform, PermissionsAndroid 
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import { AppContext } from '../../../Context/AppContext';
+import Geolocation from '@react-native-community/geolocation';
+import { PERMISSIONS, request, check } from 'react-native-permissions';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -27,6 +30,14 @@ const BookingDetailScreen = ({ navigation, route }) => {
   const [bookingData, setBookingData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isNotesExpanded, setIsNotesExpanded] = useState(false);
+  
+  // Location Verification States
+  const [checkingLocation, setCheckingLocation] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [distanceToBooking, setDistanceToBooking] = useState(null);
+  const [locationStatus, setLocationStatus] = useState('');
+  const [locationError, setLocationError] = useState('');
   
   // Selfie States
   const [selectedSelfie, setSelectedSelfie] = useState(null);
@@ -54,6 +65,10 @@ const BookingDetailScreen = ({ navigation, route }) => {
   useEffect(() => {
     loadBookingDetails();
   }, []);
+
+
+
+
 
   const loadBookingDetails = async () => {
     try {
@@ -132,6 +147,494 @@ const BookingDetailScreen = ({ navigation, route }) => {
     } catch (error) {
       console.error('Error calculating original amount:', error);
     }
+  };
+
+  // Function to check location permissions
+  const checkLocationPermissions = async () => {
+    try {
+      let permission;
+      if (Platform.OS === 'ios') {
+        permission = PERMISSIONS.IOS.LOCATION_WHEN_IN_USE;
+      } else {
+        permission = PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
+      }
+
+      const status = await check(permission);
+      
+      if (status === 'granted') {
+        return true;
+      } else {
+        const result = await request(permission);
+        return result === 'granted';
+      }
+    } catch (error) {
+      console.error('Error checking location permissions:', error);
+      return false;
+    }
+  };
+
+  // Function to get current location
+  const getCurrentLocation = async () => {
+    try {
+      let positions = {};
+      
+      // Android के लिए permission check
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+        );
+        
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          console.log('Location permission denied');
+          return null;
+        }
+      }
+
+      // Promise का use करके location get करें
+      const position = await new Promise((resolve, reject) => {
+        Geolocation.getCurrentPosition(
+          resolve,  // success होने पर
+          reject,   // error होने पर
+          {
+            enableHighAccuracy: false,
+            timeout: 30000,
+            maximumAge: 0,
+          }
+        );
+      });
+
+      // Position data format करें
+      positions = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy
+      };
+
+      console.log('Location fetched:', positions);
+      return positions;
+
+    } catch (error) {
+      console.log('Error getting location:', error);
+      return null;
+    }
+  };
+
+  // Function to calculate distance between two coordinates in kilometers
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Radius of the earth in km
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c; // Distance in km
+    return distance;
+  };
+
+  const deg2rad = (deg) => {
+    return deg * (Math.PI/180);
+  };
+
+  // Main function to verify location
+  const verifyLocation = async () => {
+    try {
+      setCheckingLocation(true);
+      setLocationStatus('checking');
+      setLocationError('');
+      
+      // Check if booking has location coordinates
+      const booking = bookingData?.booking;
+      const address = booking?.addressId;
+      
+      if (!address || !address.lat || !address.long) {
+        setLocationStatus('error');
+        setLocationError('Booking address coordinates not available');
+        return false;
+      }
+      
+      const bookingLat = parseFloat(address.lat);
+      const bookingLng = parseFloat(address.long);
+      
+      // Check location permissions
+      const hasPermission = await checkLocationPermissions();
+      if (!hasPermission) {
+        setLocationStatus('error');
+        setLocationError('Location permission is required to verify location');
+        return false;
+      }
+
+      // Get current location
+      const location = await getCurrentLocation();
+      setCurrentLocation(location);
+      
+      let nearby = null;
+      let distance = 0;
+      let distanceCheck = 0;
+      const response = await postData(
+        {
+            "servicemanLat":location.latitude,
+            "servicemanLng":location.longitude,
+            "userLat":bookingLat,
+            "userLng":bookingLng
+        },
+        `${Urls.getDistence}`,
+        'POST'
+      );
+      if(response.success==true)
+      {
+        distance = response.data.distance;
+        nearby = response.data.nearby;
+        distanceCheck = response.data.distanceCheck;
+
+        // setDistanceToBooking(distance);
+      
+        // Check if within allowed distance (500 meters = 0.5 km)
+        if (distance <= distanceCheck) { // Within 500 meters
+          setLocationStatus('success');
+          return true;
+        } else {
+          setLocationStatus('far');
+          return false;
+        }
+      }
+
+      // Calculate distance
+      // const distance = calculateDistance(
+      //   location.latitude,
+      //   location.longitude,
+      //   bookingLat,
+      //   bookingLng
+      // );      
+      
+      
+    } catch (error) {
+      console.error('Error verifying location:', error);
+      setLocationStatus('error');
+      setLocationError(error.message || 'Failed to get location');
+      return false;
+    } finally {
+      setCheckingLocation(false);
+    }
+  };
+
+  // Function to handle start service with location verification
+  const handleStartService = async () => {
+    try {
+      setCheckingLocation(true);
+      
+      // First verify location
+      const isAtLocation = await verifyLocation();
+      
+      if (isAtLocation) {
+        // Location is verified, proceed to OTP verification
+        setShowLocationModal(false);
+        openOTPVerification();
+      } else {
+        // Show location verification modal
+        setShowLocationModal(true);
+      }
+    } catch (error) {
+      console.error('Error in handleStartService:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Location Error',
+        text2: 'Failed to verify location',
+      });
+    } finally {
+      setCheckingLocation(false);
+    }
+  };
+
+  // Function to retry location verification
+  const retryLocationCheck = async () => {
+    const isAtLocation = await verifyLocation();
+    if (isAtLocation) {
+      setShowLocationModal(false);
+      openOTPVerification();
+    }
+  };
+
+  // Function to show location modal
+  const showLocationVerificationModal = () => {
+    setShowLocationModal(true);
+    verifyLocation(); // Start verification when modal opens
+  };
+
+  // Function to navigate to location in maps
+  const navigateToBookingLocation = () => {
+    const booking = bookingData?.booking;
+    const address = booking?.addressId;
+    
+    if (address && address.lat && address.long) {
+      const bookingLat = parseFloat(address.lat);
+      const bookingLng = parseFloat(address.long);
+      
+      const url = Platform.select({
+        ios: `maps://?q=${bookingLat},${bookingLng}`,
+        android: `geo:${bookingLat},${bookingLng}?q=${bookingLat},${bookingLng}`,
+      });
+      
+      Linking.openURL(url).catch(() => {
+        const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${bookingLat},${bookingLng}`;
+        Linking.openURL(fallbackUrl);
+      });
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'Cannot Open Maps',
+        text2: 'Booking location coordinates not available',
+      });
+    }
+  };
+
+  // Function to format distance
+  const formatDistance = (distance) => {
+    if (distance < 1) {
+      return `${Math.round(distance * 1000)} meters`;
+    } else {
+      return `${distance.toFixed(1)} km`;
+    }
+  };
+
+  // Location Verification Modal Component
+  const LocationVerificationModal = () => {
+    const booking = bookingData?.booking;
+    const address = booking?.addressId;
+    
+    return (
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showLocationModal}
+        onRequestClose={() => setShowLocationModal(false)}
+      >
+        <View style={clsx(styles.flex1, styles.justifyCenter, styles.itemsCenter, styles.bgBlack50)}>
+          <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p6, { width: SCREEN_WIDTH * 0.9 })}>
+            
+            {/* Modal Header */}
+            <View style={clsx(styles.itemsCenter, styles.mb6)}>
+              <View style={[
+                clsx(styles.roundedFull, styles.p3, styles.mb3),
+                locationStatus === 'success' ? { backgroundColor: `${colors.success}20` } :
+                locationStatus === 'far' ? { backgroundColor: `${colors.warning}20` } :
+                locationStatus === 'error' ? { backgroundColor: `${colors.error}20` } :
+                { backgroundColor: `${colors.info}20` }
+              ]}>
+                <Icon 
+                  name={
+                    locationStatus === 'success' ? 'check-circle' :
+                    locationStatus === 'far' ? 'location-off' :
+                    locationStatus === 'error' ? 'error' :
+                    'my-location'
+                  } 
+                  size={40} 
+                  color={
+                    locationStatus === 'success' ? colors.success :
+                    locationStatus === 'far' ? colors.warning :
+                    locationStatus === 'error' ? colors.error :
+                    colors.info
+                  } 
+                />
+              </View>
+              
+              <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack, styles.textCenter)}>
+                {locationStatus === 'success' ? 'Location Verified!' :
+                 locationStatus === 'far' ? 'Too Far From Location' :
+                 locationStatus === 'error' ? 'Location Error' :
+                 'Verifying Location...'}
+              </Text>
+              
+              <Text style={clsx(styles.textBase, styles.textMuted, styles.textCenter, styles.mt2)}>
+                {locationStatus === 'success' ? 'You are at the service location' :
+                 locationStatus === 'far' ? 'You need to be at the service location to start' :
+                 locationStatus === 'error' ? 'Could not verify your location' :
+                 'Checking your current location...'}
+              </Text>
+            </View>
+            
+            {/* Location Details */}
+            {currentLocation && distanceToBooking !== null && address?.lat && address?.long && (
+              <View style={clsx(styles.mb6)}>
+                <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
+                  <Text style={clsx(styles.textBase, styles.textMuted)}>Your Location:</Text>
+                  <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+                    {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
+                  </Text>
+                </View>
+                
+                <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
+                  <Text style={clsx(styles.textBase, styles.textMuted)}>Service Location:</Text>
+                  <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+                    {parseFloat(address.lat).toFixed(6)}, {parseFloat(address.long).toFixed(6)}
+                  </Text>
+                </View>
+                
+                <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb4)}>
+                  <Text style={clsx(styles.textBase, styles.textMuted)}>Distance:</Text>
+                  <Text style={clsx(
+                    styles.textBase,
+                    styles.fontBold,
+                    distanceToBooking <= 0.5 ? styles.textSuccess : styles.textError
+                  )}>
+                    {formatDistance(distanceToBooking)}
+                  </Text>
+                </View>
+                
+                {/* Distance Indicator */}
+                <View style={clsx(styles.mb6)}>
+                  <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
+                    <Text style={clsx(styles.textSm, styles.textMuted)}>Allowed: 500 meters</Text>
+                    <Text style={clsx(styles.textSm, styles.textMuted)}>Current: {formatDistance(distanceToBooking)}</Text>
+                  </View>
+                  <View style={clsx(styles.bgGray200, styles.roundedFull, styles.overflowHidden, { height: 8 })}>
+                    <View 
+                      style={[
+                        clsx(styles.hFull, styles.roundedFull),
+                        { 
+                          width: `${Math.min((distanceToBooking * 1000) / 500 * 100, 100)}%`,
+                          backgroundColor: distanceToBooking <= 0.5 ? colors.success : colors.error
+                        }
+                      ]}
+                    />
+                  </View>
+                </View>
+              </View>
+            )}
+            
+            {/* Error Message */}
+            {locationError && (
+              <View style={clsx(styles.bgErrorLight, styles.p3, styles.roundedLg, styles.mb6)}>
+                <Text style={clsx(styles.textSm, styles.textError)}>{locationError}</Text>
+              </View>
+            )}
+            
+            {/* Action Buttons */}
+            <View style={clsx(styles.flexRow, styles.gap3)}>
+              {locationStatus === 'far' && (
+                <>
+                  <TouchableOpacity
+                    style={clsx(
+                      styles.flex1,
+                      styles.border,
+                      styles.borderPrimary,
+                      styles.roundedLg,
+                      styles.p3,
+                      styles.itemsCenter,
+                      styles.justifyCenter
+                    )}
+                    onPress={() => setShowLocationModal(false)}
+                  >
+                    <Text style={clsx(styles.textPrimary, styles.fontBold)}>
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={clsx(
+                      styles.flex1,
+                      styles.bgPrimary,
+                      styles.roundedLg,
+                      styles.p3,
+                      styles.itemsCenter,
+                      styles.justifyCenter
+                    )}
+                    onPress={navigateToBookingLocation}
+                  >
+                    <Icon name="directions" size={20} color={colors.white} style={clsx(styles.mr2)} />
+                    <Text style={clsx(styles.textWhite, styles.fontBold)}>
+                      Navigate
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+              
+              {locationStatus === 'error' && (
+                <>
+                  <TouchableOpacity
+                    style={clsx(
+                      styles.flex1,
+                      styles.border,
+                      styles.borderPrimary,
+                      styles.roundedLg,
+                      styles.p3,
+                      styles.itemsCenter,
+                      styles.justifyCenter
+                    )}
+                    onPress={() => setShowLocationModal(false)}
+                  >
+                    <Text style={clsx(styles.textPrimary, styles.fontBold)}>
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={clsx(
+                      styles.flex1,
+                      styles.bgPrimary,
+                      styles.roundedLg,
+                      styles.p3,
+                      styles.itemsCenter,
+                      styles.justifyCenter
+                    )}
+                    onPress={retryLocationCheck}
+                    disabled={checkingLocation}
+                  >
+                    {checkingLocation ? (
+                      <ActivityIndicator size="small" color={colors.white} />
+                    ) : (
+                      <>
+                        <Icon name="refresh" size={20} color={colors.white} style={clsx(styles.mr2)} />
+                        <Text style={clsx(styles.textWhite, styles.fontBold)}>
+                          Retry
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </>
+              )}
+              
+              {locationStatus === 'success' && (
+                <TouchableOpacity
+                  style={clsx(
+                    styles.flex1,
+                    styles.bgSuccess,
+                    styles.roundedLg,
+                    styles.p3,
+                    styles.itemsCenter,
+                    styles.justifyCenter
+                  )}
+                  onPress={() => {
+                    setShowLocationModal(false);
+                    openOTPVerification();
+                  }}
+                >
+                  <Icon name="check-circle" size={20} color={colors.white} style={clsx(styles.mr2)} />
+                  <Text style={clsx(styles.textWhite, styles.fontBold)}>
+                    Start Service
+                  </Text>
+                </TouchableOpacity>
+              )}
+              
+              {(locationStatus === 'checking' || checkingLocation) && (
+                <View style={clsx(styles.flex1, styles.itemsCenter, styles.justifyCenter)}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={clsx(styles.textSm, styles.textMuted, styles.mt3)}>
+                    Checking location...
+                  </Text>
+                </View>
+              )}
+            </View>
+            
+            {/* Footer Note */}
+            <Text style={clsx(styles.textXs, styles.textMuted, styles.textCenter, styles.mt6)}>
+              Note: You must be within 500 meters of the service location to start
+            </Text>
+          </View>
+        </View>
+      </Modal>
+    );
   };
 
   const formatBookingData = (data) => {
@@ -1622,7 +2125,8 @@ const BookingDetailScreen = ({ navigation, route }) => {
               icon="play-arrow"
               label="Start Service"
               color={colors.primary}
-              onPress={openOTPVerification}
+              onPress={showLocationVerificationModal}
+              disabled={checkingLocation}
             />
           </>
         ) : formattedData.status === 'ongoing' ? (
@@ -1686,6 +2190,9 @@ const BookingDetailScreen = ({ navigation, route }) => {
           </>
         ) : null}
       </View>
+
+      {/* Location Verification Modal */}
+      <LocationVerificationModal />
     </View>
   );
 };

@@ -402,8 +402,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         await fetchKYCData();
 
         await fetchProfile();
-        
-        // navigate('Training');
+      
         navigate('KYCStatus');
       } else {
         Alert.alert('Error', response?.message || 'Failed to update KYC');

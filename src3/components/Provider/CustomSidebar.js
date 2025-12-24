@@ -32,8 +32,8 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', screen: 'MainTabs' },
     { id: 'profile', label: 'Profile', icon: 'person', screen: 'ProviderProfile' },
-    { id: 'kyc', label: 'KYC', icon: 'verified', screen: 'KycScreen' },
-    { id: 'training', label: 'Training', icon: 'school', screen: 'Training' },
+    { id: 'kyc', label: 'KYC', icon: 'verified', screen: 'KYCStatus' },
+    { id: 'training', label: 'Training', icon: 'school', screen: 'TrainingStatus' },
     { id: 'bookings', label: 'Bookings', icon: 'list-alt', screen: 'Bookings' },
     { id: 'zones', label: 'Zones', icon: 'list-alt', screen: 'ZonesScreen' },
     // { id: 'todayJobs', label: "Today's Jobs", icon: 'today', screen: 'TodayJobs' },

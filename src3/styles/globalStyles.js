@@ -203,6 +203,18 @@ const globalStyles = StyleSheet.create({
   borderError: { borderColor: colors.error },
   borderGray: { borderColor: colors.border },
   borderLight: { borderColor: colors.borderLight },
+
+
+  borderTop: {
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb', // Default border color (gray-200)
+  },
+
+  // Border top with white color at 20% opacity
+  borderTopWhite20: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)', // White with 20% opacity
+  },
   
   // =========== BORDER RADIUS ===========
   roundedNone: { borderRadius: 0 },

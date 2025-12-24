@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -8,78 +8,149 @@ import {
   Linking,
   Alert,
   StatusBar,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Icon2 from 'react-native-vector-icons/FontAwesome5';
 import styles, { clsx } from '../../styles/globalStyles';
 import { colors } from '../../styles/colors';
+import Header from '../../components/Common/Header';
+import { AppContext } from '../../Context/AppContext';
 
 const SupportScreen = ({ navigation }) => {
+  const { Toast, Urls, postData } = useContext(AppContext);
+
+  // State for form inputs
   const [message, setMessage] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState(null);
+  
+  // State for API data
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [supportData, setSupportData] = useState({
+    faqs: [],
+    contactOptions: [],
+    supportInfo: {},
+  });
 
-  const supportCategories = [
-    { id: 'technical', label: 'Technical Issue', icon: 'settings-applications' },
-    { id: 'booking', label: 'Booking Related', icon: 'assignment' },
-    { id: 'payment', label: 'Payment Issue', icon: 'payment' },
-    { id: 'account', label: 'Account Issue', icon: 'person' },
-    { id: 'service', label: 'Service Related', icon: 'handyman' },
-    { id: 'other', label: 'Other', icon: 'help-outline' },
-  ];
+  // Helper function to get contact action based on type
+  const getContactAction = (option) => {
+    switch (option.type) {
+      case 'phone':
+        return () => Linking.openURL(`tel:${option.value}`);
+      case 'whatsapp':
+        return () => Linking.openURL(`https://wa.me/${option.value.replace(/\D/g, '')}`);
+      case 'email':
+        return () => Linking.openURL(`mailto:${option.value}`);
+      default:
+        return () => console.log('Contact action not defined');
+    }
+  };
 
-  const faqs = [
-    {
-      question: 'How do I update my service rates?',
-      answer: 'Go to Profile → My Services → Edit Service Rates. You can update rates for each service individually.',
-    },
-    {
-      question: 'Why is my withdrawal pending?',
-      answer: 'Withdrawals take 2-3 business days to process. Make sure your bank details are verified in your profile.',
-    },
-    {
-      question: 'How can I get more bookings?',
-      answer: 'Complete your profile, maintain good ratings, and be available during peak hours. Consider adding more services.',
-    },
-    {
-      question: 'What if I need to cancel a booking?',
-      answer: 'Go to the booking details and click "Cancel". Please inform the customer and provide a valid reason.',
-    },
-  ];
+  // Process API response and set state
+  const processApiResponse = (apiData) => {
+    // Extract contact options from API response
+    const contactOptionsFromApi = [];
+    
+    // Add call option if available in API
+    if (apiData.call) {
+      contactOptionsFromApi.push({
+        ...apiData.call,
+        color: colors.primary,
+        action: getContactAction(apiData.call)
+      });
+    }
+    
+    // Add email option if available in API
+    if (apiData.email) {
+      contactOptionsFromApi.push({
+        ...apiData.email,
+        color: colors.warning,
+        action: getContactAction(apiData.email)
+      });
+    }
+    
+    // Add whatsapp option if available in API
+    if (apiData.whatsapp) {
+      contactOptionsFromApi.push({
+        ...apiData.whatsapp,
+        color: '#25D366',
+        action: getContactAction(apiData.whatsapp)
+      });
+    }
 
-  const contactOptions = [
-    {
-      id: 'call',
-      label: 'Call Support',
-      icon: 'phone',
-      color: colors.primary,
-      action: () => Linking.openURL('tel:+919876543210'),
-    },
-    {
-      id: 'whatsapp',
-      label: 'WhatsApp',
-      icon: 'whatsapp',
-      color: '#25D366',
-      action: () => Linking.openURL('https://wa.me/919876543210'),
-    },
-    {
-      id: 'email',
-      label: 'Email Us',
-      icon: 'email',
-      color: colors.warning,
-      action: () => Linking.openURL('mailto:support@serviceprovider.com'),
-    },
-    {
-      id: 'chat',
-      label: 'Live Chat',
-      icon: 'chat',
-      color: colors.success,
-      action: () => Alert.alert('Live Chat', 'Our agents are available 9 AM - 6 PM'),
-    },
-  ];
+    // Use FAQs from API or empty array
+    const faqs = apiData.faqs || [];
 
-  const handleSubmit = () => {
+    // Use supportInfo from API or empty object
+    const supportInfo = apiData.supportInfo || {};
+
+    return {
+      faqs,
+      contactOptions: contactOptionsFromApi,
+      supportInfo,
+    };
+  };
+
+  // Fetch support data from API
+  const fetchSupportData = async (isRefresh = false) => {
+    try {
+      if (!isRefresh) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
+      
+      // Try to fetch data from API
+      const response = await postData(
+        {},
+        Urls.supportData,
+        'GET',
+        { showErrorMessage: false } 
+      );
+
+      if (response?.success && response?.data) {
+        // Process API response
+        const processedData = processApiResponse(response.data);
+        setSupportData(processedData);
+        
+        if (isRefresh) {
+          Toast.show({
+            type: 'success',
+            text1: 'Refreshed',
+            text2: 'Support data updated',
+          });
+        }
+      } else {
+        // If API returns empty or no data, create empty structure
+        const emptyData = processApiResponse({});
+        setSupportData(emptyData);
+      }
+    } catch (error) {
+      console.error('Error fetching support data:', error);
+      
+      // On error, create empty structure
+      const emptyData = processApiResponse({});
+      setSupportData(emptyData);
+      
+      if (!isRefresh) {
+        Toast.show({
+          type: 'error',
+          text1: 'Network Error',
+          text2: 'Unable to load support data',
+        });
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Handle form submission to API
+  const handleSubmit = async () => {
     if (!selectedCategory) {
       Alert.alert('Error', 'Please select a category');
       return;
@@ -90,265 +161,295 @@ const SupportScreen = ({ navigation }) => {
       return;
     }
 
-    setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
-      Alert.alert(
-        'Success',
-        'Your support request has been submitted. We will get back to you within 24 hours.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
+    try {
+      setIsSubmitting(true);
+
+      const formData = {
+        category: selectedCategory,
+        message: message.trim(),
+        timestamp: new Date().toISOString(),
+      };
+
+      // Try to submit to API
+      const response = await postData(
+        formData,
+        Urls.submitSupport || '/api/support/submit',
+        'POST'
       );
-      setMessage('');
-      setSelectedCategory('');
-    }, 1500);
+
+      if (response?.success) {
+        Alert.alert(
+          'Success',
+          'Your support request has been submitted. We will get back to you within 24 hours.',
+          [{ text: 'OK', onPress: () => {
+            setMessage('');
+            setSelectedCategory('');
+          }}]
+        );
+      } else {
+        Alert.alert(
+          'Error',
+          'Failed to submit your request. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error submitting support request:', error);
+      
+      Alert.alert(
+        'Error',
+        'Failed to submit your request. Please check your connection.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const toggleFaq = (index) => {
     setExpandedFaq(expandedFaq === index ? null : index);
   };
 
-  return (
-    <View style={clsx(styles.flex1, styles.bgSurface)}>
-      <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
-      
-      {/* Header */}
-      <View style={clsx(styles.bgPrimary, styles.px4, styles.pt12, styles.pb4)}>
-        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4)}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Icon name="arrow-back" size={24} color={colors.white} />
-          </TouchableOpacity>
-          <Text style={clsx(styles.textWhite, styles.textXl, styles.fontBold)}>
-            Help & Support
+  const onRefresh = () => {
+    fetchSupportData(true);
+  };
+
+  useEffect(() => {
+    fetchSupportData();
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={clsx(styles.flex1, styles.bgSurface)}>
+        <Header
+          title="Help & Support"
+          showBack
+          showNotification={false}
+          type="white"
+          rightAction={false}
+          showProfile={false}
+        />
+        <View style={clsx(styles.flex1, styles.justifyCenter, styles.itemsCenter)}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={clsx(styles.textBase, styles.textBlack, styles.mt4)}>
+            Loading support information...
           </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('SupportHistory')}>
-            <Icon name="history" size={24} color={colors.white} />
-          </TouchableOpacity>
         </View>
       </View>
+    );
+  }
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={clsx(styles.pb6)}>
-        {/* Quick Contact Options */}
-        <View style={clsx(styles.px4, styles.mt4)}>
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
-            Quick Contact
-          </Text>
-          <View style={clsx(styles.flexRow, styles.flexWrap, styles.justifyBetween)}>
-            {contactOptions.map((option) => (
-              <TouchableOpacity
-                key={option.id}
-                style={clsx(
-                  styles.bgWhite,
-                  styles.roundedLg,
-                  styles.itemsCenter,
-                  styles.justifyCenter,
-                  styles.p3,
-                  styles.mb3,
-                  { width: '48%' }
-                )}
-                onPress={option.action}
-              >
-                <View style={[clsx(styles.roundedFull, styles.p3), { backgroundColor: `${option.color}20` }]}>
-                  <Icon2 name={option.icon} size={24} color={option.color} />
-                </View>
-                <Text style={clsx(styles.fontMedium, styles.textBase, styles.textBlack, styles.mt2)}>
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+  return (
+    <View style={clsx(styles.flex1, styles.bgSurface)}>
+      <Header
+        title="Help & Support"
+        showBack
+        showNotification={false}
+        type="white"
+        rightAction={false}
+        rightActionIcon="settings"
+        showProfile={false}
+        onRightActionPress={() => navigation.navigate('Settings')}
+      />
 
-        {/* FAQ Section */}
-        <View style={clsx(styles.px4, styles.mt6)}>
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
-            Frequently Asked Questions
-          </Text>
-          
-          {faqs.map((faq, index) => (
-            <TouchableOpacity
-              key={index}
-              style={clsx(
-                styles.bgWhite,
-                styles.roundedLg,
-                styles.p4,
-                styles.mb3,
-                styles.shadowSm
-              )}
-              onPress={() => toggleFaq(index)}
-            >
-              <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
-                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.flex1)}>
-                  {faq.question}
-                </Text>
-                <Icon 
-                  name={expandedFaq === index ? "expand-less" : "expand-more"} 
-                  size={24} 
-                  color={colors.textMuted} 
-                />
-              </View>
-              
-              {expandedFaq === index && (
-                <View style={clsx(styles.mt3, styles.pt3, styles.borderTop, styles.borderLight)}>
-                  <Text style={clsx(styles.textBase, styles.textBlack)}>
-                    {faq.answer}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Support Ticket Form */}
-        <View style={clsx(styles.px4, styles.mt6)}>
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
-            Submit a Request
-          </Text>
-          
-          <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p4, styles.shadowSm)}>
-            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb3)}>
-              Select Category
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={clsx(styles.pb6)}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {/* Quick Contact Options - ONLY if API provides */}
+        {supportData.contactOptions.length > 0 && (
+          <View style={clsx(styles.px4, styles.mt4)}>
+            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
+              Quick Contact
             </Text>
-            
-            <View style={clsx(styles.flexRow, styles.flexWrap, styles.gap2)}>
-              {supportCategories.map((category) => (
+            <View style={clsx(styles.flexRow, styles.flexWrap, styles.justifyBetween)}>
+              {supportData.contactOptions.map((option) => (
                 <TouchableOpacity
-                  key={category.id}
+                  key={option.id}
                   style={clsx(
-                    styles.flexRow,
+                    styles.bgWhite,
+                    styles.roundedLg,
                     styles.itemsCenter,
-                    styles.px3,
-                    styles.py2,
-                    styles.roundedFull,
-                    styles.mb2,
-                    selectedCategory === category.id ? styles.bgPrimary : styles.bgGray100
+                    styles.justifyCenter,
+                    styles.p3,
+                    styles.mb3,
+                    { width: supportData.contactOptions.length === 1 ? '100%' : supportData.contactOptions.length === 2 ? '48%' : '48%' }
                   )}
-                  onPress={() => setSelectedCategory(category.id)}
+                  onPress={option.action}
                 >
-                  <Icon 
-                    name={category.icon} 
-                    size={18} 
-                    color={selectedCategory === category.id ? colors.white : colors.textMuted} 
-                  />
-                  <Text style={clsx(
-                    styles.ml2,
-                    styles.textSm,
-                    selectedCategory === category.id ? styles.textWhite : styles.textBlack
-                  )}>
-                    {category.label}
+                  <View style={[clsx(styles.roundedFull, styles.p3), { backgroundColor: `${option.color}20` }]}>
+                    <Icon2 name={option.icon} size={24} color={option.color} />
+                  </View>
+                  <Text style={clsx(styles.fontMedium, styles.textBase, styles.textBlack, styles.mt2)}>
+                    {option.label}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
+          </View>
+        )}
 
-            <View style={clsx(styles.mt4)}>
-              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
-                Describe your issue
+        {/* FAQ Section - ONLY if API provides */}
+        {supportData.faqs.length > 0 && (
+          <View style={clsx(styles.px4, styles.mt6)}>
+            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
+              <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
+                Frequently Asked Questions
               </Text>
-              <TextInput
+              <Text style={clsx(styles.textSm, styles.textMuted)}>
+                {supportData.faqs.length} FAQs
+              </Text>
+            </View>
+            
+            {supportData.faqs.map((faq, index) => (
+              <TouchableOpacity
+                key={faq.id || index}
                 style={clsx(
-                  styles.bgGray100,
+                  styles.bgWhite,
                   styles.roundedLg,
                   styles.p4,
-                  styles.textBase,
-                  styles.textBlack,
-                  { height: 120, textAlignVertical: 'top' }
+                  styles.mb3,
+                  styles.shadowSm
                 )}
-                placeholder="Please provide detailed information about your issue..."
-                placeholderTextColor={colors.textMuted}
-                value={message}
-                onChangeText={setMessage}
-                multiline
-                numberOfLines={5}
-              />
-            </View>
+                onPress={() => toggleFaq(index)}
+              >
+                <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
+                  <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.flex1)}>
+                    {faq.question}
+                  </Text>
+                  <Icon 
+                    name={expandedFaq === index ? "expand-less" : "expand-more"} 
+                    size={24} 
+                    color={colors.textMuted} 
+                  />
+                </View>
+                
+                {expandedFaq === index && (
+                  <View style={clsx(styles.mt3, styles.pt3, styles.borderTop, styles.borderLight)}>
+                    <Text style={clsx(styles.textBase, styles.textBlack)}>
+                      {faq.answer}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
-            <TouchableOpacity
-              style={clsx(
-                styles.bgPrimary,
-                styles.roundedLg,
-                styles.p4,
-                styles.itemsCenter,
-                styles.justifyCenter,
-                styles.mt4,
-                isSubmitting && styles.opacity50
+        {/* Support Information - ONLY if API provides and has data */}
+        {supportData.supportInfo && Object.keys(supportData.supportInfo).length > 0 && (
+          <View style={clsx(styles.px4, styles.mt6)}>
+            <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p4, styles.shadowSm)}>
+              <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
+                Support Information
+              </Text>
+              
+              {supportData.supportInfo.workingHours && (
+                <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
+                  <View style={[clsx(styles.roundedFull, styles.p2, styles.mr3), { backgroundColor: `${colors.primary}20` }]}>
+                    <Icon name="access-time" size={24} color={colors.primary} />
+                  </View>
+                  <View style={clsx(styles.flex1)}>
+                    <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
+                      Working Hours
+                    </Text>
+                    <Text style={clsx(styles.textBase, styles.textBlack)}>
+                      {supportData.supportInfo.workingHours}
+                    </Text>
+                    {supportData.supportInfo.quickResponseHours && (
+                      <Text style={clsx(styles.textSm, styles.textMuted)}>
+                        Quick Response: {supportData.supportInfo.quickResponseHours}
+                      </Text>
+                    )}
+                  </View>
+                </View>
               )}
-              onPress={handleSubmit}
-              disabled={isSubmitting}
-            >
-              <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-                {isSubmitting ? (
-                  <Icon name="hourglass-empty" size={20} color={colors.white} style={clsx(styles.mr2)} />
-                ) : (
-                  <Icon name="send" size={20} color={colors.white} style={clsx(styles.mr2)} />
+
+              {supportData.supportInfo.officeName && (
+                <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
+                  <View style={[clsx(styles.roundedFull, styles.p2, styles.mr3), { backgroundColor: `${colors.success}20` }]}>
+                    <Icon name="location-on" size={24} color={colors.success} />
+                  </View>
+                  <View style={clsx(styles.flex1)}>
+                    <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
+                      Office Address
+                    </Text>
+                    <Text style={clsx(styles.textBase, styles.textBlack)}>
+                      {supportData.supportInfo.officeName}
+                    </Text>
+                    {supportData.supportInfo.address && (
+                      <Text style={clsx(styles.textSm, styles.textMuted)}>
+                        {supportData.supportInfo.address}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {(supportData.supportInfo.email || supportData.supportInfo.phone) && (
+                <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+                  <View style={[clsx(styles.roundedFull, styles.p2, styles.mr3), { backgroundColor: `${colors.info}20` }]}>
+                    <Icon name="info" size={24} color={colors.info} />
+                  </View>
+                  <View style={clsx(styles.flex1)}>
+                    <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
+                      Support Channels
+                    </Text>
+                    {supportData.supportInfo.email && (
+                      <Text style={clsx(styles.textBase, styles.textBlack)}>
+                        Email: {supportData.supportInfo.email}
+                      </Text>
+                    )}
+                    {supportData.supportInfo.phone && (
+                      <Text style={clsx(styles.textSm, styles.textMuted)}>
+                        Phone: {supportData.supportInfo.phone}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Empty State - If no data from API */}
+        {supportData.faqs.length === 0 && 
+         supportData.contactOptions.length === 0 && 
+         (!supportData.supportInfo || Object.keys(supportData.supportInfo).length === 0) && (
+          <View style={clsx(styles.px4, styles.mt6)}>
+            <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p6, styles.itemsCenter, styles.justifyCenter)}>
+              <Icon name="support-agent" size={64} color={colors.textMuted} />
+              <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mt4, styles.textCenter)}>
+                No Support Data Available
+              </Text>
+              <Text style={clsx(styles.textBase, styles.textMuted, styles.mt2, styles.textCenter)}>
+                Support information is currently unavailable.
+              </Text>
+              <TouchableOpacity
+                style={clsx(
+                  styles.bgPrimary,
+                  styles.roundedLg,
+                  styles.px4,
+                  styles.py3,
+                  styles.mt4
                 )}
-                <Text style={clsx(styles.textWhite, styles.textLg, styles.fontBold)}>
-                  {isSubmitting ? 'Submitting...' : 'Submit Request'}
+                onPress={onRefresh}
+              >
+                <Text style={clsx(styles.textWhite, styles.textBase, styles.fontMedium)}>
+                  Refresh
                 </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Support Information */}
-        <View style={clsx(styles.px4, styles.mt6)}>
-          <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p4, styles.shadowSm)}>
-            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
-              Support Information
-            </Text>
-            
-            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
-              <View style={[clsx(styles.roundedFull, styles.p2, styles.mr3), { backgroundColor: `${colors.primary}20` }]}>
-                <Icon name="access-time" size={24} color={colors.primary} />
-              </View>
-              <View style={clsx(styles.flex1)}>
-                <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
-                  Working Hours
-                </Text>
-                <Text style={clsx(styles.textBase, styles.textBlack)}>
-                  24/7 Support Available
-                </Text>
-                <Text style={clsx(styles.textSm, styles.textMuted)}>
-                  Quick Response: 9 AM - 6 PM
-                </Text>
-              </View>
-            </View>
-
-            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
-              <View style={[clsx(styles.roundedFull, styles.p2, styles.mr3), { backgroundColor: `${colors.success}20` }]}>
-                <Icon name="location-on" size={24} color={colors.success} />
-              </View>
-              <View style={clsx(styles.flex1)}>
-                <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
-                  Office Address
-                </Text>
-                <Text style={clsx(styles.textBase, styles.textBlack)}>
-                  ServiceProvider Pvt. Ltd.
-                </Text>
-                <Text style={clsx(styles.textSm, styles.textMuted)}>
-                  123 Business Street, Delhi, India - 110001
-                </Text>
-              </View>
-            </View>
-
-            <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-              <View style={[clsx(styles.roundedFull, styles.p2, styles.mr3), { backgroundColor: `${colors.info}20` }]}>
-                <Icon name="info" size={24} color={colors.info} />
-              </View>
-              <View style={clsx(styles.flex1)}>
-                <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
-                  Support Channels
-                </Text>
-                <Text style={clsx(styles.textBase, styles.textBlack)}>
-                  Email: support@serviceprovider.com
-                </Text>
-                <Text style={clsx(styles.textSm, styles.textMuted)}>
-                  Phone: +91 98765 43210
-                </Text>
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
-        </View>
+        )}
       </ScrollView>
     </View>
   );

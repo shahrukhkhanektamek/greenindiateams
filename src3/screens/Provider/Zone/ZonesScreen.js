@@ -333,12 +333,7 @@ const handleZonePress = (zone) => {
               </Text>
             </View>
             
-            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
-              <Icon name="polyline" size={14} color={colors.textMuted} style={clsx(styles.mr1)} />
-              <Text style={clsx(styles.textSm, styles.textMuted)}>
-                {coordinates.length - 1} Points Polygon
-              </Text>
-            </View>
+          
             
             {center && (
               <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
@@ -359,16 +354,7 @@ const handleZonePress = (zone) => {
           </View>
         </View>
         
-        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.pt2, styles.borderTop, styles.borderGray)}>
-          <View style={clsx(styles.itemsCenter, styles.flex1)}>
-            <Text style={clsx(styles.textSm, styles.textMuted)}>
-              Zone ID
-            </Text>
-            <Text style={clsx(styles.textXs, styles.fontMedium, styles.textPrimary)}>
-              {item._id?.slice(-6)}
-            </Text>
-          </View>
-          
+        <View style={clsx(styles.justifyStart, styles.itemsStart, styles.pt0, styles.borderGray)}>          
           <View style={clsx(styles.itemsCenter, styles.flex1)}>
             <Text style={clsx(styles.textSm, styles.textMuted)}>
               Status
@@ -380,23 +366,7 @@ const handleZonePress = (zone) => {
             )}>
               {getStatusText(item.status)}
             </Text>
-          </View>
-          
-          <View style={clsx(styles.itemsCenter, styles.flex1)}>
-            <Text style={clsx(styles.textSm, styles.textMuted)}>
-              Type
-            </Text>
-            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textSecondary)}>
-              {item.geometry?.type || 'Polygon'}
-            </Text>
-          </View>
-        </View>
-        
-        <View style={clsx(styles.mt3, styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
-          <Text style={clsx(styles.textXs, styles.textMuted)}>
-            Click to view details on map
-          </Text>
-          <Icon name="chevron-right" size={16} color={colors.primary} />
+          </View>          
         </View>
       </TouchableOpacity>
     );
@@ -755,9 +725,6 @@ const renderZoneDetailsModal = () => {
             <View style={clsx(styles.mb4)}>
               <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
                 Your Assigned Zones ({zones.length})
-              </Text>
-              <Text style={clsx(styles.textSm, styles.textMuted, styles.mt1)}>
-                Click on any zone to view polygon on map
               </Text>
             </View>
           )}

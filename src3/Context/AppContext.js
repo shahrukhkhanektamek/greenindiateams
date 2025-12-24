@@ -11,18 +11,19 @@ export const AppContext = createContext();
 
 // API URLs configuration - Consider moving to environment variables
 // const UploadUrl = 'http://192.168.1.61:8080/';
-const UploadUrl = 'http://192.168.1.25:8080/';
-// const UploadUrl = 'http://145.223.18.56:3001/';
+// const UploadUrl = 'http://192.168.1.25:8080/';
+const UploadUrl = 'http://145.223.18.56:3001/';
 const BASE_URLS = {
-  development: "http://192.168.1.25:8080/",
+  // development: "http://192.168.1.25:8080/",
   production: "http://145.223.18.56:3001/",
   
+  development: "http://192.168.1.10:8080/",
   // development: "http://192.168.1.61:8080/",
   // production: "https://api.example.com/"
 };
 
 export const AppProvider = ({ children }) => {
-  const ENVIRONMENT = "development"; 
+  const ENVIRONMENT = "production"; 
   const mainUrl = BASE_URLS[ENVIRONMENT];
   
   // App states
@@ -93,12 +94,16 @@ export const AppProvider = ({ children }) => {
       earnings: `${serviceManUrl}earning`,
       earningDetails: `${serviceManUrl}earning`,
 
+      myEarnings: `${serviceManUrl}serviceman-earning`,
+
       review: `${serviceManUrl}review`,
       booking: `${serviceManUrl}booking`,
       bookingAccept: `${serviceManUrl}booking/accept`,
+      bookingReject: `${serviceManUrl}booking/reject`,
       getBookingDetail: `${serviceManUrl}booking`,
       sendOtp: `${serviceManUrl}booking/booking-start-otp`,
       verifyOtpAndStart: `${serviceManUrl}booking/booking-start-otp-verify`,
+      getDistence: `${serviceManUrl}nearby`,
       
       uploadBeforeStartMedia: `${serviceManUrl}bookingUpload/upload-before-start`,
       uploadAfterCompleteMedia: `${serviceManUrl}bookingUpload/upload-after-complete`,
@@ -119,6 +124,9 @@ export const AppProvider = ({ children }) => {
 
       walletHistory: `${serviceManUrl}wallet`,
       addWalletCredit: `${serviceManUrl}wallet`,
+
+      supportData: `${serviceManUrl}support`,
+      dashboard: `${serviceManUrl}dashboard`,
 
       logout: `${serviceManUrl}auth/logout`
     };

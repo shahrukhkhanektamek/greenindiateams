@@ -446,7 +446,7 @@ const TrainingStatusScreen = ({ navigation }) => {
         showBack
         showNotification={false}
         type="white"
-        rightAction={true}
+        rightAction={false}
         rightActionIcon="refresh"
         showProfile={false}
         onRightActionPress={handleManualRefresh}

@@ -22,7 +22,7 @@ import { colors } from '../../../styles/colors';
 import Header from '../../../components/Common/Header';
 import { AppContext } from '../../../Context/AppContext';
 
-import { navigate, reset } from '../../../navigation/navigationService';
+import { goBack, navigate, reset } from '../../../navigation/navigationService';
 
 const ProfileUpdateScreen = ({ route }) => {
   const {
@@ -31,6 +31,7 @@ const ProfileUpdateScreen = ({ route }) => {
     postData,
     UploadUrl,
     fetchProfile,
+    user,
   } = useContext(AppContext);
 
   const [loading, setLoading] = useState(false);
@@ -100,7 +101,7 @@ const ProfileUpdateScreen = ({ route }) => {
   const fetchCategories = async () => {
     try {
       const categoriesResponse = await postData({}, Urls.categoryList, 'GET', { 
-        showErrorMessage: false 
+        showErrorMessage: false,  showSuccessMessage: false
       });
       
       if (categoriesResponse?.success && categoriesResponse?.data) {
@@ -143,7 +144,7 @@ const ProfileUpdateScreen = ({ route }) => {
   // Fetch profile data
   const fetchProfileData = async () => {
     try {
-      const response = await postData({}, Urls.profileDetail, 'GET', { showErrorMessage: false });
+      const response = await postData({}, Urls.profileDetail, 'GET', { showErrorMessage: false, showSuccessMessage: false });
 
       if (response?.success) {
         // Transform API response to match formData structure
@@ -487,17 +488,24 @@ const ProfileUpdateScreen = ({ route }) => {
       });
       
       if (response?.success) {
+        
+        // Refresh data after successful update
+        await fetchProfileData();
+        
+        await fetchProfile();
+        
         Toast.show({
           type: 'success',
           text1: response.message || 'Profile updated successfully',
         });
-        
-        // Refresh data after successful update
-        await fetchProfileData();
 
-        await fetchProfile();
-        
-        navigate('KycScreen');
+        if(!user.kyc)  
+        {
+          setrootScreen('KycScreen');
+        }
+        else{
+          goBack();
+        }
       } else {
         Alert.alert('Error', response?.message || 'Failed to update profile');
       }

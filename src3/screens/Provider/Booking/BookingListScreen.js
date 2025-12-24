@@ -10,6 +10,7 @@ import {
   FlatList,
   ActivityIndicator,
   Dimensions,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../../styles/globalStyles';
@@ -29,6 +30,7 @@ const BookingListScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [actionLoading, setActionLoading] = useState({}); // Track individual booking actions
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -205,6 +207,83 @@ const BookingListScreen = ({ navigation }) => {
     }
   };
 
+  // Function to handle booking status update
+  const handleStatusUpdate = async (bookingId, action) => {
+    try {
+      // Set loading for this specific booking
+      setActionLoading(prev => ({ ...prev, [bookingId]: true }));
+
+      const endpoint = action === 'accept' ? Urls.bookingAccept+'/'+bookingId : Urls.bookingReject+'/'+bookingId;
+      const actionText = action === 'accept' ? 'accept' : 'reject';
+
+      const response = await postData(
+        { bookingId },
+        endpoint,
+        'POST'
+      );
+
+      if (response?.success) {
+        // Update local state
+        setBookings(prev => prev.map(booking => {
+          if (booking.id === bookingId) {
+            return {
+              ...booking,
+              status: action === 'accept' ? 'accept' : 'reject'
+            };
+          }
+          return booking;
+        }));
+
+        Toast.show({
+          type: 'success',
+          text1: 'Success',
+          text2: `Booking ${actionText}ed successfully`,
+        });
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: response?.message || `Failed to ${actionText} booking`,
+        });
+      }
+    } catch (error) {
+      console.error(`Error ${action}ing booking:`, error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: `Failed to ${action} booking. Please try again.`,
+      });
+    } finally {
+      // Clear loading for this booking
+      setActionLoading(prev => ({ ...prev, [bookingId]: false }));
+    }
+  };
+
+  // Function to show confirmation for accept/reject
+  const showConfirmation = (bookingId, action) => {
+
+    handleStatusUpdate(bookingId, action)
+    return true;
+
+    const actionText = action === 'accept' ? 'Accept' : 'Reject';
+    const message = action === 'accept' 
+      ? 'Are you sure you want to accept this booking?' 
+      : 'Are you sure you want to reject this booking?';
+
+    Alert.alert(
+      `Confirm ${actionText}`,
+      message,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: actionText, 
+          style: action === 'accept' ? 'default' : 'destructive',
+          onPress: () => handleStatusUpdate(bookingId, action)
+        }
+      ]
+    );
+  };
+
   useEffect(() => {
     loadBookings();
   }, [activeTab, apiFilters]);
@@ -354,7 +433,109 @@ const BookingListScreen = ({ navigation }) => {
     return 'home-repair-service';
   };
 
+  // Render buttons based on booking status
+  const renderActionButtons = (booking) => {
+    const isActionLoading = actionLoading[booking.id];
+    
+    // If status is "new", show Accept and Reject buttons
+    if (booking.status === 'new') {
+      return (
+        <View style={clsx(styles.flexRow, styles.gap2)}>
+          {/* Reject Button */}
+          <TouchableOpacity 
+            style={clsx(
+              styles.flexRow,
+              styles.itemsCenter,
+              styles.px3,
+              styles.py2,
+              styles.border,
+              styles.borderError,
+              styles.bgWhite,
+              styles.roundedFull,
+              isActionLoading && styles.opacity50
+            )}
+            onPress={(e) => {
+              e.stopPropagation();
+              showConfirmation(booking.id, 'reject');
+            }}
+            disabled={isActionLoading}
+            activeOpacity={0.7}
+          >
+            {isActionLoading ? (
+              <ActivityIndicator size="small" color={colors.error} />
+            ) : (
+              <>
+                <Icon name="close" size={16} color={colors.error} />
+                <Text style={clsx(styles.textError, styles.fontMedium, styles.ml1)}>
+                  Reject
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* Accept Button */}
+          <TouchableOpacity 
+            style={clsx(
+              styles.flexRow,
+              styles.itemsCenter,
+              styles.px3,
+              styles.py2,
+              styles.bgSuccess,
+              styles.roundedFull,
+              isActionLoading && styles.opacity50
+            )}
+            onPress={(e) => {
+              e.stopPropagation();
+              showConfirmation(booking.id, 'accept');
+            }}
+            disabled={isActionLoading}
+            activeOpacity={0.7}
+          >
+            {isActionLoading ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              <>
+                <Icon name="check" size={16} color={colors.white} />
+                <Text style={clsx(styles.textWhite, styles.fontMedium, styles.ml1)}>
+                  Accept
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    // For other statuses (accepted, ongoing, completed, etc.), show Details button
+    return (
+      <TouchableOpacity 
+        style={clsx(
+          styles.flexRow,
+          styles.itemsCenter,
+          styles.px3,
+          styles.py2,
+          styles.border,
+          styles.borderPrimary,
+          styles.bgWhite,
+          styles.roundedFull
+        )}
+        onPress={(e) => {
+          e.stopPropagation();
+          navigation.navigate('BookingDetail', { booking: booking.originalData });
+        }}
+        activeOpacity={0.7}
+      >
+        <Text style={clsx(styles.textPrimary, styles.fontMedium, styles.mr1)}>
+          Details
+        </Text>
+        <Icon name="chevron-right" size={16} color={colors.primary} />
+      </TouchableOpacity>
+    );
+  };
+
   const renderBookingCard = ({ item: booking }) => {
+    const isActionLoading = actionLoading[booking.id];
+    
     return (
       <TouchableOpacity
         style={clsx(
@@ -362,9 +543,11 @@ const BookingListScreen = ({ navigation }) => {
           styles.roundedLg,
           styles.p4,
           styles.mb3,
-          styles.shadowSm
+          styles.shadowSm,
+          isActionLoading && styles.opacity50
         )}
         onPress={() => navigation.navigate('BookingDetail', { booking: booking.originalData })}
+        disabled={isActionLoading}
         activeOpacity={0.7}
       >
         {/* Top Section - Service & Status */}
@@ -431,7 +614,7 @@ const BookingListScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Bottom Section - Amount & Button */}
+        {/* Bottom Section - Amount & Action Buttons */}
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
           <View>
             <Text style={clsx(styles.textSm, styles.textMuted, styles.mb1)}>
@@ -442,28 +625,8 @@ const BookingListScreen = ({ navigation }) => {
             </Text>
           </View>
           
-          <TouchableOpacity 
-            style={clsx(
-              styles.flexRow,
-              styles.itemsCenter,
-              styles.px3,
-              styles.py2,
-              styles.border,
-              styles.borderPrimary,
-              styles.bgWhite,
-              styles.roundedFull
-            )}
-            onPress={(e) => {
-              e.stopPropagation();
-              navigation.navigate('BookingDetail', { booking: booking.originalData });
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={clsx(styles.textPrimary, styles.fontMedium, styles.mr1)}>
-              Details
-            </Text>
-            <Icon name="chevron-right" size={16} color={colors.primary} />
-          </TouchableOpacity>
+          {/* Render appropriate buttons based on status */}
+          {renderActionButtons(booking)}
         </View>
       </TouchableOpacity>
     );
@@ -564,7 +727,7 @@ const BookingListScreen = ({ navigation }) => {
         showBack
         showNotification={false}
         type="white"
-        rightAction={false}
+        rightAction={true}
         rightActionIcon="filter-list"
         showProfile={false}
         onRightActionPress={() => setFilterModalVisible(true)}
@@ -693,7 +856,6 @@ const BookingListScreen = ({ navigation }) => {
         onEndReachedThreshold={0.3}
       />
 
-      {/* Filter Modal */}
       {/* Filter Modal */}
       <Modal
         animationType="slide"

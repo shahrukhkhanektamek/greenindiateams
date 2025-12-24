@@ -329,14 +329,8 @@ const WalletScreen = ({ navigation }) => {
               styles.fontBold,
               isCredit ? styles.textSuccess : styles.textError
             )}>
-              {isCredit ? '+' : '-'}{formatCurrency(item.depositAmount)}
+              {isCredit ? '+' : '-'}{(item.creditPoints)}
             </Text>
-            
-            {item.creditPoints > 0 && (
-              <Text style={clsx(styles.textXs, styles.textPrimary, styles.mt1)}>
-                +{item.creditPoints} Points
-              </Text>
-            )}
             
             <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt1)}>
               <View style={clsx(
@@ -358,9 +352,6 @@ const WalletScreen = ({ navigation }) => {
         </View>
         
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mt2)}>
-          <Text style={clsx(styles.textXs, styles.textMuted)}>
-            Txn: {item.transactionId || item._id?.slice(-6)}
-          </Text>
           
           <View style={clsx(styles.flexRow, styles.itemsCenter)}>
             <Icon name="payment" size={14} color={colors.textMuted} style={clsx(styles.mr1)} />
@@ -475,10 +466,10 @@ const WalletScreen = ({ navigation }) => {
             <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween, styles.mb4)}>
               <View>
                 <Text style={clsx(styles.textBase, styles.fontMedium, styles.textWhite)}>
-                  Wallet Balance
+                  Credit Points
                 </Text>
                 <Text style={clsx(styles.text3xl, styles.fontBold, styles.textWhite)}>
-                  {formatCurrency(walletSummary.balance)}
+                  {walletSummary.totalCreditPoints || 0}
                 </Text>
               </View>
               
@@ -496,38 +487,9 @@ const WalletScreen = ({ navigation }) => {
               >
                 <Icon name="add" size={20} color={colors.primary} style={clsx(styles.mr2)} />
                 <Text style={clsx(styles.textBase, styles.fontMedium, styles.textPrimary)}>
-                  Add Money
+                  Add Point
                 </Text>
               </TouchableOpacity>
-            </View>
-
-            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.pt-4, styles.borderTop, styles.borderWhite20)}>
-              <View style={clsx(styles.itemsCenter, styles.flex1)}>
-                <Text style={clsx(styles.textSm, styles.textWhite, styles.opacity75)}>
-                  Credit Points
-                </Text>
-                <Text style={clsx(styles.textBase, styles.fontBold, styles.textWhite)}>
-                  {walletSummary.totalCreditPoints || 0}
-                </Text>
-              </View>
-              
-              <View style={clsx(styles.itemsCenter, styles.flex1)}>
-                <Text style={clsx(styles.textSm, styles.textWhite, styles.opacity75)}>
-                  Total Transactions
-                </Text>
-                <Text style={clsx(styles.textBase, styles.fontBold, styles.textWhite)}>
-                  {walletSummary.totalTransactions || 0}
-                </Text>
-              </View>
-              
-              <View style={clsx(styles.itemsCenter, styles.flex1)}>
-                <Text style={clsx(styles.textSm, styles.textWhite, styles.opacity75)}>
-                  Payment Mode
-                </Text>
-                <Text style={clsx(styles.textBase, styles.fontBold, styles.textWhite)}>
-                  Online
-                </Text>
-              </View>
             </View>
           </View>
         </View>
@@ -662,29 +624,6 @@ const WalletScreen = ({ navigation }) => {
           )}
         </View>
 
-        {/* Help Section */}
-        <View style={clsx(styles.mt6, styles.bgInfoLight, styles.p4, styles.roundedLg)}>
-          <Text style={clsx(styles.textBase, styles.fontBold, styles.textInfo, styles.mb2)}>
-            Wallet Information
-          </Text>
-          <Text style={clsx(styles.textSm, styles.textInfo)}>
-            • Credits are added when you deposit money
-            {'\n'}• Debits include service commissions and charges
-            {'\n'}• Credit points can be used for service bookings
-            {'\n'}• All transactions are updated in real-time
-            {'\n'}• For any discrepancy, contact support within 24 hours
-          </Text>
-          
-          <TouchableOpacity
-            style={clsx(styles.mt4, styles.flexRow, styles.itemsCenter)}
-            onPress={() => navigation.navigate('Support')}
-          >
-            <Icon name="support-agent" size={18} color={colors.info} style={clsx(styles.mr2)} />
-            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textInfo)}>
-              Report Transaction Issue
-            </Text>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
     </View> 
   );

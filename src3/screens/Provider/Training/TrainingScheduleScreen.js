@@ -22,6 +22,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
     postData,
     fetchProfile,
     userProfile,
+    user,
   } = useContext(AppContext);
 
   const [loading, setLoading] = useState(false);
@@ -106,8 +107,9 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
             }
           }
           
-          // Determine status based on API data
+          // Determine status based on API data 
           let status = 'pending';
+          console.log(schedule)
           if (schedule.trainingScheduleStatus === 'New' || schedule.status === true) {
             status = 'scheduled';
           } else if (schedule.status === false) {

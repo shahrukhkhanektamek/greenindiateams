@@ -24,20 +24,32 @@ const EarningScreen = ({ navigation }) => {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [earnings, setEarnings] = useState([]);
-  const [totalEarnings, setTotalEarnings] = useState({
-    daily: 0,
-    weekly: 0,
-    monthly: 0,
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    totalPages: 1,
     total: 0,
+    hasNextPage: false,
+    hasPrevPage: false,
+  });
+  const [summary, setSummary] = useState({
+    totalEarning: 0,
+    totalPayable: 0,
+    totalRecords: 0,
   });
 
   // Fetch earnings data
-  const fetchEarnings = async () => {
+  const fetchEarnings = async (page = 1, isLoadMore = false) => {
     try {
-      setLoading(true);
+      if (!isLoadMore) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
       
-      const response = await postData({}, Urls.earnings, 'GET', { 
+      const response = await postData({ page, limit: 10 }, Urls.myEarnings, 'GET', { 
         showErrorMessage: false 
       });
       
@@ -45,13 +57,27 @@ const EarningScreen = ({ navigation }) => {
         console.log('Earnings API Response:', response);
         
         const earningsData = response.data || [];
-        setEarnings(earningsData);
         
-        // Calculate total earnings
-        calculateTotalEarnings(earningsData);
+        if (isLoadMore) {
+          // Append new data for load more
+          setEarnings(prev => [...prev, ...earningsData]);
+        } else {
+          // Replace data for initial load or refresh
+          setEarnings(earningsData);
+        }
+        
+        // Set summary data
+        if (response.summary) {
+          setSummary(response.summary);
+        }
+        
+        // Set pagination data
+        if (response.pagination) {
+          setPagination(response.pagination);
+        }
         
         // Show success message if data loaded
-        if (earningsData.length > 0) {
+        if (earningsData.length > 0 && !isLoadMore) {
           Toast.show({
             type: 'success',
             text1: 'Success',
@@ -59,83 +85,43 @@ const EarningScreen = ({ navigation }) => {
           });
         }
       } else {
-        Alert.alert('Error', response?.message || 'Failed to fetch earnings data');
-        setEarnings([]);
+        if (!isLoadMore) {
+          Alert.alert('Error', response?.message || 'Failed to fetch earnings data');
+          setEarnings([]);
+        }
       }
       
     } catch (error) {
       console.error('Fetch earnings error:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to fetch earnings data',
-      });
-      setEarnings([]);
+      if (!isLoadMore) {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Failed to fetch earnings data',
+        });
+        setEarnings([]);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     }
-  };
-
-  const calculateTotalEarnings = (earningsData) => {
-    if (!earningsData || earningsData.length === 0) {
-      setTotalEarnings({
-        daily: 0,
-        weekly: 0,
-        monthly: 0,
-        total: 0,
-      });
-      return;
-    }
-
-    let overallTotal = 0;
-    let maxPrice = 0;
-    let minHours = Infinity;
-    let totalHours = 0;
-
-    earningsData.forEach(item => {
-      // Calculate total potential earnings for this category
-      const categoryTotal = item.earningPrice1 + item.earningPrice2 + item.earningPrice3 + item.earningPrice4;
-      overallTotal += categoryTotal;
-      
-      // Find maximum earning price
-      const categoryMaxPrice = Math.max(item.earningPrice1, item.earningPrice2, item.earningPrice3, item.earningPrice4);
-      maxPrice = Math.max(maxPrice, categoryMaxPrice);
-      
-      // Find minimum service hours
-      const categoryMinHours = Math.min(item.earningHour1, item.earningHour2, item.earningHour3, item.earningHour4);
-      minHours = Math.min(minHours, categoryMinHours);
-      
-      // Calculate total hours for average rate calculation
-      totalHours += item.earningHour1 + item.earningHour2 + item.earningHour3 + item.earningHour4;
-    });
-
-    // Calculate average per hour rate
-    const averageRate = totalHours > 0 ? overallTotal / totalHours : 0;
-
-    // For demo purposes, set time-based earnings
-    const dailyTotal = overallTotal * 0.1; // 10% of total as daily
-    const weeklyTotal = overallTotal * 0.3; // 30% of total as weekly
-    const monthlyTotal = overallTotal * 0.6; // 60% of total as monthly
-
-    setTotalEarnings({
-      daily: dailyTotal,
-      weekly: weeklyTotal,
-      monthly: monthlyTotal,
-      total: overallTotal,
-      maxPrice: maxPrice,
-      minHours: minHours === Infinity ? 0 : minHours,
-      averageRate: averageRate,
-    });
   };
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchEarnings();
+    fetchEarnings(1, false);
+  };
+
+  const loadMore = () => {
+    if (pagination.hasNextPage && !loadingMore) {
+      const nextPage = pagination.page + 1;
+      fetchEarnings(nextPage, true);
+    }
   };
 
   useEffect(() => {
-    fetchEarnings();
+    fetchEarnings(1, false);
   }, []);
 
   const formatCurrency = (amount) => {
@@ -145,80 +131,162 @@ const EarningScreen = ({ navigation }) => {
       style: 'currency',
       currency: 'INR',
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      maximumFractionDigits: 2,
     }).format(amount);
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  const getBookingStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'complete':
+        return styles.textSuccess;
+      case 'pending':
+        return styles.textWarning;
+      case 'cancelled':
+        return styles.textError;
+      default:
+        return styles.textMuted;
+    }
+  };
+
+  const getBookingStatusBg = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'complete':
+        return styles.bgSuccessLight;
+      case 'pending':
+        return styles.bgWarningLight;
+      case 'cancelled':
+        return styles.bgErrorLight;
+      default:
+        return styles.bgGray;
+    }
+  };
+
   const renderEarningCard = (earning) => {
+    const booking = earning.booking || {};
+    const service = earning.service || {};
+    
     return (
-      <View key={earning._id} style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm, styles.mb4)}>
+      <View key={earning._id} style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm, styles.mb3)}>
+        {/* Booking ID and Status */}
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
           <View style={clsx(styles.flexRow, styles.itemsCenter, styles.flex1)}>
-            <Icon name="category" size={20} color={colors.primary} style={clsx(styles.mr2)} />
-            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.flex1)} numberOfLines={2}>
-              {earning.category?.name || 'Category'}
+            <Icon name="receipt" size={20} color={colors.primary} style={clsx(styles.mr2)} />
+            <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.flex1)} numberOfLines={1}>
+              {booking.bookingId || 'N/A'}
             </Text>
           </View>
-          <View style={clsx(styles.px2, styles.py1, styles.roundedFull, 
-            earning.status ? styles.bgSuccessLight : styles.bgErrorLight)}>
-            <Text style={clsx(styles.textSm, styles.fontMedium, 
-              earning.status ? styles.textSuccess : styles.textError)}>
-              {earning.status ? 'Active' : 'Inactive'}
+          <View style={clsx(styles.px3, styles.py1, styles.roundedFull, getBookingStatusBg(booking.status))}>
+            <Text style={clsx(styles.textXs, styles.fontMedium, getBookingStatusColor(booking.status))}>
+              {booking.status ? booking.status.toUpperCase() : 'N/A'}
             </Text>
           </View>
         </View>
 
-        <View style={clsx(styles.mb4)}>
-          <Text style={clsx(styles.textBase, styles.fontMedium, styles.textMuted, styles.mb2)}>
-            Earning Structure (per job)
+        {/* Service Details */}
+        <View style={clsx(styles.mb3)}>
+          <Text style={clsx(styles.textSm, styles.fontMedium, styles.textMuted, styles.mb1)}>
+            Service Details
           </Text>
           
-          <View style={clsx(styles.bgGray, styles.p3, styles.roundedLg)}>
-            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
-              <Text style={clsx(styles.textSm, styles.textBlack)}>
-                {earning.earningHour1} Hours:
+          {service.items?.map((item, index) => (
+            <View key={index} style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
+              <Text style={clsx(styles.textSm, styles.textBlack)} numberOfLines={1}>
+                {item.serviceName || 'Service'} ×{item.quantity || 1}
               </Text>
-              <Text style={clsx(styles.textSm, styles.fontBold, styles.textSuccess)}>
-                {formatCurrency(earning.earningPrice1)}
-              </Text>
-            </View>
-            
-            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
-              <Text style={clsx(styles.textSm, styles.textBlack)}>
-                {earning.earningHour2} Hours:
-              </Text>
-              <Text style={clsx(styles.textSm, styles.fontBold, styles.textSuccess)}>
-                {formatCurrency(earning.earningPrice2)}
+              <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
+                {formatCurrency(item.total || 0)}
               </Text>
             </View>
-            
-            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
-              <Text style={clsx(styles.textSm, styles.textBlack)}>
-                {earning.earningHour3} Hours:
+          ))}
+          
+          {/* Additional Parts */}
+          {service.additionalParts?.length > 0 && (
+            <View style={clsx(styles.mt2, styles.pt2, styles.borderT, styles.borderGrayLight)}>
+              <Text style={clsx(styles.textXs, styles.fontMedium, styles.textMuted, styles.mb1)}>
+                Additional Parts
               </Text>
-              <Text style={clsx(styles.textSm, styles.fontBold, styles.textSuccess)}>
-                {formatCurrency(earning.earningPrice3)}
+              {service.additionalParts.map((part, index) => (
+                <View key={index} style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
+                  <Text style={clsx(styles.textXs, styles.textBlack)} numberOfLines={1}>
+                    {part.partName || 'Part'}
+                  </Text>
+                  <Text style={clsx(styles.textXs, styles.fontMedium, styles.textWarning)}>
+                    {formatCurrency(part.price || 0)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Amount Breakdown */}
+        <View style={clsx(styles.bgGray, styles.p3, styles.roundedLg, styles.mb3)}>
+          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
+            <Text style={clsx(styles.textSm, styles.textBlack)}>
+              Service Amount:
+            </Text>
+            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack)}>
+              {formatCurrency(service.bookingAmount || 0)}
+            </Text>
+          </View>
+          
+          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
+            <Text style={clsx(styles.textSm, styles.textBlack)}>
+              GST ({booking.gstPercent || 0}%):
+            </Text>
+            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textError)}>
+              {formatCurrency(booking.gstAmount || 0)}
+            </Text>
+          </View>
+          
+          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
+            <Text style={clsx(styles.textSm, styles.textBlack)}>
+              Total Payable:
+            </Text>
+            <Text style={clsx(styles.textSm, styles.fontBold, styles.textSuccess)}>
+              {formatCurrency(earning.payableAmount || booking.payableAmount || 0)}
+            </Text>
+          </View>
+          
+          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.pt2, styles.borderT, styles.borderGrayLight)}>
+            <View>
+              <Text style={clsx(styles.textSm, styles.fontBold, styles.textPrimary)}>
+                Your Earnings
+              </Text>
+              <Text style={clsx(styles.textXs, styles.textMuted)}>
+                ({earning.earningPercent || 0}% of total)
               </Text>
             </View>
-            
-            <View style={clsx(styles.flexRow, styles.justifyBetween)}>
-              <Text style={clsx(styles.textSm, styles.textBlack)}>
-                {earning.earningHour4} Hours:
+            <View style={clsx(styles.itemsEnd)}>
+              <Text style={clsx(styles.textLg, styles.fontBold, styles.textSuccess)}>
+                {formatCurrency(earning.earningAmount || 0)}
               </Text>
-              <Text style={clsx(styles.textSm, styles.fontBold, styles.textSuccess)}>
-                {formatCurrency(earning.earningPrice4)}
+              <Text style={clsx(styles.textXs, styles.textMuted)}>
+                {earning.payoutStatus ? 'Paid' : 'Pending'}
               </Text>
             </View>
           </View>
         </View>
 
+        {/* Footer */}
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
           <View>
-            <Text style={clsx(styles.textSm, styles.textMuted)}>
-              Updated
+            <Text style={clsx(styles.textXs, styles.textMuted)}>
+              Booking Date
             </Text>
-            <Text style={clsx(styles.textXs, styles.textBlack)}>
-              {new Date(earning.updatedAt || earning.createdAt).toLocaleDateString('en-IN')}
+            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack)}>
+              {formatDate(booking.createdAt)}
             </Text>
           </View>
           
@@ -235,22 +303,25 @@ const EarningScreen = ({ navigation }) => {
     );
   };
 
+  const renderFooter = () => {
+    if (!loadingMore) return null;
+    
+    return (
+      <View style={clsx(styles.py4, styles.itemsCenter)}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={clsx(styles.textSm, styles.textMuted, styles.mt2)}>
+          Loading more earnings...
+        </Text>
+      </View>
+    );
+  };
+
   const handleViewDetails = (earning) => {
     navigation.navigate('EarningDetails', { earning });
   };
 
   const handleWithdraw = () => {
-    navigate('ProviderDashboard')
-    // Alert.alert(
-    //   'Withdraw Earnings',
-    //   'This feature is coming soon!',
-    //   [
-    //     {
-    //       text: 'OK',
-    //       style: 'default',
-    //     },
-    //   ]
-    // );
+    navigate('ProviderDashboard');
   };
 
   if (loading && !refreshing) {
@@ -287,51 +358,60 @@ const EarningScreen = ({ navigation }) => {
             tintColor={colors.primary}
           />
         }
+        onScroll={({ nativeEvent }) => {
+          const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+          const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 50;
+          
+          if (isCloseToBottom && pagination.hasNextPage && !loadingMore) {
+            loadMore();
+          }
+        }}
+        scrollEventThrottle={400}
         contentContainerStyle={clsx(styles.px4, styles.pb6, styles.pt2)}
       >
         {/* Total Earnings Summary */}
         <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm, styles.mb4)}>
           <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
-              Total Earnings
+              Earnings Summary
             </Text>
             <Icon name="monetization-on" size={24} color={colors.success} />
           </View>
           
-          <View style={clsx(styles.mb3)}>
+          <View style={clsx(styles.mb4)}>
             <Text style={clsx(styles.text2xl, styles.fontBold, styles.textSuccess, styles.textCenter)}>
-              {formatCurrency(totalEarnings.total)}
+              {formatCurrency(summary.totalEarning || 0)}
             </Text>
             <Text style={clsx(styles.textSm, styles.textMuted, styles.textCenter)}>
-              Total Potential Earnings
+              Total Earnings
             </Text>
           </View>
           
           <View style={clsx(styles.flexRow, styles.justifyBetween)}>
-            <View style={clsx(styles.itemsCenter)}>
+            <View style={clsx(styles.itemsCenter, styles.flex1)}>
               <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
-                {formatCurrency(totalEarnings.daily)}
+                {formatCurrency(summary.totalPayable || 0)}
               </Text>
               <Text style={clsx(styles.textXs, styles.textMuted)}>
-                Daily
+                Total Booking Value
               </Text>
             </View>
             
-            <View style={clsx(styles.itemsCenter)}>
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
-                {formatCurrency(totalEarnings.weekly)}
+            <View style={clsx(styles.itemsCenter, styles.flex1, styles.borderL, styles.borderGrayLight)}>
+              <Text style={clsx(styles.textBase, styles.fontBold, styles.textInfo)}>
+                {summary.totalRecords || 0}
               </Text>
               <Text style={clsx(styles.textXs, styles.textMuted)}>
-                Weekly
+                Total Bookings
               </Text>
             </View>
             
-            <View style={clsx(styles.itemsCenter)}>
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
-                {formatCurrency(totalEarnings.monthly)}
+            <View style={clsx(styles.itemsCenter, styles.flex1, styles.borderL, styles.borderGrayLight)}>
+              <Text style={clsx(styles.textBase, styles.fontBold, styles.textWarning)}>
+                {formatCurrency((summary.totalEarning || 0) / (summary.totalRecords || 1))}
               </Text>
               <Text style={clsx(styles.textXs, styles.textMuted)}>
-                Monthly
+                Avg. Per Booking
               </Text>
             </View>
           </View>
@@ -339,42 +419,42 @@ const EarningScreen = ({ navigation }) => {
 
         {/* Quick Stats */}
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb4)}>
-          <View style={clsx(styles.bgInfoLight, styles.p3, styles.roundedLg, styles.flex1, styles.mr2)}>
+          <View style={clsx(styles.bgPrimaryLight, styles.p3, styles.roundedLg, styles.flex1, styles.mr2)}>
+            <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
+              {pagination.page}
+            </Text>
+            <Text style={clsx(styles.textXs, styles.textBlack)}>
+              Current Page
+            </Text>
+          </View>
+          
+          <View style={clsx(styles.bgInfoLight, styles.p3, styles.roundedLg, styles.flex1, styles.mx2)}>
             <Text style={clsx(styles.textBase, styles.fontBold, styles.textInfo)}>
               {earnings.length}
             </Text>
             <Text style={clsx(styles.textXs, styles.textBlack)}>
-              Categories
-            </Text>
-          </View>
-          
-          <View style={clsx(styles.bgWarningLight, styles.p3, styles.roundedLg, styles.flex1, styles.mx2)}>
-            <Text style={clsx(styles.textBase, styles.fontBold, styles.textWarning)}>
-              {totalEarnings.minHours}h
-            </Text>
-            <Text style={clsx(styles.textXs, styles.textBlack)}>
-              Min Hours
+              Loaded Records
             </Text>
           </View>
           
           <View style={clsx(styles.bgSuccessLight, styles.p3, styles.roundedLg, styles.flex1, styles.ml2)}>
             <Text style={clsx(styles.textBase, styles.fontBold, styles.textSuccess)}>
-              {formatCurrency(totalEarnings.averageRate || 0)}/h
+              {pagination.total}
             </Text>
             <Text style={clsx(styles.textXs, styles.textBlack)}>
-              Avg. Rate
+              Total Records
             </Text>
           </View>
         </View>
 
-        {/* Earning Breakdown */}
+        {/* Earning Records */}
         <View style={clsx(styles.mb4)}>
           <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
-              Category-wise Earnings
+              Earnings History
             </Text>
             <Text style={clsx(styles.textSm, styles.textMuted)}>
-              {earnings.length} Categories
+              Page {pagination.page} of {pagination.totalPages}
             </Text>
           </View>
 
@@ -382,14 +462,14 @@ const EarningScreen = ({ navigation }) => {
             <View style={clsx(styles.bgWhite, styles.p6, styles.roundedLg, styles.itemsCenter)}>
               <Icon name="monetization-on" size={48} color={colors.textMuted} />
               <Text style={clsx(styles.textBase, styles.fontMedium, styles.textMuted, styles.mt3)}>
-                No earnings data available
+                No earnings records found
               </Text>
               <Text style={clsx(styles.textSm, styles.textMuted, styles.mt2, styles.textCenter)}>
-                Start working in categories to see earnings
+                Complete bookings to see your earnings
               </Text>
               <TouchableOpacity
                 style={clsx(styles.mt4, styles.px4, styles.py2, styles.bgPrimary, styles.roundedFull)}
-                onPress={fetchEarnings}
+                onPress={() => fetchEarnings(1, false)}
               >
                 <Text style={clsx(styles.textSm, styles.fontMedium, styles.textWhite)}>
                   Refresh
@@ -400,26 +480,43 @@ const EarningScreen = ({ navigation }) => {
             <>
               {earnings.map(renderEarningCard)}
               
+              {/* Load More Button */}
+              {pagination.hasNextPage && !loadingMore && (
+                <TouchableOpacity
+                  style={clsx(styles.bgPrimaryLight, styles.p3, styles.roundedLg, styles.itemsCenter, styles.mt-3)}
+                  onPress={loadMore}
+                >
+                  <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+                    <Icon name="expand-more" size={20} color={colors.primary} style={clsx(styles.mr2)} />
+                    <Text style={clsx(styles.textBase, styles.fontMedium, styles.textPrimary)}>
+                      Load More ({pagination.total - earnings.length} remaining)
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              
+              {renderFooter()}
+              
               {/* Summary Card */}
               <View style={clsx(styles.bgSuccessLight, styles.p4, styles.roundedLg, styles.mt4)}>
                 <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
                   <Icon name="assessment" size={20} color={colors.success} />
                   <Text style={clsx(styles.textBase, styles.fontBold, styles.textSuccess, styles.ml2)}>
-                    Earning Summary
+                    Summary
                   </Text>
                 </View>
                 <View style={clsx(styles.pl1)}>
                   <Text style={clsx(styles.textSm, styles.textBlack, styles.mb1)}>
-                    • Total active categories: {earnings.length}
+                    • Total bookings: {summary.totalRecords || 0}
                   </Text>
                   <Text style={clsx(styles.textSm, styles.textBlack, styles.mb1)}>
-                    • Maximum earning per job: {formatCurrency(totalEarnings.maxPrice || 0)}
+                    • Total booking value: {formatCurrency(summary.totalPayable || 0)}
                   </Text>
                   <Text style={clsx(styles.textSm, styles.textBlack, styles.mb1)}>
-                    • Minimum service hours: {totalEarnings.minHours || 0} hours
+                    • Your total earnings: {formatCurrency(summary.totalEarning || 0)}
                   </Text>
                   <Text style={clsx(styles.textSm, styles.textBlack)}>
-                    • Average per hour rate: {formatCurrency(totalEarnings.averageRate || 0)}/hour
+                    • Average earnings per booking: {formatCurrency((summary.totalEarning || 0) / (summary.totalRecords || 1))}
                   </Text>
                 </View>
               </View>
@@ -449,12 +546,15 @@ const EarningScreen = ({ navigation }) => {
         <View style={clsx(styles.mt4, styles.p3, styles.bgInfoLight, styles.roundedLg)}>
           <Text style={clsx(styles.textSm, styles.textInfo)}>
             <Icon name="info" size={16} color={colors.info} />{' '}
-            Note: Earnings are calculated based on the service categories you're enrolled in and completed jobs.
+            Note: Earnings are calculated based on completed bookings. Payout status shows if earnings have been paid out.
+          </Text>
+          <Text style={clsx(styles.textXs, styles.textInfo, styles.mt1)}>
+            Scroll to bottom to load more records automatically or tap "Load More" button.
           </Text>
         </View>
       </ScrollView>
     </View>
   ); 
 };
-  
+
 export default EarningScreen;

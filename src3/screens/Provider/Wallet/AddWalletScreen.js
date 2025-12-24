@@ -21,13 +21,13 @@ const AddWalletScreen = () => {
   const route = useRoute();
   const { Toast, Urls, postData, user } = useContext(AppContext);
 
-  console.log(user)
   
   const [amount, setAmount] = useState('');
   const [transactionId, setTransactionId] = useState('');
   const [transactionTableId, setTransactionTableId] = useState('');
   const [loading, setLoading] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState(null);
   
   const { onSuccess } = route.params || {};
 
@@ -38,33 +38,53 @@ const AddWalletScreen = () => {
   // Step 1: Create Razorpay Order on your backend
   const createRazorpayOrder = async () => {
     try {
+      if (!amount || parseFloat(amount) <= 0) {
+        throw new Error('Please enter a valid amount');
+      }
+
       const data = {
-        amount: amount, // Convert to paise (Razorpay requires amount in smallest currency unit)[citation:2][citation:6]
+        amount: (parseFloat(amount)).toString(), // Convert to paise
         currency: 'INR',
-        type:'wallet',
-        userId: user._id,
+        type: 'wallet',
+        userId: user?._id,
         receipt: `wallet_${Date.now()}`
       };
+      
+      // console.log('Creating order with data:', data);
+      
       // Call your backend to create Razorpay order
       const response = await postData(
         data,
-        Urls.createTransaction, // You need to create this endpoint on your backend
+        Urls.createTransaction,
         'POST'
       );
 
-      if (response?.success && response.transactionDetail?._id) {
-        setTransactionTableId(response.transactionDetail?._id);
-        return response.transactionDetail?._id;
+      // console.log('Order creation response:', response);
+
+      if (response?.success) {
+        // Check for order ID in different possible response structures
+        const orderId = response.order?.id || 
+                       response.orderId || 
+                       response.data?.orderId ||
+                       response.transactionDetail?.orderId;
+        
+        if (orderId) {
+          setTransactionTableId(orderId);
+          return orderId;
+        } else {
+          throw new Error('Order ID not found in response');
+        }
       } else {
         throw new Error(response?.message || 'Failed to create order');
       }
     } catch (error) {
-      console.error('Create order error:', error);
+      // console.error('Create order error:', error);
       Toast.show({
         type: 'error',
         text1: 'Order Creation Failed',
-        text2: 'Unable to create payment order',
+        text2: error.message || 'Unable to create payment order',
       });
+      setPaymentLoading(false);
       return null;
     }
   };
@@ -80,8 +100,27 @@ const AddWalletScreen = () => {
       return;
     }
 
+    if (parseFloat(amount) < 1) {
+      Toast.show({
+        type: 'error',
+        text1: 'Minimum Amount',
+        text2: 'Minimum amount is ₹1',
+      });
+      return;
+    }
+
+    if (!user?._id) {
+      Toast.show({
+        type: 'error',
+        text1: 'User Not Found',
+        text2: 'Please login again',
+      });
+      return;
+    }
+
     try {
       setPaymentLoading(true);
+      setPaymentError(null);
 
       // 1. Create Razorpay Order first
       const orderId = await createRazorpayOrder();
@@ -93,61 +132,98 @@ const AddWalletScreen = () => {
       // 2. Open Razorpay Checkout
       const options = {
         description: 'Wallet Credit Addition',
-        image: 'http://145.223.18.56:3001/admin/assets/img/logo.png', // Add your logo URL
+        image: 'https://145.223.18.56:3001/admin/assets/img/logo.png', // Use HTTPS URL
         currency: 'INR',
-        key: 'rzp_test_RHmDyqCFCKQ5XV', // Replace with your actual Razorpay Key ID[citation:2][citation:3]
-        amount: (parseFloat(amount) * 100).toString(), // Convert to paise[string:citation:2][citation:6]
-        name: 'Green India', // Your business name[citation:2]
-        order_id: orderId, // Order ID from your backend[citation:2]
+        key: 'rzp_test_RHmDyqCFCKQ5XV', // Your Razorpay test key
+        amount: (parseFloat(amount)).toString(),
+        name: 'Green India',
+        order_id: orderId, // Make sure this matches your backend response
         prefill: {
-          email: 'user@example.com', // You can prefill user email if available
-          contact: '+919876543210', // You can prefill user contact if available
-          name: 'User Name' // You can prefill user name if available
+          email: user?.email || 'user@example.com',
+          contact: user?.phone || '+919876543210',
+          name: user?.name || 'User'
         },
-        theme: { color: colors.primary }, // Use your app's primary color
+        theme: { 
+          color: colors.primary,
+          backdrop_color: '#ffffff'
+        },
         modal: {
           ondismiss: () => {
-            console.log('Payment modal dismissed');
+            // console.log('Payment modal dismissed');
             setPaymentLoading(false);
+            // Show cancellation message
+            Toast.show({
+              type: 'info',
+              text1: 'Payment Cancelled',
+              text2: 'You can try again',
+            });
           }
+        },
+        // Add notes if needed
+        notes: {
+          userId: user?._id,
+          type: 'wallet_recharge'
         }
       };
 
-      // Open Razorpay payment modal[citation:2][citation:4]
+      // console.log('Opening Razorpay with options:', options);
+
+      // Open Razorpay payment modal
       RazorpayCheckout.open(options)
         .then(async (paymentData) => {
-          // Payment successful
-          console.log('Payment Success:', paymentData);
+          // console.log('Payment Success Data:', paymentData);
+          
+          // Validate payment response
+          if (!paymentData.razorpay_payment_id) {
+            throw new Error('Payment ID not received');
+          }
           
           // Step 3: Call your wallet API with payment verification
           await confirmWalletCredit(paymentData);
         })
         .catch((error) => {
-          // Payment failed or user cancelled
-          console.error('Payment Error:', error);
+          // console.error('Payment Error Details:', {
+          //   code: error.code,
+          //   description: error.description,
+          //   fullError: error
+          // });
           
-          if (error.code === 2) { // User cancelled payment
+          // Handle specific error codes
+          if (error.code === 0 || error.code === 1 || error.code === 2) {
+            // User cancelled or network issues
+            setPaymentError('Payment was cancelled or interrupted');
             Toast.show({
               type: 'info',
-              text1: 'Payment Cancelled',
-              text2: 'Payment was cancelled by user',
+              text1: 'Payment Not Completed',
+              text2: 'Payment was cancelled or interrupted',
             });
-          } else {
+          } else if (error.code === 3) {
+            // Payment failed
+            setPaymentError('Transaction was not successful');
             Toast.show({
               type: 'error',
               text1: 'Payment Failed',
-              text2: error.description || 'Payment processing failed',
+              text2: 'Transaction was not successful',
             });
+          } else {
+            // Other errors
+            // setPaymentError(error.description || 'Something went wrong with payment');
+            // Toast.show({
+            //   type: 'error',
+            //   text1: 'Payment Error',
+            //   text2: error.description || 'Something went wrong with payment',
+            // });
           }
           setPaymentLoading(false);
         });
 
     } catch (error) {
-      console.error('Payment process error:', error);
+      // console.error('Payment process error:', error);
+      setPaymentError(error.message || 'Payment initialization failed');
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: 'Payment initialization failed',
+        text2: error.message || 'Payment initialization failed',
       });
       setPaymentLoading(false);
     }
@@ -160,17 +236,21 @@ const AddWalletScreen = () => {
       
       const data = {
         depositAmount: parseFloat(amount),
-        transactionId: paymentData.razorpay_payment_id, // Use Razorpay payment ID
+        transactionId: paymentData.razorpay_payment_id,
         razorpayOrderId: paymentData.razorpay_order_id,
         razorpaySignature: paymentData.razorpay_signature,
         paymentMethod: paymentData.method || 'razorpay'
       };
+
+      // console.log('Confirming wallet credit with data:', data);
 
       const response = await postData(
         data,
         Urls.addWalletCredit,
         'POST'
       );
+
+      // console.log('Wallet credit response:', response);
 
       if (response?.success) {
         Toast.show({
@@ -194,7 +274,8 @@ const AddWalletScreen = () => {
         setPaymentLoading(false);
       }
     } catch (error) {
-      console.error('Confirm credit error:', error);
+      // console.error('Confirm credit error:', error);
+      setPaymentError('Failed to update wallet after payment');
       Toast.show({
         type: 'error',
         text1: 'Network Error',
@@ -219,12 +300,14 @@ const AddWalletScreen = () => {
       <Header
         title="Add Credit"
         showBack
-        onBackPress={handleBack}
         showNotification={false}
         type="white"
+        rightAction={false}
+        rightActionIcon="refresh"
+        showProfile={false}
       />
 
-      <ScrollView 
+      <ScrollView  
         style={clsx(styles.flex1)}
         contentContainerStyle={clsx(styles.p6)}
         showsVerticalScrollIndicator={false}
@@ -248,7 +331,10 @@ const AddWalletScreen = () => {
             placeholder="0"
             keyboardType="numeric"
             value={amount}
-            onChangeText={setAmount}
+            onChangeText={(text) => {
+              setAmount(text);
+              setPaymentError(null);
+            }}
             maxLength={8}
           />
         </View>
@@ -263,8 +349,8 @@ const AddWalletScreen = () => {
               <TouchableOpacity
                 key={quickAmount}
                 style={clsx(
-                  styles.px4,
-                  styles.py3,
+                  styles.px1,
+                  styles.py2,
                   styles.bgGrayLight,
                   styles.roundedLg,
                   styles.flex1,
@@ -273,11 +359,15 @@ const AddWalletScreen = () => {
                   amount === quickAmount.toString() && styles.border,
                   amount === quickAmount.toString() && styles.borderPrimary
                 )}
-                onPress={() => setAmount(quickAmount.toString())}
+                onPress={() => {
+                  setAmount(quickAmount.toString());
+                  setPaymentError(null);
+                }}
               >
                 <Text style={clsx(
                   styles.textCenter,
                   styles.fontMedium,
+                  // styles.textSm,
                   amount === quickAmount.toString() ? styles.textPrimary : styles.textBlack
                 )}>
                   ₹{quickAmount}
@@ -287,24 +377,32 @@ const AddWalletScreen = () => {
           </View>
         </View>
 
-        {/* Payment Info */}
-        <View style={clsx(styles.bgInfoLight, styles.p4, styles.roundedLg, styles.mb6)}>
-          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
-            <Icon name="payment" size={20} color={colors.info} style={clsx(styles.mr2)} />
-            <Text style={clsx(styles.textBase, styles.fontBold, styles.textInfo)}>
-              Secure Payment via Razorpay
+
+        {/* Error Message */}
+        {paymentError && (
+          <View style={clsx(styles.mb4, styles.p4, styles.bgErrorLight, styles.roundedLg, styles.border, styles.borderError)}>
+            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
+              <Icon name="error" size={20} color={colors.error} style={clsx(styles.mr2)} />
+              <Text style={clsx(styles.textBase, styles.fontBold, styles.textError)}>
+                Payment Error
+              </Text>
+            </View>
+            <Text style={clsx(styles.textSm, styles.textError, styles.mb3)}>
+              {paymentError}
             </Text>
+            <TouchableOpacity
+              style={clsx(styles.bgError, styles.rounded, styles.p3, styles.itemsCenter)}
+              onPress={() => {
+                setPaymentError(null);
+                handleSubmit();
+              }}
+            >
+              <Text style={clsx(styles.textWhite, styles.fontBold)}>
+                Try Again
+              </Text>
+            </TouchableOpacity>
           </View>
-          <Text style={clsx(styles.textSm, styles.textInfo)}>
-            • Payment processed securely via Razorpay
-          </Text>
-          <Text style={clsx(styles.textSm, styles.textInfo)}>
-            • Supports UPI, Cards, Net Banking, Wallets
-          </Text>
-          <Text style={clsx(styles.textSm, styles.textInfo)}>
-            • Instant wallet credit after successful payment
-          </Text>
-        </View>
+        )}
 
         {/* Submit Button */}
         <TouchableOpacity
@@ -346,6 +444,8 @@ const AddWalletScreen = () => {
             </Text>
           </View>
         )}
+
+        
       </ScrollView>
     </View>
   );

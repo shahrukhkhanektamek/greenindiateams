@@ -85,6 +85,7 @@ npx react-native run-android
 
 
 
+
 npx @react-native-community/cli init hellohi
 
 

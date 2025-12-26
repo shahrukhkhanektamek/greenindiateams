@@ -387,6 +387,15 @@ const ProfileUpdateScreen = ({ route }) => {
     //   newErrors.mobile = 'Enter a valid 10-digit mobile number';
     // }
 
+    console.log(formData.experienceLevel)
+    if (!formData.dob) {
+      newErrors.dob = 'Date of birth is required';
+    }
+
+    if (!formData.experienceLevel) {
+      newErrors.experienceLevel = 'Years experience level is required';
+    }
+
     if (!formData.yearOfExperience) {
       newErrors.yearOfExperience = 'Years of experience is required';
     }
@@ -501,7 +510,7 @@ const ProfileUpdateScreen = ({ route }) => {
 
         if(!user.kyc)  
         {
-          setrootScreen('KycScreen');
+          navigate('KycScreen');
         }
         else{
           goBack();
@@ -610,7 +619,7 @@ const ProfileUpdateScreen = ({ route }) => {
                       styles.itemsCenter
                     )}
                   >
-                    <Text style={clsx(styles.textSm, styles.textPrimary)}>
+                    <Text style={clsx(styles.textSm, styles.textWhite)}>
                       {categoryName}
                     </Text>
                     <TouchableOpacity
@@ -622,7 +631,7 @@ const ProfileUpdateScreen = ({ route }) => {
                       }}
                       style={clsx(styles.ml2)}
                     >
-                      <Icon name="close" size={14} color={colors.primary} />
+                      <Icon name="close" size={14} color={colors.white} />
                     </TouchableOpacity>
                   </View>
                 );
@@ -821,6 +830,7 @@ const ProfileUpdateScreen = ({ route }) => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={clsx(styles.px4, styles.pb6)}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

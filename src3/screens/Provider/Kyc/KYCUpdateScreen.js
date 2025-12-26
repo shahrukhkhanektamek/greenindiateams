@@ -169,14 +169,14 @@ const KYCUpdateScreen = ({ navigation, route }) => {
     if (!formData.ifscCode.trim()) {
       newErrors.ifscCode = 'IFSC code is required';
     } else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifscCode.toUpperCase())) {
-      newErrors.ifscCode = 'Enter a valid IFSC code';
+      // newErrors.ifscCode = 'Enter a valid IFSC code';
     }
 
     // PAN Card Validation
     if (!formData.panCardNumber.trim()) {
       newErrors.panCardNumber = 'PAN card number is required';
     } else if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panCardNumber.toUpperCase())) {
-      newErrors.panCardNumber = 'Enter a valid PAN card number';
+      // newErrors.panCardNumber = 'Enter a valid PAN card number';
     }
 
     // Aadhar Card Validation
@@ -208,9 +208,9 @@ const KYCUpdateScreen = ({ navigation, route }) => {
       newErrors.aadharBackImage = 'Aadhar back image is required';
     }
 
-    if (!formData.shopImage) {
-      newErrors.shopImage = 'Shop/Workplace image is required';
-    }
+    // if (!formData.shopImage) {
+    //   newErrors.shopImage = 'Shop/Workplace image is required';
+    // }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -227,7 +227,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
 
       ImagePicker.launchImageLibrary(options, (response) => {
         if (response.didCancel) {
-          console.log('User cancelled image picker');
+          // console.log('User cancelled image picker');
         } else if (response.error) {
           Toast.show({
             type: 'error',
@@ -284,7 +284,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
 
       ImagePicker.launchCamera(options, (response) => {
         if (response.didCancel) {
-          console.log('User cancelled camera');
+          // console.log('User cancelled camera');
         } else if (response.error) {
           Toast.show({
             type: 'error',
@@ -329,10 +329,10 @@ const KYCUpdateScreen = ({ navigation, route }) => {
   };
 
   const handleUpdateKYC = async () => {
-    // if (!validateForm()) {
-    //   Alert.alert('Validation Error', 'Please fix the errors in the form');
-    //   return;
-    // }
+    if (!validateForm()) {
+      Alert.alert('Validation Error', 'Please fix the errors in the form');
+      return;
+    }
 
     setLoading(true);
 
@@ -381,8 +381,8 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         }
       });
 
-      console.log('Updating KYC with data...');
-      console.log('FormData to send:', formDataToSend);
+      // console.log('Updating KYC with data...');
+      // console.log('FormData to send:', formDataToSend);
 
       const response = await postData(formDataToSend, Urls.kycUpdate, 'POST', { 
         showErrorMessage: true,
@@ -572,7 +572,8 @@ const KYCUpdateScreen = ({ navigation, route }) => {
 
       <ScrollView 
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={clsx(styles.px4, styles.pb6)}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={clsx(styles.px4, styles.pb8)}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -698,7 +699,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         <TouchableOpacity
           style={clsx(
             styles.button,
-            styles.mt6,
+            styles.mt8,
             (loading || refreshing) && styles.opacity50
           )}
           onPress={handleUpdateKYC}

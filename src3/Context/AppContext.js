@@ -6,13 +6,12 @@ import NetInfo from '@react-native-community/netinfo';
 import PageLoading from '../components/Common/Loader/PageLoding';
 import Loader from '../components/Common/Loader/Loader';
 import CustomSidebar from '../components/Provider/CustomSidebar';
+import { reset } from "../navigation/navigationService";
 
 export const AppContext = createContext();
+const ENVIRONMENT = "production"; // production or development
 
 // API URLs configuration - Consider moving to environment variables
-// const UploadUrl = 'http://192.168.1.61:8080/';
-// const UploadUrl = 'http://192.168.1.25:8080/';
-const UploadUrl = 'http://145.223.18.56:3001/';
 const BASE_URLS = {
   // development: "http://192.168.1.25:8080/",
   production: "http://145.223.18.56:3001/",
@@ -21,9 +20,9 @@ const BASE_URLS = {
   // development: "http://192.168.1.61:8080/",
   // production: "https://api.example.com/"
 };
+const UploadUrl = BASE_URLS[ENVIRONMENT];
 
 export const AppProvider = ({ children }) => {
-  const ENVIRONMENT = "production"; 
   const mainUrl = BASE_URLS[ENVIRONMENT];
   
   // App states
@@ -396,13 +395,13 @@ export const AppProvider = ({ children }) => {
       case 401:
         // Unauthorized - Trigger logout
         await handleLogout();
-        if (showErrorMessage) {
-          Toast.show({
-            type: 'error',
-            text1: 'Session Expired',
-            text2: 'Please login again'
-          });
-        }
+        // if (showErrorMessage) {
+        //   Toast.show({
+        //     type: 'error',
+        //     text1: 'Session Expired',
+        //     text2: 'Please login again'
+        //   });
+        // }
         return result;
 
       case 403:
@@ -494,7 +493,7 @@ export const AppProvider = ({ children }) => {
     try {
       // Call logout API if needed
       if (user) {
-        await postData({}, Urls.logout, 'POST', { showLoader: false, showErrorMessage: false });
+        await postData({}, Urls.logout, 'POST', { showLoader: false, showErrorMessage: false, showSuccessMessage: false });
       }
       
       // Clear storage and state
@@ -504,10 +503,12 @@ export const AppProvider = ({ children }) => {
       ]);
       
       setUser(null);
-      Toast.show({
-        type: 'success',
-        text1: 'Logged out successfully'
-      });
+      // Toast.show({
+      //   type: 'success',
+      //   text1: 'Logged out successfully'
+      // });
+      reset('ProviderOTPLogin');
+
     } catch (error) {
       console.error('Logout error:', error);
       // Still clear local data even if API call fails
@@ -544,7 +545,7 @@ export const AppProvider = ({ children }) => {
         setUser(apiData);      
         return true;
       } else {
-        console.log('Profile API failed:', response);
+        console.log('Profile API failed:', response); 
         return false;
       }
     } catch (error) {

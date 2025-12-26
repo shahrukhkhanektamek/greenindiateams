@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -26,6 +27,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
   } = useContext(AppContext);
 
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -157,6 +159,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
     } finally {
       setLoading(false);
       setDataLoaded(true);
+      setRefreshing(false);
     }
   };
 
@@ -167,7 +170,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
       title: 'Technical Training',
       instructor: 'Trainer Name',
       duration: '10:00 - 12:00',
-      startTime: '10:00',
+      startTime: '10:00', 
       endTime: '12:00',
       location: 'Training Center',
       type: 'Classroom',
@@ -195,6 +198,12 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
   useEffect(() => {
     fetchTrainingData();
   }, []);
+
+  // Refresh function
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchTrainingData();
+  };
 
   const formatDate = (date) => {
     if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
@@ -649,6 +658,17 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={clsx(styles.px4, styles.pb6, styles.pt2)}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+            title="Pull to refresh"
+            titleColor={colors.textMuted}
+          />
+        }
       >
         {/* Training Details Card */}
         <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm, styles.mb6)}>

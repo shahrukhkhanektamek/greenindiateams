@@ -84,7 +84,7 @@ function ProviderNavigator() {
  
       const checkRootAccess = async () => {
         profileStatus()
-        console.log(user)  
+        // console.log(user)  
         // console.log(storage.get('token'))   
         // setrootScreen('ProviderDashboard');
      };

@@ -22,7 +22,7 @@ const KYCStatusScreen = ({ navigation }) => {
     user,
   } = useContext(AppContext);
 
-  console.log(user.trainingScheduleSubmit.trainingScheduleStatus)
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [kycData, setKycData] = useState(null);
@@ -89,8 +89,8 @@ const KYCStatusScreen = ({ navigation }) => {
           message: 'Your KYC verification has been successfully approved.',
           bgColor: colors.successLight,
           textColor: colors.success,
-          buttonText: user.trainingScheduleSubmit.trainingScheduleStatus=='Complete'?'Update Kyc':'Go To Training',
-          buttonAction: () => user.trainingScheduleSubmit.trainingScheduleStatus=='Complete'?navigation.navigate('KycScreen'):navigation.navigate('Training'),
+          buttonText: user.kyc.status=='Complete'?'Update Kyc':'Go To Training',
+          buttonAction: () => user.kyc.status=='Complete'?navigation.navigate('KycScreen'):navigation.navigate('Training'),
         };
       
       case 'rejected':

@@ -19,7 +19,7 @@ import { navigate, reset } from '../../navigation/navigationService';
 const { width, height } = Dimensions.get('window');
 
 const CustomSidebar = ({ state, isVisible, onClose }) => {
-  const { setUser, user, setLoading, storage, UploadUrl } = useContext(AppContext);
+  const { setUser, user, setLoading, storage, UploadUrl, imageCheck } = useContext(AppContext);
 
  
   
@@ -188,7 +188,7 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
           <View style={styles.profileSection}>
             <View style={styles.profileRow}>
               <Image 
-                source={{ uri: UploadUrl+''+user?.profileImage }} 
+                source={{ uri: imageCheck(`${user?.profileImage}`,'user.png') }} 
                 style={styles.profileImage}
               />
               <View style={styles.profileDetails}>

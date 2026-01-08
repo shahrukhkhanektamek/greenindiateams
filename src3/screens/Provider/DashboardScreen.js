@@ -26,6 +26,7 @@ const DashboardScreen = ({ navigation }) => {
     Toast,
     Urls,
     postData,
+    imageCheck,
   } = useContext(AppContext);
 
   const [refreshing, setRefreshing] = useState(false);
@@ -80,7 +81,7 @@ const DashboardScreen = ({ navigation }) => {
           todayBookings: data.todayBookings?.length || 0,
           todayEarnings: data.todayEarnning || 0,
           totalEarnings: data.totalEarnning || 0,
-          walletBalance: walletData.balance || 0,
+          walletBalance: walletData.totalCreditPoints || 0,
           rating: 0, // Not in API response
         });
 
@@ -316,9 +317,7 @@ const DashboardScreen = ({ navigation }) => {
           >
             <Image
               source={{
-                uri: user?.profileImage
-                  ? `${UploadUrl}${user.profileImage}`
-                  : 'https://via.placeholder.com/50'
+                uri: imageCheck(`${user?.profileImage}`,'user.png')
               }}
               style={customStyles.profileImage}
             />
@@ -361,7 +360,7 @@ const DashboardScreen = ({ navigation }) => {
           >
             <Icon name="add" size={16} color={colors.white} />
             <Text style={clsx(styles.textWhite, styles.fontMedium, styles.ml1)}>
-              Add
+              Add Points
             </Text>
           </TouchableOpacity>
         </TouchableOpacity>

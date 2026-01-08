@@ -120,6 +120,8 @@ function ProviderNavigator() {
     >
       <Stack.Screen name="IntroEarning" component={IntroEarningScreen}/>            
       <Stack.Screen name="KYCStatus" component={KYCStatusScreen} />
+      <Stack.Screen name="Support" component={SupportScreen}/>
+      <Stack.Screen name="TermsCondition" component={TermsConditionsScreen}/>
       {!user ? (
         // =========== AUTH SCREENS ===========
         <>
@@ -175,8 +177,7 @@ function ProviderNavigator() {
           
           <Stack.Screen name="Profile" component={ProfileScreen}/>
           <Stack.Screen name="Settings" component={SettingsScreen}/>
-          <Stack.Screen name="Support" component={SupportScreen}/>
-          <Stack.Screen name="TermsCondition" component={TermsConditionsScreen}/>
+          
         </>
       )}
     </Stack.Navigator>

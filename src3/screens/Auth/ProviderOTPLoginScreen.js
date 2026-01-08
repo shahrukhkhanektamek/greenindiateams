@@ -14,10 +14,9 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../styles/globalStyles';
 import { colors } from '../../styles/colors';
 import { AppContext } from '../../Context/AppContext';
+import { navigate } from '../../navigation/navigationService';
 
 const ProviderOTPLoginScreen = ({ navigation, route }) => {
-
-
   const {
     setUser,
     Toast,
@@ -29,10 +28,6 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
     fetchProfile,
   } = useContext(AppContext);
 
-  // const urls = Urls();
-  // console.log(Urls)
-
-  
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState(['', '', '', '']);
   const [isOtpSent, setIsOtpSent] = useState(false);
@@ -40,6 +35,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
   const [countdown, setCountdown] = useState(60);
   const [errors, setErrors] = useState({});
   const [timerActive, setTimerActive] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   
   const otpInputs = useRef([]);
   const phoneInputRef = useRef(null);
@@ -51,6 +47,10 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
       newErrors.phone = 'Phone number is required';
     } else if (!/^\d{10}$/.test(phone)) {
       newErrors.phone = 'Phone number must be 10 digits';
+    }
+    
+    if (!termsAccepted) {
+      newErrors.terms = 'Please accept Terms & Conditions';
     }
     
     setErrors(newErrors);
@@ -67,6 +67,11 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
     
     if (!/^\d{4}$/.test(otpString)) {
       Alert.alert('Error', 'OTP must contain only numbers');
+      return false;
+    }
+    
+    if (!termsAccepted) {
+      Alert.alert('Error', 'Please accept Terms & Conditions');
       return false;
     }
     
@@ -138,6 +143,11 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
 
   const handleResendOTP = async () => {
     if (timerActive) return;
+    
+    if (!termsAccepted) {
+      Alert.alert('Error', 'Please accept Terms & Conditions');
+      return;
+    }
     
     setIsLoading(true);
     
@@ -358,6 +368,13 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
     }
   };
 
+  const handleTermsCheck = () => {
+    setTermsAccepted(!termsAccepted);
+    if (errors.terms) {
+      setErrors({ ...errors, terms: '' });
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -372,12 +389,11 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
         <View style={clsx(styles.bgPrimary, styles.px4, styles.pt12, styles.pb8)}>                    
           <View style={clsx(styles.itemsStretch)}>
             <View style={clsx(styles.bgWhite, styles.roundedMd, styles.p3, styles.mb4)}>
-              {/* <Icon name="sms" size={48} color={colors.primary} /> */}
               <Image
-                  source={require('../../assets/img/logo.png')}
-                  style={{ width: 250, height: 80, alignItems:'center', margin:'auto' }}
-                  resizeMode="contain"
-                />
+                source={require('../../assets/img/logo.png')}
+                style={{ width: 250, height: 80, alignItems:'center', margin:'auto' }}
+                resizeMode="contain"
+              />
             </View>
           </View>
         </View>
@@ -442,18 +458,51 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                   )}
                 </View>
 
-                {/* Terms and Conditions */}
-                <View style={clsx(styles.mb2)}>
-                  <Text style={clsx(styles.textSm, styles.textMuted, styles.textCenter)}>
-                    By continuing, you agree to our{' '}
-                    <Text style={clsx(styles.textPrimary, styles.fontMedium)}>
-                      Terms of Service
-                    </Text>{' '}
-                    and{' '}
-                    <Text style={clsx(styles.textPrimary, styles.fontMedium)}>
-                      Privacy Policy
+                {/* Terms and Conditions Checkbox */}
+                <View style={clsx(styles.mb4)}>
+                  <TouchableOpacity
+                    style={clsx(
+                      styles.flexRow,
+                      styles.itemsCenter,
+                      styles.mb2,
+                      errors.terms && styles.p1,
+                      errors.terms && styles.borderError,
+                      errors.terms && styles.roundedSm
+                    )}
+                    onPress={handleTermsCheck}
+                    activeOpacity={0.7}
+                  >
+                    <View style={clsx(
+                      styles.w6,
+                      styles.h6,
+                      styles.border,
+                      styles.borderPrimary,
+                      styles.roundedSm,
+                      styles.itemsCenter,
+                      styles.justifyCenter,
+                      styles.mr3,
+                      termsAccepted && styles.bgPrimary
+                    )}>
+                      {termsAccepted && (
+                        <Icon name="check" size={14} color={colors.white} />
+                      )}
+                    </View>
+                    <Text style={clsx(styles.textBase, styles.textBlack, styles.flex1)}>
+                      I agree to the{' '}
+                      <Text 
+                        style={clsx(styles.textPrimary, styles.fontMedium)} 
+                        onPress={() => navigate('TermsCondition')}
+                      >
+                        Terms & Conditions
+                      </Text>
                     </Text>
-                  </Text>
+                  </TouchableOpacity>
+                  
+                  {errors.terms && (
+                    <Text style={clsx(styles.textSm, styles.textError, styles.ml9)}>
+                      {errors.terms}
+                    </Text>
+                  )}
                 </View>
 
                 {/* Send OTP Button */}
@@ -464,10 +513,10 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                     styles.p4,
                     styles.itemsCenter,
                     styles.justifyCenter,
-                    (isLoading || phone.length !== 10) && styles.opacity50
+                    (isLoading || phone.length !== 10 || !termsAccepted) && styles.opacity50
                   )}
                   onPress={handleSendOTP}
-                  disabled={isLoading || phone.length !== 10}
+                  disabled={isLoading || phone.length !== 10 || !termsAccepted}
                 >
                   <View style={clsx(styles.flexRow, styles.itemsCenter)}>
                     {isLoading ? (
@@ -485,9 +534,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
               /* OTP Input Section */
               <View>
                 <View style={clsx(styles.mb6)}>
-
                   <Icon name="lock-open" style={[styles.textCenter,styles.text12xl,styles.textPrimary]} />
-
                   <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb1)}>
                     Enter OTP
                   </Text>
@@ -501,10 +548,6 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
 
                 {/* OTP Input Fields */}
                 <View style={clsx(styles.mb8)}>
-                  {/* <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb4)}>
-                    Enter 4-digit OTP
-                  </Text> */}
-                  
                   <View style={clsx(styles.flexRow, styles.justifyCenter)}>
                     {otp.map((digit, index) => (
                       <View
@@ -561,8 +604,46 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                   </View>
                 </View>
 
+                {/* Terms and Conditions Checkbox (for OTP section) */}
+                <View style={clsx(styles.mb4)}>
+                  <TouchableOpacity
+                    style={clsx(
+                      styles.flexRow,
+                      styles.itemsCenter,
+                      styles.mb2
+                    )}
+                    onPress={handleTermsCheck}
+                    activeOpacity={0.7}
+                  >
+                    <View style={clsx(
+                      styles.w6,
+                      styles.h6,
+                      styles.border,
+                      styles.borderPrimary,
+                      styles.roundedSm,
+                      styles.itemsCenter,
+                      styles.justifyCenter,
+                      styles.mr3,
+                      termsAccepted && styles.bgPrimary
+                    )}>
+                      {termsAccepted && (
+                        <Icon name="check" size={14} color={colors.white} />
+                      )}
+                    </View>
+                    <Text style={clsx(styles.textBase, styles.textBlack, styles.flex1)}>
+                      I agree to the{' '}
+                      <Text 
+                        style={clsx(styles.textPrimary, styles.fontMedium)} 
+                        onPress={() => navigate('TermsCondition')}
+                      >
+                        Terms & Conditions
+                      </Text>
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
                 {/* Resend OTP */}
-                <View style={clsx(styles.itemsCenter, styles.mb6, styles.mt6)}>
+                <View style={clsx(styles.itemsCenter, styles.mb6)}>
                   {timerActive ? (
                     <Text style={clsx(styles.textBase, styles.textMuted)}>
                       Resend OTP in {countdown} seconds
@@ -587,10 +668,10 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
                     styles.p4,
                     styles.itemsCenter,
                     styles.justifyCenter,
-                    isLoading && styles.opacity50
+                    (isLoading || !termsAccepted) && styles.opacity50
                   )}
                   onPress={handleVerifyOTP}
-                  disabled={isLoading}
+                  disabled={isLoading || !termsAccepted}
                 >
                   <View style={clsx(styles.flexRow, styles.itemsCenter)}>
                     {isLoading ? (
@@ -607,49 +688,12 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
               </View>
             )}
 
-            {/* Divider */}
-            {/* <View style={clsx(styles.flexRow, styles.itemsCenter, styles.my6)}>
-              <View style={clsx(styles.flex1, styles.hPx, styles.bgBorder)} />
-              <Text style={clsx(styles.px4, styles.textBase, styles.textMuted)}>
-                OR
-              </Text>
-              <View style={clsx(styles.flex1, styles.hPx, styles.bgBorder)} />
-            </View> */}
-
-            {/* Alternative Login Options */}
-            {/* <View>
-              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb4, styles.textCenter)}>
-                Other login options
-              </Text>              
-              <View style={clsx(styles.flexRow, styles.justifyCenter, styles.gap4)}>
-                <TouchableOpacity
-                  style={clsx(
-                    styles.border,
-                    styles.borderPrimary,
-                    styles.roundedLg,
-                    styles.p3,
-                    styles.itemsCenter,
-                    styles.justifyCenter,
-                    styles.flex1
-                  )}
-                  onPress={() => navigation.navigate('ProviderLogin')}
-                >
-                  <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-                    <Icon name="lock" size={20} color={colors.primary} style={clsx(styles.mr2)} />
-                    <Text style={clsx(styles.textPrimary, styles.fontMedium)}>
-                      Password Login
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            </View> */}
-
             {/* Support Info */}
             <View style={clsx(styles.itemsCenter, styles.mt8)}>
               <Text style={clsx(styles.textSm, styles.textMuted, styles.textCenter)}>
                 Not receiving OTP?
               </Text>
-              <TouchableOpacity style={clsx(styles.mt2)}>
+              <TouchableOpacity style={clsx(styles.mt2)} onPress={()=>navigate('Support')}>
                 <Text style={clsx(styles.textPrimary, styles.fontMedium)}>
                   Contact Support
                 </Text>

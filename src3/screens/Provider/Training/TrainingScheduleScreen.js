@@ -31,6 +31,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [noTrainingFound, setNoTrainingFound] = useState(false);
   
   // Initial schedule data
   const [scheduleData, setScheduleData] = useState({
@@ -59,6 +60,8 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
   // Fetch training schedule data
   const fetchTrainingData = async () => {
     setLoading(true);
+    setNoTrainingFound(false);
+    
     try {
       const response = await postData({}, Urls.trainingSchedule, 'GET', { 
         showErrorMessage: false, showSuccessMessage: false 
@@ -68,22 +71,27 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
         const apiData = response.data || {};
         console.log('API Data:', apiData);
         
-        // Extract training details from trainer object
-        if (apiData.trainer) {
-          const trainer = apiData.trainer;
-          setTrainingDetails({
-            title: trainer.subject || 'Technical Training',
-            instructor: trainer.fullName || 'Trainer Name',
-            duration: `${trainer.startTime || '10:00'} - ${trainer.endTime || '12:00'}`,
-            startTime: trainer.startTime || '10:00',
-            endTime: trainer.endTime || '12:00',
-            location: trainer.location || 'Training Center',
-            type: 'Classroom',
-            description: trainer.description || 'Technical training session',
-            maxParticipant: trainer.maxParticipant || '50',
-            trainingId: apiData._id || '',
-          });
+        // Check if trainer data exists
+        if (!apiData.trainer) {
+          setNoTrainingFound(true);
+          setDefaultData();
+          return;
         }
+        
+        // Extract training details from trainer object
+        const trainer = apiData.trainer;
+        setTrainingDetails({
+          title: trainer.subject || 'Technical Training',
+          instructor: trainer.fullName || 'Trainer Name',
+          duration: `${trainer.startTime || '10:00'} - ${trainer.endTime || '12:00'}`,
+          startTime: trainer.startTime || '10:00',
+          endTime: trainer.endTime || '12:00',
+          location: trainer.location || 'Training Center',
+          type: 'Classroom',
+          description: trainer.description || 'Technical training session',
+          maxParticipant: trainer.maxParticipant || '50',
+          trainingId: apiData._id || '',
+        });
         
         // Set schedule data if exists (from trainigSubmit object)
         if (apiData.trainigSubmit && apiData.trainigSubmit._id) {
@@ -111,19 +119,11 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
           
           // Determine status based on API data 
           let status = 'pending';
-          console.log(schedule)
           if (schedule.trainingScheduleStatus === 'New' || schedule.status === true) {
             status = 'scheduled';
           } else if (schedule.status === false) {
             status = 'cancelled';
           }
-          
-          console.log('Setting schedule data:', {
-            trainingDate,
-            trainingTime,
-            status,
-            scheduleId: schedule._id,
-          });
           
           setScheduleData({
             trainingDate: trainingDate,
@@ -149,12 +149,16 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
             scheduleId: null,
           });
         }
+        
+        setNoTrainingFound(false);
       } else {
-        // API success false
+        // API success false - No training found
+        setNoTrainingFound(true);
         setDefaultData();
       }
     } catch (error) {
       console.error('Error fetching training data:', error);
+      setNoTrainingFound(true);
       setDefaultData();
     } finally {
       setLoading(false);
@@ -393,29 +397,6 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  // API to reschedule training
-  const handleReschedule = () => {
-    // First show date/time pickers for rescheduling
-    Alert.alert(
-      'Reschedule Training',
-      'Select new date and time for training',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Select Date',
-          onPress: () => setShowDatePicker(true),
-        },
-        {
-          text: 'Select Time',
-          onPress: () => setShowTimePicker(true),
-        },
-      ]
-    );
   };
 
   const confirmReschedule = async () => {
@@ -670,211 +651,236 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
           />
         }
       >
-        {/* Training Details Card */}
-        <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm, styles.mb6)}>
-          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
-            <Icon name="school" size={24} color={colors.primary} />
-            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.ml3)}>
-              {trainingDetails.title}
-            </Text>
-          </View>
-          
-          <View style={clsx(styles.mt3)}>
-            <View style={clsx(styles.flexRow, styles.mb2)}>
-              <Icon name="person" size={18} color={colors.textMuted} style={clsx(styles.mr2)} />
-              <Text style={clsx(styles.textBase, styles.textBlack)}>
-                Instructor: <Text style={styles.fontMedium}>{trainingDetails.instructor}</Text>
+        {noTrainingFound ? (
+          // Show message when no training found
+          <View style={clsx(styles.flex1, styles.justifyCenter, styles.itemsCenter, styles.mt10)}>
+            <View style={clsx(styles.bgWhite, styles.p6, styles.roundedLg, styles.shadowSm, styles.itemsCenter)}>
+              <Icon name="school" size={60} color={colors.textMuted} />
+              <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack, styles.mt4, styles.mb2)}>
+                No Upcoming Training
               </Text>
-            </View>
-            
-            <View style={clsx(styles.flexRow, styles.mb2)}>
-              <Icon name="schedule" size={18} color={colors.textMuted} style={clsx(styles.mr2)} />
-              <Text style={clsx(styles.textBase, styles.textBlack)}>
-                Training Time: <Text style={styles.fontMedium}>{trainingDetails.duration}</Text>
+              <Text style={clsx(styles.textBase, styles.textMuted, styles.textCenter, styles.mb6)}>
+                You don't have any upcoming training scheduled at the moment.
               </Text>
-            </View>
-            
-            <View style={clsx(styles.flexRow, styles.mb2)}>
-              <Icon name="location-on" size={18} color={colors.textMuted} style={clsx(styles.mr2)} />
-              <Text style={clsx(styles.textBase, styles.textBlack)}>
-                Location: <Text style={styles.fontMedium}>{trainingDetails.location}</Text>
-              </Text>
-            </View>
-            
-            <View style={clsx(styles.flexRow, styles.mb2)}>
-              <Icon name="people" size={18} color={colors.textMuted} style={clsx(styles.mr2)} />
-              <Text style={clsx(styles.textBase, styles.textBlack)}>
-                Max Participants: <Text style={styles.fontMedium}>{trainingDetails.maxParticipant}</Text>
-              </Text>
-            </View>
-            
-            <View style={clsx(styles.flexRow)}>
-              <Icon name="description" size={18} color={colors.textMuted} style={clsx(styles.mr2)} />
-              <Text style={clsx(styles.textBase, styles.textBlack, styles.flex1)}>
-                Description: <Text style={styles.fontMedium}>{trainingDetails.description}</Text>
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Schedule Section */}
-        <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm)}>
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb4)}>
-            Training Schedule
-          </Text>
-
-          {/* Status Display */}
-          <View style={clsx(styles.p3, statusInfo.bg, styles.rounded, styles.mb4, styles.flexRow, styles.itemsCenter)}>
-            <Icon name={statusInfo.icon} size={20} color={statusInfo.color} />
-            <Text style={clsx(styles.textBase, styles.fontMedium, styles.ml2, { color: statusInfo.color })}>
-              Status: {statusInfo.text}
-            </Text>
-          </View>
-
-          {/* Date Selection */}
-          <View style={clsx(styles.mb4)}>
-            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb3)}>
-              Training Date
-            </Text>
-            
-            <TouchableOpacity
-              style={clsx(
-                styles.input,
-                styles.flexRow,
-                styles.justifyBetween,
-                styles.itemsCenter,
-                styles.p3
-              )}
-              // onPress={() => setShowDatePicker(true)}
-              disabled={loading || scheduleData.status === 'cancelled' || scheduleData.status === 'completed'}
-            >
-              <View>
-                <Text style={clsx(styles.textSm, styles.textMuted)}>Selected Date</Text>
-                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mt1)}>
-                  {formatDate(scheduleData.trainingDate)}
-                </Text>
-              </View>
-              {/* <Icon name="calendar-today" size={24} color={colors.primary} /> */}
-            </TouchableOpacity>
-          </View>
-
-          {/* Time Selection */}
-          <View style={clsx(styles.mb6)}>
-            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb3)}>
-              Training Time
-            </Text>
-            
-            <TouchableOpacity
-              style={clsx(
-                styles.input,
-                styles.flexRow,
-                styles.justifyBetween,
-                styles.itemsCenter,
-                styles.p3
-              )}
-              // onPress={() => setShowTimePicker(true)}
-              disabled={loading || scheduleData.status === 'cancelled' || scheduleData.status === 'completed'}
-            >
-              <View>
-                <Text style={clsx(styles.textSm, styles.textMuted)}>Selected Time</Text>
-                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mt1)}>
-                  {formatTime(scheduleData.trainingTime)}
-                </Text>
-              </View>
-              {/* <Icon name="access-time" size={24} color={colors.primary} /> */}
-            </TouchableOpacity>
-          </View>
-
-          {/* Selected Schedule Summary */}
-          <View style={clsx(styles.p4, styles.bgPrimaryLight, styles.roundedLg, styles.mb4)}>
-            <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary, styles.mb2)}>
-              Selected Schedule:
-            </Text>
-            <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-              <Icon name="event" size={20} color={colors.primary} />
-              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.ml2)}>
-                {formatDate(scheduleData.trainingDate)}
-              </Text>
-            </View>
-            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt2)}>
-              <Icon name="schedule" size={20} color={colors.primary} />
-              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.ml2)}>
-                {formatTime(scheduleData.trainingTime)}
-              </Text>
-            </View>
-          </View>
-
-          {/* Action Buttons */}
-          <View style={clsx(styles.mt4)}>
-            {/* Reschedule Button (only for scheduled/rescheduled status) */}
-            {(scheduleData.status === 'scheduled' || scheduleData.status === 'rescheduled') && !isScheduleModified() && (
+              
               <TouchableOpacity
-                style={clsx(
-                  styles.buttonOutline,
-                  styles.mb3,
-                  styles.flexRow,
-                  styles.justifyCenter,
-                  styles.itemsCenter
-                )}
-                onPress={confirmReschedule}
-                disabled={loading}
+                style={clsx(styles.buttonOutline, styles.flexRow, styles.justifyCenter, styles.itemsCenter)}
+                onPress={onRefresh}
               >
-                <Icon name="update" size={20} color={colors.primary} style={clsx(styles.mr2)} />
+                <Icon name="refresh" size={20} color={colors.primary} style={clsx(styles.mr2)} />
                 <Text style={clsx(styles.buttonOutlineText)}>
-                  Reschedule Training
+                  Refresh
                 </Text>
               </TouchableOpacity>
-            )}
+              
+              <Text style={clsx(styles.textSm, styles.textMuted, styles.mt6, styles.textCenter)}>
+                Please check back later or contact your administrator.
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <>
+            {/* Training Details Card */}
+            <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm, styles.mb6)}>
+              <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
+                <Icon name="school" size={24} color={colors.primary} />
+                <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.ml3)}>
+                  {trainingDetails.title}
+                </Text>
+              </View>
+              
+              <View style={clsx(styles.mt3)}>
+                <View style={clsx(styles.flexRow, styles.mb2)}>
+                  <Icon name="person" size={18} color={colors.textMuted} style={clsx(styles.mr2)} />
+                  <Text style={clsx(styles.textBase, styles.textBlack)}>
+                    Instructor: <Text style={styles.fontMedium}>{trainingDetails.instructor}</Text>
+                  </Text>
+                </View>
+                
+                <View style={clsx(styles.flexRow, styles.mb2)}>
+                  <Icon name="schedule" size={18} color={colors.textMuted} style={clsx(styles.mr2)} />
+                  <Text style={clsx(styles.textBase, styles.textBlack)}>
+                    Training Time: <Text style={styles.fontMedium}>{trainingDetails.duration}</Text>
+                  </Text>
+                </View>
+                
+                <View style={clsx(styles.flexRow, styles.mb2)}>
+                  <Icon name="location-on" size={18} color={colors.textMuted} style={clsx(styles.mr2)} />
+                  <Text style={clsx(styles.textBase, styles.textBlack)}>
+                    Location: <Text style={styles.fontMedium}>{trainingDetails.location}</Text>
+                  </Text>
+                </View>
+                
+                <View style={clsx(styles.flexRow, styles.mb2)}>
+                  <Icon name="people" size={18} color={colors.textMuted} style={clsx(styles.mr2)} />
+                  <Text style={clsx(styles.textBase, styles.textBlack)}>
+                    Max Participants: <Text style={styles.fontMedium}>{trainingDetails.maxParticipant}</Text>
+                  </Text>
+                </View>
+                
+                <View style={clsx(styles.flexRow)}>
+                  <Icon name="description" size={18} color={colors.textMuted} style={clsx(styles.mr2)} />
+                  <Text style={clsx(styles.textBase, styles.textBlack, styles.flex1)}>
+                    Description: <Text style={styles.fontMedium}>{trainingDetails.description}</Text>
+                  </Text>
+                </View>
+              </View>
+            </View>
 
-          
-            {/* Confirm/Schedule Button (for pending status or when modified) */}
-            {(scheduleData.status === 'pending' || isScheduleModified()) && (
-              <TouchableOpacity
-                style={clsx(
-                  styles.button,
-                  loading && styles.opacity50
-                )}
-                onPress={scheduleData.status === 'pending' ? handleConfirmSchedule : confirmReschedule}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color={colors.white} size="small" />
-                ) : (
-                  <View style={clsx(styles.flexRow, styles.justifyCenter, styles.itemsCenter)}>
-                    <Icon 
-                      name={scheduleData.status === 'pending' ? "check-circle" : "update"} 
-                      size={20} 
-                      color={colors.white} 
-                      style={clsx(styles.mr2)} 
-                    />
-                    <Text style={clsx(styles.buttonText)}>
-                      {scheduleData.status === 'pending' ? 'Confirm Schedule' : 'Update Schedule'}
+            {/* Schedule Section */}
+            <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm)}>
+              <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb4)}>
+                Training Schedule
+              </Text>
+
+              {/* Status Display */}
+              <View style={clsx(styles.p3, statusInfo.bg, styles.rounded, styles.mb4, styles.flexRow, styles.itemsCenter)}>
+                <Icon name={statusInfo.icon} size={20} color={statusInfo.color} />
+                <Text style={clsx(styles.textBase, styles.fontMedium, styles.ml2, { color: statusInfo.color })}>
+                  Status: {statusInfo.text}
+                </Text>
+              </View>
+
+              {/* Date Selection */}
+              <View style={clsx(styles.mb4)}>
+                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb3)}>
+                  Training Date
+                </Text>
+                
+                <TouchableOpacity
+                  style={clsx(
+                    styles.input,
+                    styles.flexRow,
+                    styles.justifyBetween,
+                    styles.itemsCenter,
+                    styles.p3
+                  )}
+                  disabled={loading || scheduleData.status === 'cancelled' || scheduleData.status === 'completed'}
+                >
+                  <View>
+                    <Text style={clsx(styles.textSm, styles.textMuted)}>Selected Date</Text>
+                    <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mt1)}>
+                      {formatDate(scheduleData.trainingDate)}
                     </Text>
                   </View>
+                </TouchableOpacity>
+              </View>
+
+              {/* Time Selection */}
+              <View style={clsx(styles.mb6)}>
+                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb3)}>
+                  Training Time
+                </Text>
+                
+                <TouchableOpacity
+                  style={clsx(
+                    styles.input,
+                    styles.flexRow,
+                    styles.justifyBetween,
+                    styles.itemsCenter,
+                    styles.p3
+                  )}
+                  disabled={loading || scheduleData.status === 'cancelled' || scheduleData.status === 'completed'}
+                >
+                  <View>
+                    <Text style={clsx(styles.textSm, styles.textMuted)}>Selected Time</Text>
+                    <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mt1)}>
+                      {formatTime(scheduleData.trainingTime)}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              {/* Selected Schedule Summary */}
+              <View style={clsx(styles.p4, styles.bgPrimaryLight, styles.roundedLg, styles.mb4)}>
+                <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary, styles.mb2)}>
+                  Selected Schedule:
+                </Text>
+                <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+                  <Icon name="event" size={20} color={colors.primary} />
+                  <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.ml2)}>
+                    {formatDate(scheduleData.trainingDate)}
+                  </Text>
+                </View>
+                <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt2)}>
+                  <Icon name="schedule" size={20} color={colors.primary} />
+                  <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.ml2)}>
+                    {formatTime(scheduleData.trainingTime)}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Action Buttons */}
+              <View style={clsx(styles.mt4)}>
+                {/* Reschedule Button (only for scheduled/rescheduled status) */}
+                {(scheduleData.status === 'scheduled' || scheduleData.status === 'rescheduled') && !isScheduleModified() && (
+                  <TouchableOpacity
+                    style={clsx(
+                      styles.buttonOutline,
+                      styles.mb3,
+                      styles.flexRow,
+                      styles.justifyCenter,
+                      styles.itemsCenter
+                    )}
+                    onPress={confirmReschedule}
+                    disabled={loading}
+                  >
+                    <Icon name="update" size={20} color={colors.primary} style={clsx(styles.mr2)} />
+                    <Text style={clsx(styles.buttonOutlineText)}>
+                      Reschedule Training
+                    </Text>
+                  </TouchableOpacity>
                 )}
-              </TouchableOpacity>
-            )}
 
-            
+                
 
-          </View>
-        </View>
+                {/* Confirm/Schedule Button (for pending status or when modified) */}
+                {(scheduleData.status === 'pending' || isScheduleModified()) && (
+                  <TouchableOpacity
+                    style={clsx(
+                      styles.button,
+                      loading && styles.opacity50
+                    )}
+                    onPress={scheduleData.status === 'pending' ? handleConfirmSchedule : confirmReschedule}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color={colors.white} size="small" />
+                    ) : (
+                      <View style={clsx(styles.flexRow, styles.justifyCenter, styles.itemsCenter)}>
+                        <Icon 
+                          name={scheduleData.status === 'pending' ? "check-circle" : "update"} 
+                          size={20} 
+                          color={colors.white} 
+                          style={clsx(styles.mr2)} 
+                        />
+                        <Text style={clsx(styles.buttonText)}>
+                          {scheduleData.status === 'pending' ? 'Confirm Schedule' : 'Update Schedule'}
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
 
-        {/* Important Notes */}
-        <View style={clsx(styles.mt6, styles.p4, styles.bgInfoLight, styles.roundedLg)}>
-          <Text style={clsx(styles.textBase, styles.fontBold, styles.textInfo, styles.mb2)}>
-            Important Notes:
-          </Text>
-          <Text style={clsx(styles.textSm, styles.textInfo)}>
-            • Training duration: {trainingDetails.duration}
-            {'\n'}• Please arrive 15 minutes before scheduled time
-            {'\n'}• Bring your ID proof and notebook
-            {'\n'}• Maximum participants: {trainingDetails.maxParticipant}
-            {'\n'}• Rescheduling is allowed up to 24 hours before training
-            {'\n'}• Location: {trainingDetails.location}
-            {'\n'}• For any queries, contact support: +91-9876543210
-          </Text>
-        </View>
+            {/* Important Notes */}
+            <View style={clsx(styles.mt6, styles.p4, styles.bgInfoLight, styles.roundedLg)}>
+              <Text style={clsx(styles.textBase, styles.fontBold, styles.textInfo, styles.mb2)}>
+                Important Notes:
+              </Text>
+              <Text style={clsx(styles.textSm, styles.textInfo)}>
+                • Training duration: {trainingDetails.duration}
+                {'\n'}• Please arrive 15 minutes before scheduled time
+                {'\n'}• Bring your ID proof and notebook
+                {'\n'}• Maximum participants: {trainingDetails.maxParticipant}
+                {'\n'}• Rescheduling is allowed up to 24 hours before training
+                {'\n'}• Location: {trainingDetails.location}
+                {'\n'}• For any queries, contact support: +91-9876543210
+              </Text>
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {/* Date Picker */}

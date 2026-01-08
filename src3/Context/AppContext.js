@@ -10,6 +10,7 @@ import { reset } from "../navigation/navigationService";
 
 export const AppContext = createContext();
 const ENVIRONMENT = "production"; // production or development
+const rzorepay_key = 'rzp_test_RHmDyqCFCKQ5XV';
 
 // API URLs configuration - Consider moving to environment variables
 const BASE_URLS = {
@@ -652,6 +653,7 @@ export const AppProvider = ({ children }) => {
     priceFormat,
     imageCheck,
     UploadUrl,
+    rzorepay_key,
     fetchProfile,
     setrootScreen,
     rootScreen,

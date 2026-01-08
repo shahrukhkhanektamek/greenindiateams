@@ -109,7 +109,7 @@ const SupportScreen = ({ navigation }) => {
         {},
         Urls.supportData,
         'GET',
-        { showErrorMessage: false } 
+        { showErrorMessage: false, showSuccessMessage:false } 
       );
 
       if (response?.success && response?.data) {

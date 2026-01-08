@@ -38,6 +38,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
   const initialKYCData = {
     bankName: '',
     branchName: '',
+    accountHolderName: '',
     accountNumber: '',
     confirmAccountNumber: '',
     ifscCode: '',
@@ -341,7 +342,8 @@ const KYCUpdateScreen = ({ navigation, route }) => {
       const formDataToSend = new FormData();
       
       // Add text fields
-      formDataToSend.append('bankName', formData.bankName);
+      formDataToSend.append('accountHolderName', formData.accountHolderName);
+      formDataToSend.append('bankName', formData.bankName); 
       formDataToSend.append('branchName', formData.branchName);
       formDataToSend.append('accountNumber', formData.accountNumber);
       formDataToSend.append('confirmAccountNumber', formData.confirmAccountNumber);
@@ -601,10 +603,13 @@ const KYCUpdateScreen = ({ navigation, route }) => {
             Bank Account Details
           </Text>
 
+          
           {renderInputField('Bank Name', 'bankName', 'Enter bank name')}
           
           {renderInputField('Branch Name', 'branchName', 'Enter branch name')}
           
+          {renderInputField('Account Holder Name', 'accountHolderName', 'Enter account holder name')}
+
           {renderInputField('Account Number', 'accountNumber', 'Enter account number', {
             keyboardType: 'number-pad',
             maxLength: 18,

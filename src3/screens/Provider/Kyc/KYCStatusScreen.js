@@ -89,8 +89,8 @@ const KYCStatusScreen = ({ navigation }) => {
           message: 'Your KYC verification has been successfully approved.',
           bgColor: colors.successLight,
           textColor: colors.success,
-          buttonText: user.kyc.status=='Complete'?'Update Kyc':'Go To Training',
-          buttonAction: () => user.kyc.status=='Complete'?navigation.navigate('KycScreen'):navigation.navigate('Training'),
+          buttonText: user.kyc.status=='approved'?'Update Kyc':'Go To Training',
+          buttonAction: () => user.kyc.status=='approved'?navigation.navigate('KycScreen'):navigation.navigate('Training'),
         };
       
       case 'rejected':

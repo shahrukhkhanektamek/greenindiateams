@@ -19,8 +19,7 @@ import { AppContext } from '../../../Context/AppContext';
 const AddWalletScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { Toast, Urls, postData, user } = useContext(AppContext);
-
+  const { Toast, Urls, postData, user, rzorepay_key } = useContext(AppContext);
   
   const [amount, setAmount] = useState('');
   const [transactionId, setTransactionId] = useState('');
@@ -134,13 +133,13 @@ const AddWalletScreen = () => {
         description: 'Wallet Credit Addition',
         image: 'https://145.223.18.56:3001/admin/assets/img/logo.png', // Use HTTPS URL
         currency: 'INR',
-        key: 'rzp_test_RHmDyqCFCKQ5XV', // Your Razorpay test key
+        key: rzorepay_key, // Your Razorpay test key
         amount: (parseFloat(amount)).toString(),
         name: 'Green India',
         order_id: orderId, // Make sure this matches your backend response
         prefill: {
           email: user?.email || 'user@example.com',
-          contact: user?.phone || '+919876543210',
+          contact: user?.mobile || user.user.mobile,
           name: user?.name || 'User'
         },
         theme: { 

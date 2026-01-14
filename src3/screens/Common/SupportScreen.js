@@ -285,12 +285,12 @@ const SupportScreen = ({ navigation }) => {
                   )}
                   onPress={option.action}
                 >
-                  <View style={[clsx(styles.roundedFull, styles.p3), { backgroundColor: `${option.color}20` }]}>
-                    <Icon2 name={option.icon} size={24} color={option.color} />
+                  <View style={[clsx(styles.roundedFull, styles.w16, styles.h16, styles.itemsCenter, styles.p3), { backgroundColor: `${option.color}20` }]}>
+                    <Icon2 name={option.icon} size={35} color={option.color} />
                   </View>
-                  <Text style={clsx(styles.fontMedium, styles.textBase, styles.textBlack, styles.mt2)}>
+                  {/* <Text style={clsx(styles.fontMedium, styles.textBase, styles.textBlack, styles.mt2)}>
                     {option.label}
-                  </Text>
+                  </Text> */}
                 </TouchableOpacity>
               ))}
             </View>
@@ -401,7 +401,7 @@ const SupportScreen = ({ navigation }) => {
                   </View>
                   <View style={clsx(styles.flex1)}>
                     <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
-                      Support Channels
+                      Support
                     </Text>
                     {supportData.supportInfo.email && (
                       <Text style={clsx(styles.textBase, styles.textBlack)}>

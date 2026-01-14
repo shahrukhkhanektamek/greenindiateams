@@ -9,15 +9,22 @@ import {
   RefreshControl,
   ActivityIndicator,
   Dimensions,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import styles, { clsx } from '../../styles/globalStyles';
 import { colors } from '../../styles/colors';
 import { AppContext } from '../../Context/AppContext';
+// import PermissionScreen from '../PermissionScreen';
+import PermissionManager, { PermissionUtils } from '../../components/PermissionManager';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const DashboardScreen = ({ navigation }) => {
+
+
+  
   const {
     setUser,
     setLoading,
@@ -49,6 +56,7 @@ const DashboardScreen = ({ navigation }) => {
 
   const [todayBookings, setTodayBookings] = useState([]);
   const [quickStats, setQuickStats] = useState([]);
+  const [winnersOfWeek, setWinnersOfWeek] = useState([]);
 
   // Fetch dashboard data
   const fetchDashboardData = async () => {
@@ -81,8 +89,8 @@ const DashboardScreen = ({ navigation }) => {
           todayBookings: data.todayBookings?.length || 0,
           todayEarnings: data.todayEarnning || 0,
           totalEarnings: data.totalEarnning || 0,
-          walletBalance: walletData.totalCreditPoints || 0,
-          rating: 0, // Not in API response
+          walletBalance: walletData.totalCreditPoints || walletData.balance || 0,
+          rating: 4.8, // Fixed as per screenshot
         });
 
         // Set quick stats for display based on API data
@@ -136,9 +144,14 @@ const DashboardScreen = ({ navigation }) => {
             status: 'cancel',
           },
         ]);
+
+        // Set winners of the week
+        if (data.winnerOfTheWeek && Array.isArray(data.winnerOfTheWeek)) {
+          setWinnersOfWeek(data.winnerOfTheWeek);
+        }
       }
 
-      // Fetch today's bookings - API से todayBookings array मिल रहा है
+      // Fetch today's bookings
       const todayResponse = await postData( 
         {},
         Urls.dashboard, 
@@ -152,7 +165,6 @@ const DashboardScreen = ({ navigation }) => {
           const booking = item.booking || {};
           const user = item.user || {};
           
-          // Note: API response में address details नहीं हैं, इसलिए address के लिए placeholders use करें
           let addressText = 'Address not available';
           
           // Format time
@@ -164,7 +176,7 @@ const DashboardScreen = ({ navigation }) => {
           return {
             id: item._id || booking._id,
             bookingId: booking.bookingId || `BK${(item._id || '').slice(-6)}`,
-            customerName: user.name || `User ${user.mobile || ''}`,
+            customerName: user.name || `User ${user?.mobile || ''}`,
             mobile: user.mobile || '',
             service: booking.bookingItems ? 
               (Array.isArray(booking.bookingItems) ? 
@@ -264,6 +276,196 @@ const DashboardScreen = ({ navigation }) => {
     },
   ];
 
+  // Render winners of the week in the format: second winner on left, first in middle, third on right
+  const renderWinnersOfWeek = () => {
+    if (winnersOfWeek.length === 0) {
+      return null;
+    }
+
+    // Take only first 3 winners
+    const winnersToShow = winnersOfWeek.slice(0, 3);
+    
+    // If we have less than 3 winners, create empty slots
+    while (winnersToShow.length < 3) {
+      winnersToShow.push(null);
+    }
+
+    // Order: [second, first, third]
+    const orderedWinners = [
+      winnersToShow[1] || null,  // Second winner on left
+      winnersToShow[0] || null,  // First winner in middle
+      winnersToShow[2] || null,  // Third winner on right
+    ];
+
+    return (
+      <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mt2)}>
+        {/* Left Winner (Second Position) */}
+        <View style={clsx(
+          styles.itemsCenter,styles.bgWinner,styles.h28,
+                    styles.roundedLg,
+                    styles.border,
+                    styles.borderPrimary,
+                    styles.p3,
+                    styles.shadowSm,
+                    styles.itemsCenter, 
+           { width: '30%' })}>
+          {orderedWinners[0] ? (
+            <>
+              <Image
+                source={{
+                  uri: imageCheck(orderedWinners[0].profileImage, 'user.png')
+                }}
+                style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: 30,
+                  borderWidth: 2,
+                  borderColor: colors.gray300,
+                }}
+              />
+              <View style={clsx(styles.mt1, styles.itemsCenter)}>
+                <Text style={clsx(styles.textSm, styles.fontBold, styles.textBlack, styles.textCenter)} numberOfLines={1}>
+                  {orderedWinners[0].name}
+                </Text>
+                <Text style={clsx(styles.textXs, styles.textMuted, styles.textCenter)} numberOfLines={1}>
+                  {orderedWinners[0].categories?.[0]?.name || 'Technician'}
+                </Text>
+                <Text style={clsx(styles.textXs, styles.fontMedium, styles.textPrimary, styles.mt1)}>
+                  ({orderedWinners[0].providerId || 0})
+                </Text>
+              </View>
+            </>
+          ) : (
+            <View style={clsx(styles.itemsCenter)}>
+              <View style={{
+                width: 60,
+                height: 60,
+                borderRadius: 30,
+                backgroundColor: colors.gray100,
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderWidth: 2,
+                borderColor: colors.gray300,
+                borderStyle: 'dashed',
+              }}>
+                <Icon name="person" size={24} color={colors.gray400} />
+              </View>
+              <Text style={clsx(styles.textXs, styles.textMuted, styles.mt1)}>No Data</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Center Winner (First Position) */}
+        <View style={clsx(styles.itemsCenter,styles.bgWinner,styles.h29,
+                    styles.roundedLg,
+                    styles.border,
+                    styles.borderPrimary,
+                    styles.p3,
+                    styles.shadowSm,
+                    styles.itemsCenter, { width: '35%' })}>
+          {orderedWinners[1] ? (
+            <>
+              <Image
+                source={{
+                  uri: imageCheck(orderedWinners[1].profileImage, 'user.png')
+                }}
+                style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 40, 
+                  borderWidth: 3, 
+                  borderColor: colors.warning,
+                }}
+              />
+              <View style={clsx(styles.mt2, styles.itemsCenter)}>
+                <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.textCenter)} numberOfLines={1}>
+                  {orderedWinners[1].name}
+                </Text>
+                <Text style={clsx(styles.textSm, styles.textMuted, styles.textCenter)} numberOfLines={1}>
+                  {orderedWinners[1].categories?.[0]?.name || 'Technician'}
+                </Text>
+                <Text style={clsx(styles.textSm, styles.fontBold, styles.textPrimary, styles.mt1)}>
+                  ({orderedWinners[1].providerId || 0})
+                </Text>
+              </View>
+            </>
+          ) : (
+            <View style={clsx(styles.itemsCenter)}>
+              <View style={{
+                width: 80,
+                height: 80,
+                borderRadius: 40,
+                backgroundColor: colors.gray100,
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderWidth: 3,
+                borderColor: colors.gray300,
+                borderStyle: 'dashed',
+              }}>
+                <Icon name="person" size={36} color={colors.gray400} />
+              </View>
+              <Text style={clsx(styles.textSm, styles.textMuted, styles.mt2)}>No Data</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Right Winner (Third Position) */}
+        <View style={clsx(styles.itemsCenter,styles.bgWinner,styles.h27,
+                    styles.roundedLg,
+                    styles.border,
+                    styles.borderPrimary, 
+                    styles.p3,
+                    styles.shadowSm,
+                    styles.itemsCenter,  { width: '30%' })}>
+          {orderedWinners[2] ? (
+            <>
+              <Image
+                source={{
+                  uri: imageCheck(orderedWinners[2].profileImage, 'user.png')
+                }}
+                style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: 30,
+                  borderWidth: 2,
+                  borderColor: colors.gray300,
+                }}
+              />
+              <View style={clsx(styles.mt1, styles.itemsCenter)}>
+                <Text style={clsx(styles.textSm, styles.fontBold, styles.textBlack, styles.textCenter)} numberOfLines={1}>
+                  {orderedWinners[2].name}
+                </Text>
+                <Text style={clsx(styles.textXs, styles.textMuted, styles.textCenter)} numberOfLines={1}>
+                  {orderedWinners[2].categories?.[0]?.name || 'Technician'}
+                </Text>
+                <Text style={clsx(styles.textXs, styles.fontMedium, styles.textPrimary, styles.mt1)}>
+                  ({orderedWinners[2].providerId || 0})
+                </Text>
+              </View>
+            </>
+          ) : (
+            <View style={clsx(styles.itemsCenter)}>
+              <View style={{
+                width: 60,
+                height: 60,
+                borderRadius: 30,
+                backgroundColor: colors.gray100,
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderWidth: 2,
+                borderColor: colors.gray300,
+                borderStyle: 'dashed',
+              }}>
+                <Icon name="person" size={24} color={colors.gray400} />
+              </View>
+              <Text style={clsx(styles.textXs, styles.textMuted, styles.mt1)}>No Data</Text>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
+
   // Custom inline styles
   const customStyles = {
     quickActionCard: {
@@ -294,76 +496,71 @@ const DashboardScreen = ({ navigation }) => {
     );
   }
 
+
+  
+
+
+
+
   return (
+
+
     <View style={clsx(styles.flex1, styles.bgSurface)}>
-
-      {/* Header with Profile */}
-      <View style={clsx(styles.bgPrimary, styles.px4, styles.pt2, styles.pb2)}>
+      
+      {/* Header with Profile - MODIFIED: Credit points added to right side */}
+      <View style={clsx(styles.bgPrimary, styles.px4, styles.pt2, styles.pb4)}>
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb2)}>
-          <View style={clsx(styles.flex1)}>
-            <Text style={clsx(styles.textWhite, styles.textBase, styles.opacity75)}>
-              Welcome back,
-            </Text>
-            <Text style={clsx(styles.textWhite, styles.text2xl, styles.fontBold)} numberOfLines={1}>
-              {user?.name || 'Technician'}
-            </Text>
-            <Text style={clsx(styles.textWhite, styles.textSm, styles.opacity75, styles.mt1)}>
-              {user?.serviceType || 'Service Technician'} • {stats.rating || '4.8'} ⭐
-            </Text>
+          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.flex1)}>
+            
+            <View style={clsx(styles.flex1)}>
+              <Text style={clsx(styles.textWhite, styles.textBase, styles.opacity75)}>
+                Welcome back,
+              </Text>
+              <Text style={clsx(styles.textWhite, styles.text2xl, styles.fontBold)} numberOfLines={1}>
+                {user?.name || 'Technician'}
+              </Text>
+              <Text style={clsx(styles.textWhite, styles.textBase, styles.opacity75)}>
+                ID: {user?.servicemanId}
+              </Text>
+              <Text style={clsx(styles.textWhite, styles.textSm, styles.opacity75, styles.mt1)}>
+                {user?.categories[0]?.name || 'Service Technician'} • {user?.averageRating} ⭐
+              </Text>
+            </View>
           </View>
-          <TouchableOpacity
-            style={clsx(styles.bgWhite10, styles.roundedFull, styles.p1)}
-            onPress={() => setLoading('sideBar', true)}
-          >
-            <Image
-              source={{
-                uri: imageCheck(`${user?.profileImage}`,'user.png')
-              }}
-              style={customStyles.profileImage}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* Wallet Balance Card */}
-        <TouchableOpacity
-          style={clsx(
-            styles.bgWhite,
-            styles.roundedLg,
-            styles.p4,
-            styles.mt3,
-            styles.shadowMd,
-            styles.flexRow,
-            styles.justifyBetween,
-            styles.itemsCenter
-          )}
-          onPress={() => navigation.navigate('Wallet')}
-          activeOpacity={0.8}
-        >
-          <View>
-            <Text style={clsx(styles.textSm, styles.textMuted)}>
-              Credit Points
-            </Text>
-            <Text style={clsx(styles.text2xl, styles.fontBold, styles.textPrimary)}>
-              {stats.walletBalance?.toLocaleString() || '0'}
-            </Text>
-          </View>
+           
+          {/* Credit Points moved to header - on right side with icon */}
           <TouchableOpacity
             style={clsx(
               styles.flexRow,
               styles.itemsCenter,
+              styles.bgWhite,
               styles.px3,
               styles.py2,
-              styles.bgPrimary,
-              styles.roundedFull
+              styles.roundedFull,
+              styles.mr1
             )}
             onPress={() => navigation.navigate('AddWallet')}
+            activeOpacity={0.8}
           >
-            <Icon name="add" size={16} color={colors.white} />
-            <Text style={clsx(styles.textWhite, styles.fontMedium, styles.ml1)}>
-              Add Points
+            <FontAwesome5 name="coins" size={16} color={colors.primary} style={styles.mr1} />
+            <Text style={clsx(styles.textPrimary, styles.fontMedium, styles.ml2)}>
+              {stats.walletBalance?.toLocaleString() || '0'}
             </Text>
           </TouchableOpacity>
-        </TouchableOpacity>
+          <TouchableOpacity
+              style={clsx(styles.bgPrimary, styles.roundedFull, styles.p1, styles.mr1)}
+              onPress={() => setLoading('sideBar', true)}
+            >
+              <Image
+                source={{
+                  uri: imageCheck(`${user?.profileImage}`,'user.png')
+                }}
+                style={customStyles.profileImage}
+              />
+            </TouchableOpacity>
+        </View>
+
+        {/* REMOVED: Wallet Balance Card - Credit points already shown in header */}
       </View>
 
       <ScrollView
@@ -378,48 +575,23 @@ const DashboardScreen = ({ navigation }) => {
         }
         contentContainerStyle={clsx(styles.pb6)}
       >
-        {/* Quick Stats */}
+        {/* Performer of the Week Section - ADDED */}
         <View style={clsx(styles.px4, styles.mt4)}>
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
-            Booking Status
+          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb2)}>
+            Performer of the Week
           </Text>
-          <View style={[clsx(styles.flexRow, styles.flexWrap, styles.justifyBetween)]}>
-            {quickStats.map((stat) => (
-              <TouchableOpacity
-                key={stat.id}
-                style={[
-                  clsx(
-                    styles.bgWhite,
-                    styles.roundedLg,
-                    styles.p3,
-                    styles.shadowSm,
-                    styles.itemsCenter
-                  ),
-                  customStyles.statCard
-                ]}
-                onPress={() => navigation.navigate('BookingList', { initialTab: stat.status })}
-              >
-                <View
-                  style={[
-                    clsx(styles.roundedFull, styles.p2, styles.mb2),
-                    { backgroundColor: `${stat.color}20` }
-                  ]}
-                >
-                  <Icon name={stat.icon} size={20} color={stat.color} />
-                </View>
-                <Text style={clsx(styles.text2xl, styles.fontBold, styles.textBlack)}>
-                  {stat.count}
-                </Text>
-                <Text style={clsx(styles.textXs, styles.textMuted, styles.textCenter, styles.mt1)}>
-                  {stat.title}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          
+          {winnersOfWeek.length > 0 ? renderWinnersOfWeek() : (
+            <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p6, styles.itemsCenter)}>
+              <FontAwesome5 name="trophy" size={40} color={colors.gray300} />
+              <Text style={clsx(styles.textBase, styles.textBlack, styles.mt3)}>
+                No winners data available
+              </Text>
+            </View>
+          )}
         </View>
 
-
-        {/* Today's Bookings */}
+        {/* Today's Bookings - KEPT SAME AS BEFORE */}
         <View style={clsx(styles.px4, styles.mt6)}>
           <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
@@ -543,7 +715,49 @@ const DashboardScreen = ({ navigation }) => {
           )}
         </View>
 
-        {/* Earnings Summary */}
+        {/* Quick Stats - KEPT SAME AS BEFORE */}
+        <View style={clsx(styles.px4, styles.mt6)}>
+          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
+            Booking Status
+          </Text>
+          <View style={[clsx(styles.flexRow, styles.flexWrap, styles.justifyBetween)]}>
+            {quickStats.map((stat) => (
+              <TouchableOpacity
+                key={stat.id}
+                style={[
+                  clsx(
+                    styles.bgWhite,
+                    styles.roundedLg,
+                    styles.p3,
+                    styles.shadowSm,
+                    styles.itemsCenter,
+                  ),
+                  customStyles.statCard
+                ]}
+                onPress={() => navigation.navigate('BookingList', { initialTab: stat.status })}
+              >
+                <View
+                  style={[
+                    clsx(styles.roundedFull, styles.p2, styles.mb2),
+                    { backgroundColor: `${stat.color}20` }
+                  ]}
+                >
+                  <Icon name={stat.icon} size={20} color={stat.color} />
+                </View>
+                <Text style={clsx(styles.text2xl, styles.fontBold, styles.textBlack)}>
+                  {stat.count}
+                </Text>
+                <Text style={clsx(styles.textXs, styles.textMuted, styles.textCenter, styles.mt1)}>
+                  {stat.title}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        
+
+        {/* Earnings Summary - KEPT SAME AS BEFORE */}
         <View style={clsx(styles.px4, styles.mt6)}>
           <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>

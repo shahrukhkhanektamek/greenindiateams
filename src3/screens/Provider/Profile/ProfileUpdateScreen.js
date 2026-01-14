@@ -38,9 +38,11 @@ const ProfileUpdateScreen = ({ route }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [profileDataLoaded, setProfileDataLoaded] = useState(false);
   const [showCategoriesModal, setShowCategoriesModal] = useState(false);
+  const [showCitiesModal, setShowCitiesModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [serviceCategories, setServiceCategories] = useState([]);
+  const [citySearchQuery, setCitySearchQuery] = useState('');
   const [allCategories, setAllCategories] = useState([]);
+  const [allCities, setAllCities] = useState([]);
   const [showExperienceFields, setShowExperienceFields] = useState(false);
 
   // Initial profile data
@@ -49,7 +51,7 @@ const ProfileUpdateScreen = ({ route }) => {
     email: '',
     mobile: '',
     dob: '',
-    experienceLevel: 'Fresher', // Default to Fresher
+    experienceLevel: 'Fresher',
     companyName: '',
     yearOfExperience: '',
     monthOfExperience: '',
@@ -60,7 +62,8 @@ const ProfileUpdateScreen = ({ route }) => {
     referenceName2: '',
     referenceMobile2: '',
     userId: '',
-    categoryIds: [], // Still array but will contain only one
+    categoryIds: [],
+    cityId: '',
     profileImage: null,
   };
 
@@ -76,6 +79,11 @@ const ProfileUpdateScreen = ({ route }) => {
     category.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Filter cities based on search
+  const filteredCities = allCities.filter(city =>
+    city.name.toLowerCase().includes(citySearchQuery.toLowerCase())
+  );
+
   // Function to extract all categories from API response
   const extractCategoriesFromResponse = (responseData) => {
     if (!responseData || !Array.isArray(responseData)) {
@@ -84,7 +92,7 @@ const ProfileUpdateScreen = ({ route }) => {
 
     return responseData.map(category => ({
       _id: category._id,
-      id: category._id, // Add id property for compatibility
+      id: category._id,
       name: category.name,
       image: category.image,
       icon: category.icon,
@@ -92,11 +100,26 @@ const ProfileUpdateScreen = ({ route }) => {
     }));
   };
 
+  // Function to extract all cities from API response
+  const extractCitiesFromResponse = (responseData) => {
+    if (!responseData || !Array.isArray(responseData)) {
+      return [];
+    }
+
+    return responseData.map(city => ({
+      _id: city._id,
+      id: city._id,
+      name: city.name,
+      state: city.state || '',
+      country: city.country || '',
+    }));
+  };
+
   // Fetch categories data
   const fetchCategories = async () => {
     try {
       const categoriesResponse = await postData({}, Urls.categoryList, 'GET', { 
-        showErrorMessage: false,  showSuccessMessage: false
+        showErrorMessage: false, showSuccessMessage: false
       });
       
       if (categoriesResponse?.success && categoriesResponse?.data) {
@@ -134,10 +157,55 @@ const ProfileUpdateScreen = ({ route }) => {
     }
   };
 
+  // Fetch cities data
+  const fetchCities = async () => {
+    try {
+      const citiesResponse = await postData({}, Urls.cityList, 'GET', { 
+        showErrorMessage: false, showSuccessMessage: false
+      });
+      
+      if (citiesResponse?.success && citiesResponse?.data) {
+        let cities = [];
+        
+        if (Array.isArray(citiesResponse.data)) {
+          cities = extractCitiesFromResponse(citiesResponse.data);
+        } else {
+          Toast.show({
+            type: 'error',
+            text1: 'Error',
+            text2: 'Failed to load cities',
+          });
+          return false;
+        }
+        
+        setAllCities(cities);
+        return true;
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Failed to load cities',
+        });
+        return false;
+      }
+    } catch (error) {
+      console.error('Error fetching cities:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to load cities',
+      });
+      return false;
+    }
+  };
+
   // Fetch profile data
   const fetchProfileData = async () => {
     try {
-      const response = await postData({}, Urls.profileDetail, 'GET', { showErrorMessage: false, showSuccessMessage: false });
+      const response = await postData({}, Urls.profileDetail, 'GET', { 
+        showErrorMessage: false, 
+        showSuccessMessage: false 
+      });
 
       if (response?.success) {
         const apiData = response.data || {};
@@ -148,10 +216,9 @@ const ProfileUpdateScreen = ({ route }) => {
           dob = new Date(apiData.dob);
         }
         
-        // Handle categoryIds - single category selection
+        // Handle categoryIds
         let categoryIds = [];
         if (apiData.categoryIds && apiData.categoryIds.length > 0) {
-          // Take only the first category if multiple exist
           if (Array.isArray(apiData.categoryIds)) {
             categoryIds = [apiData.categoryIds[0]];
           } else if (typeof apiData.categoryIds === 'string') {
@@ -167,6 +234,18 @@ const ProfileUpdateScreen = ({ route }) => {
           categoryIds = [apiData.category_id];
         } else if (apiData.categories && Array.isArray(apiData.categories) && apiData.categories.length > 0) {
           categoryIds = [apiData.categories[0]._id || apiData.categories[0].id];
+        }
+        
+        // Handle cityId
+        let cityId = '';
+        if (apiData.cityId) {
+          cityId = apiData.cityId;
+        } else if (apiData.city_id) {
+          cityId = apiData.city_id;
+        } else if (apiData.city && apiData.city._id) {
+          cityId = apiData.city._id;
+        } else if (apiData.cities && Array.isArray(apiData.cities) && apiData.cities.length > 0) {
+          cityId = apiData.cities[0]._id;
         }
         
         // Handle years and months of experience
@@ -216,13 +295,13 @@ const ProfileUpdateScreen = ({ route }) => {
           referenceMobile2: apiData.referenceMobile2 || '',
           userId: apiData.userId || apiData._id || '',
           categoryIds: categoryIds,
+          cityId: cityId,
           profileImage: profileImage,
         };
         
         setFormData(updatedFormData);
         setShowExperienceFields(showExpFields);
         
-        // If profile data is also passed via route params, use it
         if (route.params?.profile) {
           setFormData(prev => ({ ...prev, ...route.params.profile }));
         }
@@ -250,6 +329,7 @@ const ProfileUpdateScreen = ({ route }) => {
     setLoading(true);
     try {
       await fetchCategories();
+      await fetchCities();
       await fetchProfileData();
     } catch (error) {
       console.error('Error in loadProfileData:', error);
@@ -264,6 +344,7 @@ const ProfileUpdateScreen = ({ route }) => {
     setRefreshing(true);
     try {
       await fetchCategories();
+      await fetchCities();
       await fetchProfileData();
       Toast.show({
         type: 'success',
@@ -381,7 +462,6 @@ const ProfileUpdateScreen = ({ route }) => {
     if (!formData.dob) {
       newErrors.dob = 'Date of birth is required';
     } else {
-      // Check if user is under 18
       const today = new Date();
       const birthDate = new Date(formData.dob);
       let age = today.getFullYear() - birthDate.getFullYear();
@@ -393,6 +473,16 @@ const ProfileUpdateScreen = ({ route }) => {
       if (age < 18) {
         newErrors.dob = 'You must be at least 18 years old';
       }
+    }
+
+    // Validate category selection
+    if (formData.categoryIds.length === 0) {
+      newErrors.category = 'Service category is required';
+    }
+
+    // Validate city selection
+    if (!formData.cityId) {
+      newErrors.city = 'City is required';
     }
 
     // Validate at least one reference
@@ -426,7 +516,7 @@ const ProfileUpdateScreen = ({ route }) => {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
+ 
   const handleDateChange = (event, selectedDate) => {
     setShowDatePicker(false);
     if (selectedDate) {
@@ -435,16 +525,19 @@ const ProfileUpdateScreen = ({ route }) => {
   };
 
   const handleCategorySelect = (categoryId) => {
-    // Only keep the newly selected category (single selection)
     setFormData({ ...formData, categoryIds: [categoryId] });
     setShowCategoriesModal(false);
+  };
+
+  const handleCitySelect = (cityId) => {
+    setFormData({ ...formData, cityId });
+    setShowCitiesModal(false);
   };
 
   const handleExperienceLevelChange = (level) => {
     const updatedFormData = { ...formData, experienceLevel: level };
     
     if (level === 'Fresher') {
-      // Reset experience fields
       updatedFormData.yearOfExperience = '';
       updatedFormData.monthOfExperience = '';
       updatedFormData.companyName = '';
@@ -455,7 +548,6 @@ const ProfileUpdateScreen = ({ route }) => {
     
     setFormData(updatedFormData);
     
-    // Clear errors
     if (errors.yearOfExperience) {
       setErrors({ ...errors, yearOfExperience: '' });
     }
@@ -473,10 +565,8 @@ const ProfileUpdateScreen = ({ route }) => {
     setLoading(true);
 
     try {
-      // Prepare FormData for multipart upload
       const formDataToSend = new FormData();
       
-      // Add text fields
       formDataToSend.append('name', formData.name);
       formDataToSend.append('email', formData.email);
       formDataToSend.append('mobile', formData.mobile);
@@ -488,7 +578,6 @@ const ProfileUpdateScreen = ({ route }) => {
       formDataToSend.append('experienceLevel', formData.experienceLevel);
       formDataToSend.append('companyName', formData.companyName);
       
-      // Calculate total months of experience
       let totalMonths = 0;
       if (formData.experienceLevel === 'Experience') {
         const years = parseInt(formData.yearOfExperience) || 0;
@@ -505,10 +594,15 @@ const ProfileUpdateScreen = ({ route }) => {
       formDataToSend.append('referenceMobile2', formData.referenceMobile2);
       formDataToSend.append('userId', formData.userId);
       
-      // Add categoryIds as array (single item)
+      // Add categoryIds
       formData.categoryIds.forEach((categoryId, index) => {
         formDataToSend.append(`categoryIds[${index}]`, categoryId);
       });
+      
+      // Add cityId
+      if (formData.cityId) {
+        formDataToSend.append('city', formData.cityId);
+      }
       
       // Add profile image if it exists
       if (formData.profileImage && formData.profileImage.uri) {
@@ -604,6 +698,13 @@ const ProfileUpdateScreen = ({ route }) => {
     return selectedCategory ? selectedCategory.name : null;
   };
 
+  // Get selected city name for display
+  const getSelectedCityName = () => {
+    if (!formData.cityId) return null;
+    const selectedCity = allCities.find(city => city._id === formData.cityId);
+    return selectedCity ? selectedCity.name : null;
+  };
+
   // Render single category selection
   const renderSingleCategorySelection = () => {
     const selectedCategoryName = getSelectedCategoryName();
@@ -614,7 +715,6 @@ const ProfileUpdateScreen = ({ route }) => {
           Service Category
         </Text>
         
-        {/* Select field */}
         <TouchableOpacity
           style={clsx(
             styles.input,
@@ -637,7 +737,7 @@ const ProfileUpdateScreen = ({ route }) => {
                 styles.flexRow,
                 styles.itemsCenter
               )}>
-                <Text style={clsx(styles.text2xl, styles.textWhite)}>
+                <Text style={clsx(styles.textBase, styles.textWhite)}>
                   {selectedCategoryName}
                 </Text>
                 <TouchableOpacity
@@ -674,7 +774,6 @@ const ProfileUpdateScreen = ({ route }) => {
               clsx(styles.bgWhite, styles.roundedLg, styles.w11_12),
               { maxHeight: '80%' }
             ]}>
-              {/* Modal Header */}
               <View style={clsx(
                 styles.bgPrimary,
                 styles.p4,
@@ -692,7 +791,6 @@ const ProfileUpdateScreen = ({ route }) => {
                 </TouchableOpacity>
               </View>
 
-              {/* Search Input */}
               <View style={clsx(styles.p4)}>
                 <View style={clsx(
                   styles.flexRow,
@@ -719,8 +817,8 @@ const ProfileUpdateScreen = ({ route }) => {
                 </View>
               </View>
 
-              {/* Categories List */}
               <FlatList
+                keyboardShouldPersistTaps="handled"
                 data={filteredCategories}
                 keyExtractor={(item) => item._id}
                 style={clsx(styles.px4)}
@@ -771,7 +869,6 @@ const ProfileUpdateScreen = ({ route }) => {
                 }
               />
 
-              {/* Modal Footer */}
               <View style={clsx(
                 styles.flexRow,
                 styles.justifyEnd,
@@ -790,6 +887,208 @@ const ProfileUpdateScreen = ({ route }) => {
                 <TouchableOpacity
                   style={clsx(styles.bgPrimary, styles.px4, styles.py2, styles.rounded)}
                   onPress={() => setShowCategoriesModal(false)}
+                >
+                  <Text style={clsx(styles.textBase, styles.textWhite, styles.fontMedium)}>
+                    Select
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </View>
+    );
+  };
+
+  // Render single city selection
+  const renderSingleCitySelection = () => {
+    const selectedCityName = getSelectedCityName();
+
+    return (
+      <View style={clsx(styles.mb4)}>
+        <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
+          City
+        </Text>
+        
+        <TouchableOpacity
+          style={clsx(
+            styles.input,
+            styles.flexRow,
+            styles.justifyBetween,
+            styles.itemsCenter,
+            styles.p2,
+            { minHeight: 50 }
+          )}
+          onPress={() => setShowCitiesModal(true)}
+          activeOpacity={0.7}
+        >
+          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.flex1)}>
+            {selectedCityName ? (
+              <View style={clsx(
+                styles.bgPrimaryLight,
+                styles.px2,
+                styles.py1,
+                styles.rounded,
+                styles.flexRow,
+                styles.itemsCenter
+              )}>
+                <Text style={clsx(styles.textBase, styles.textWhite)}>
+                  {selectedCityName}
+                </Text>
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setFormData({ ...formData, cityId: '' });
+                  }}
+                  style={clsx(styles.ml2)}
+                >
+                  <Icon name="close" size={14} color={colors.white} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <Text style={clsx(styles.textBase, styles.textMuted)}>
+                Select city...
+              </Text>
+            )}
+          </View>
+          <Icon name="arrow-drop-down" size={24} color={colors.textMuted} />
+        </TouchableOpacity>
+
+        {/* Cities Modal */}
+        <Modal
+          visible={showCitiesModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowCitiesModal(false)}
+        >
+          <View style={[
+            clsx(styles.flex1, styles.justifyCenter, styles.itemsCenter),
+            { backgroundColor: 'rgba(0,0,0,0.5)' }
+          ]}>
+            <View style={[
+              clsx(styles.bgWhite, styles.roundedLg, styles.w11_12),
+              { maxHeight: '80%' }
+            ]}>
+              <View style={clsx(
+                styles.bgPrimary,
+                styles.p4,
+                styles.roundedTLg,
+                styles.roundedTRg,
+                styles.flexRow,
+                styles.justifyBetween,
+                styles.itemsCenter
+              )}>
+                <Text style={clsx(styles.textLg, styles.fontBold, styles.textWhite)}>
+                  Select City
+                </Text>
+                <TouchableOpacity onPress={() => setShowCitiesModal(false)}>
+                  <Icon name="close" size={24} color={colors.white} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={clsx(styles.p4)}>
+                <View style={clsx(
+                  styles.flexRow,
+                  styles.itemsCenter,
+                  styles.bgGrayLight,
+                  styles.rounded,
+                  styles.px3,
+                  styles.py2
+                )}>
+                  <Icon name="search" size={20} color={colors.textMuted} />
+                  <TextInput
+                    style={clsx(styles.flex1, styles.ml2, styles.textBase)}
+                    placeholder="Search cities..."
+                    value={citySearchQuery}
+                    onChangeText={setCitySearchQuery}
+                    placeholderTextColor={colors.textMuted}
+                    autoFocus={true}
+                  />
+                  {citySearchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setCitySearchQuery('')}>
+                      <Icon name="clear" size={20} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+
+              <FlatList
+                keyboardShouldPersistTaps="handled"
+                data={filteredCities}
+                keyExtractor={(item) => item._id}
+                style={clsx(styles.px4)}
+                contentContainerStyle={clsx(styles.pb4)}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => {
+                  const isSelected = formData.cityId === item._id;
+                  return (
+                    <TouchableOpacity
+                      style={clsx(
+                        styles.flexRow,
+                        styles.itemsCenter,
+                        styles.py3,
+                        styles.borderB,
+                        styles.borderGrayLight
+                      )}
+                      onPress={() => handleCitySelect(item._id)}
+                    >
+                      <View style={clsx(
+                        styles.w6,
+                        styles.h6,
+                        styles.roundedFull,
+                        styles.border2,
+                        styles.mr3,
+                        isSelected ? clsx(styles.bgPrimary, styles.borderPrimary) : clsx(styles.borderGray)
+                      )}>
+                        {isSelected && (
+                          <Icon name="check" size={16} color={colors.white} />
+                        )}
+                      </View>
+                      <View style={clsx(styles.flex1)}>
+                        <Text style={clsx(
+                          styles.textBase,
+                          styles.fontMedium,
+                          isSelected ? styles.textPrimary : styles.textBlack
+                        )}>
+                          {item.name}
+                        </Text>
+                        {(item.state || item.country) && (
+                          <Text style={clsx(styles.textSm, styles.textMuted, styles.mt1)}>
+                            {item.state && item.country ? `${item.state}, ${item.country}` : (item.state || item.country)}
+                          </Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+                ListEmptyComponent={
+                  <View style={clsx(styles.py6, styles.itemsCenter)}>
+                    <Icon name="location-off" size={40} color={colors.textMuted} />
+                    <Text style={clsx(styles.textBase, styles.textMuted, styles.mt2)}>
+                      No cities found
+                    </Text>
+                  </View>
+                }
+              />
+
+              <View style={clsx(
+                styles.flexRow,
+                styles.justifyEnd,
+                styles.p4,
+                styles.borderT,
+                styles.borderGrayLight
+              )}>
+                <TouchableOpacity
+                  style={clsx(styles.bgGray, styles.px4, styles.py2, styles.rounded, styles.mr2)}
+                  onPress={() => setShowCitiesModal(false)}
+                >
+                  <Text style={clsx(styles.textBase, styles.textBlack, styles.fontMedium)}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={clsx(styles.bgPrimary, styles.px4, styles.py2, styles.rounded)}
+                  onPress={() => setShowCitiesModal(false)}
                 >
                   <Text style={clsx(styles.textBase, styles.textWhite, styles.fontMedium)}>
                     Select
@@ -825,9 +1124,10 @@ const ProfileUpdateScreen = ({ route }) => {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={clsx(styles.flex1, styles.bgSurface)}
+      keyboardShouldPersistTaps="handled"
     >
       <Header
-        title="Update Profile"
+        title="Profile"
         showBack
         showNotification={false}
         type="white"
@@ -852,7 +1152,6 @@ const ProfileUpdateScreen = ({ route }) => {
           />
         }
       >
-        {/* Refresh Status Indicator */}
         {refreshing && (
           <View style={clsx(styles.py2, styles.itemsCenter)}>
             <ActivityIndicator size="small" color={colors.primary} />
@@ -867,26 +1166,23 @@ const ProfileUpdateScreen = ({ route }) => {
           <View style={clsx(styles.relative)}>
             
             {formData.profileImage?.uri ? (
-              <>              
-                <Image
-                  source={{ uri: formData.profileImage.uri }}
-                  style={[
-                    {width: 128, height: 128},
-                    styles.roundedFull, 
-                    styles.border2,  
-                    styles.borderWhite, 
-                    styles.shadowMd 
-                  ]}
-                  resizeMode="cover"
-                  />                 
-                </>
+              <Image
+                source={{ uri: formData.profileImage.uri }}
+                style={[
+                  {width: 128, height: 128},
+                  styles.roundedFull, 
+                  styles.border2,  
+                  styles.borderWhite, 
+                  styles.shadowMd 
+                ]}
+                resizeMode="cover"
+              />
             ) : (
               <View style={clsx(styles.w32, styles.h32, styles.roundedFull, styles.bgGray, styles.border2, styles.borderWhite, styles.justifyCenter, styles.itemsCenter, styles.shadowMd)}>
                 <Icon name="person" size={60} color={colors.textMuted} />
               </View>
             )}
             
-            {/* Edit icon overlay */}
             <TouchableOpacity
               style={clsx(
                 styles.absolute,
@@ -940,8 +1236,21 @@ const ProfileUpdateScreen = ({ route }) => {
             Personal Information
           </Text>
 
-          {/* Service Category - Single Selection */}
+          {/* Service Category */}
           {renderSingleCategorySelection()}
+          {errors.category && (
+            <Text style={clsx(styles.textSm, styles.textError, styles.mt1)}>
+              {errors.category}
+            </Text>
+          )}
+
+          {/* City Selection */}
+          {renderSingleCitySelection()}
+          {errors.city && (
+            <Text style={clsx(styles.textSm, styles.textError, styles.mt1)}>
+              {errors.city}
+            </Text>
+          )}
 
           {renderInputField('Full Name', 'name', 'Enter your full name')}
 
@@ -1028,14 +1337,13 @@ const ProfileUpdateScreen = ({ route }) => {
             </View>
           </View>
 
-          {/* Experience Fields (only show if Experience is selected) */}
+          {/* Experience Fields */}
           {showExperienceFields && (
             <View style={clsx(styles.mb4)}>
               <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
                 Professional Experience
               </Text>
               
-              {/* Years and Months Selection */}
               <View style={clsx(styles.flexRow, styles.mb4)}>
                 <View style={clsx(styles.flex1, styles.mr2)}>
                   <Text style={clsx(styles.textSm, styles.textBlack, styles.mb1)}>
@@ -1116,7 +1424,6 @@ const ProfileUpdateScreen = ({ route }) => {
                 </View>
               </View>
 
-              {/* Company Name */}
               {renderInputField('Company Name', 'companyName', 'Enter your company name')}
             </View>
           )}

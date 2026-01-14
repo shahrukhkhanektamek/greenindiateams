@@ -21,7 +21,7 @@ const KYCStatusScreen = ({ navigation }) => {
     fetchProfile,
     user,
   } = useContext(AppContext);
-
+  
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -80,45 +80,66 @@ const KYCStatusScreen = ({ navigation }) => {
   };
 
   const getStatusConfig = () => {
-    switch (status) {
-      case 'approved':
-        return {
-          icon: 'check-circle',
-          iconColor: colors.success,
-          title: 'KYC Approved',
-          message: 'Your KYC verification has been successfully approved.',
-          bgColor: colors.successLight,
-          textColor: colors.success,
-          buttonText: user.kyc.status=='approved'?'Update Kyc':'Go To Training',
-          buttonAction: () => user.kyc.status=='approved'?navigation.navigate('KycScreen'):navigation.navigate('Training'),
-        };
+  switch (status) {
+    case 'approved':
+      let buttonText = 'Wait...';
+      let buttonNavigate = '';
+
+      if(user.kyc.status === 'approved')
+      {
+        if(user?.user?.isKycUpdate==1)
+        {
+          buttonText = 'Update Kyc';
+          buttonNavigate = 'KycScreen';
+        }
+        else if(!user?.trainingScheduleSubmit){
+          buttonText = 'Go To Training';          
+          buttonNavigate = 'Training';
+        }
+        else{
+          buttonText = 'View Documents';
+          buttonNavigate = 'KYCView';
+          
+        }
+      }
       
-      case 'rejected':
-        return {
-          icon: 'cancel',
-          iconColor: colors.error,
-          title: 'KYC Rejected',
-          message: kycData?.remarks || 'Your KYC verification has been rejected. Please update your details.',
-          bgColor: colors.errorLight,
-          textColor: colors.error,
-          buttonText: 'Update KYC',
-          buttonAction: () => navigation.navigate('KycScreen'),
-        };
-      
-      case 'pending':
-      default:
-        return {
-          icon: 'pending',
-          iconColor: colors.warning,
-          title: 'KYC Pending',
-          message: 'Your KYC verification is under review. Please wait for approval.',
-          bgColor: colors.warningLight,
-          textColor: colors.warning,
-          buttonText: 'Check Status',
-          buttonAction: onRefresh,
-        };
-    }
-  };
+      return {
+        icon: 'check-circle',
+        iconColor: colors.success,
+        title: 'KYC Approved',
+        message: 'Your KYC verification has been successfully approved.',
+        bgColor: colors.successLight,
+        textColor: colors.success,
+        buttonText: buttonText,
+        buttonAction: () => navigation.navigate(buttonNavigate),
+      };
+    
+    case 'rejected':
+      return {
+        icon: 'cancel',
+        iconColor: colors.error,
+        title: 'KYC Rejected',
+        message: kycData?.remarks || 'Your KYC verification has been rejected. Please update your details.',
+        bgColor: colors.errorLight,
+        textColor: colors.error,
+        buttonText: 'Update KYC',
+        buttonAction: () => navigation.navigate('KycScreen'),
+      };
+    
+    case 'pending':
+    default:
+      return {
+        icon: 'pending',
+        iconColor: colors.warning,
+        title: 'KYC Pending',
+        message: 'Your KYC verification is under review. Please wait for approval.',
+        bgColor: colors.warningLight,
+        textColor: colors.warning,
+        buttonText: 'Check Status',
+        buttonAction: onRefresh,
+      };
+  }
+};
 
   if (loading) {
     return (

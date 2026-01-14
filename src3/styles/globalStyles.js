@@ -185,6 +185,7 @@ const globalStyles = StyleSheet.create({
   bgInfo: { backgroundColor: colors.info },
   bgInfoLight: { backgroundColor: colors.infoLight },
   bgGray: { backgroundColor: colors.gray100 },
+  bgWinner: { backgroundColor: colors.winner },
   bgSurface: { backgroundColor: colors.surface },
   
   // =========== BORDER ===========
@@ -230,6 +231,120 @@ const globalStyles = StyleSheet.create({
     borderTopLeftRadius: scaleSize(32),
     borderTopRightRadius: scaleSize(32),
   },
+
+  // =========== BORDER RADIUS ===========
+  roundedNone: { borderRadius: 0 },
+  roundedSm: { borderRadius: scaleSize(4) },
+  rounded: { borderRadius: scaleSize(8) },
+  roundedMd: { borderRadius: scaleSize(12) },
+  roundedLg: { borderRadius: scaleSize(16) },
+  roundedXl: { borderRadius: scaleSize(20) },
+  rounded2xl: { borderRadius: scaleSize(24) },
+  rounded3xl: { borderRadius: scaleSize(32) },
+  roundedFull: { borderRadius: scaleSize(9999) },
+  roundedT3xl: { 
+    borderTopLeftRadius: scaleSize(32),
+    borderTopRightRadius: scaleSize(32),
+  },
+
+  // Individual rounded corners
+  roundedTNone: { borderTopLeftRadius: 0, borderTopRightRadius: 0 },
+  roundedBNone: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
+
+  // Top rounded corners
+  roundedTLg: { 
+    borderTopLeftRadius: scaleSize(16) 
+  },
+  roundedTRg: { 
+    borderTopRightRadius: scaleSize(16) 
+  },
+  roundedTXl: { 
+    borderTopLeftRadius: scaleSize(20),
+    borderTopRightRadius: scaleSize(20) 
+  },
+  roundedT2xl: { 
+    borderTopLeftRadius: scaleSize(24),
+    borderTopRightRadius: scaleSize(24) 
+  },
+  roundedT: {
+    borderTopLeftRadius: scaleSize(8),
+    borderTopRightRadius: scaleSize(8)
+  },
+
+  // Bottom rounded corners
+  roundedBLg: { 
+    borderBottomLeftRadius: scaleSize(16) 
+  },
+  roundedBRg: { 
+    borderBottomRightRadius: scaleSize(16) 
+  },
+  roundedBXl: { 
+    borderBottomLeftRadius: scaleSize(20),
+    borderBottomRightRadius: scaleSize(20) 
+  },
+  roundedB2xl: { 
+    borderBottomLeftRadius: scaleSize(24),
+    borderBottomRightRadius: scaleSize(24) 
+  },
+  roundedB: {
+    borderBottomLeftRadius: scaleSize(8),
+    borderBottomRightRadius: scaleSize(8)
+  },
+
+  // Left rounded corners
+  roundedLLg: { 
+    borderTopLeftRadius: scaleSize(16),
+    borderBottomLeftRadius: scaleSize(16) 
+  },
+  roundedL: {
+    borderTopLeftRadius: scaleSize(8),
+    borderBottomLeftRadius: scaleSize(8)
+  },
+
+  // Right rounded corners
+  roundedRLg: { 
+    borderTopRightRadius: scaleSize(16),
+    borderBottomRightRadius: scaleSize(16) 
+  },
+  roundedR: {
+    borderTopRightRadius: scaleSize(8),
+    borderBottomRightRadius: scaleSize(8)
+  },
+
+  // All corners individual
+  roundedTL: { borderTopLeftRadius: scaleSize(8) },
+  roundedTR: { borderTopRightRadius: scaleSize(8) },
+  roundedBL: { borderBottomLeftRadius: scaleSize(8) },
+  roundedBR: { borderBottomRightRadius: scaleSize(8) },
+
+  // Modal specific (for your use case)
+  modalRoundedTop: {
+    borderTopLeftRadius: scaleSize(16),
+    borderTopRightRadius: scaleSize(16),
+  },
+  modalRoundedBottom: {
+    borderBottomLeftRadius: scaleSize(16),
+    borderBottomRightRadius: scaleSize(16),
+  },
+
+  // Combination classes (for convenience)
+  roundedTopLg: {
+    borderTopLeftRadius: scaleSize(16),
+    borderTopRightRadius: scaleSize(16),
+  },
+  roundedBottomLg: {
+    borderBottomLeftRadius: scaleSize(16),
+    borderBottomRightRadius: scaleSize(16),
+  },
+  roundedLeftLg: {
+    borderTopLeftRadius: scaleSize(16),
+    borderBottomLeftRadius: scaleSize(16),
+  },
+  roundedRightLg: {
+    borderTopRightRadius: scaleSize(16),
+    borderBottomRightRadius: scaleSize(16),
+  },
+  
 
   // Background colors
   bgGray50: { backgroundColor: colors.gray50 },
@@ -325,6 +440,38 @@ const globalStyles = StyleSheet.create({
   w16: { width: scaleSize(64) },
   w20: { width: scaleSize(80) },
   w24: { width: scaleSize(96) },
+  w32: { width: scaleSize(128) },
+  w40: { width: scaleSize(160) },
+  w48: { width: scaleSize(192) },
+  w56: { width: scaleSize(224) },
+  w64: { width: scaleSize(256) },
+
+  w1_2: { width: '50%' },
+  w1_3: { width: '33.333333%' },
+  w2_3: { width: '66.666667%' },
+  w1_4: { width: '25%' },
+  w2_4: { width: '50%' },
+  w3_4: { width: '75%' },
+  w1_5: { width: '20%' },
+  w2_5: { width: '40%' },
+  w3_5: { width: '60%' },
+  w4_5: { width: '80%' },
+  w1_6: { width: '16.666667%' },
+  w2_6: { width: '33.333333%' },
+  w3_6: { width: '50%' },
+  w4_6: { width: '66.666667%' },
+  w5_6: { width: '83.333333%' },
+  w1_12: { width: '8.333333%' },
+  w2_12: { width: '16.666667%' },
+  w3_12: { width: '25%' },
+  w4_12: { width: '33.333333%' },
+  w5_12: { width: '41.666667%' },
+  w6_12: { width: '50%' },
+  w7_12: { width: '58.333333%' },
+  w8_12: { width: '66.666667%' },
+  w9_12: { width: '75%' },
+  w10_12: { width: '83.333333%' },
+  w11_12: { width: '91.666667%' }, 
   
   hFull: { height: '100%' },
   hPx: { height: 1 },
@@ -337,6 +484,16 @@ const globalStyles = StyleSheet.create({
   h16: { height: scaleSize(64) },
   h20: { height: scaleSize(80) },
   h24: { height: scaleSize(96) },
+  h26: { height: scaleSize(100) },
+  h27: { height: scaleSize(145) },
+  h28: { height: scaleSize(150) },
+  h29: { height: scaleSize(165) },
+
+  h1_2: { height: '50%' },
+  h1_3: { height: '33.333333%' },
+  h2_3: { height: '66.666667%' },
+  h1_4: { height: '25%' },
+  h3_4: { height: '75%' },
   
   // =========== POSITION ===========
   positionRelative: { position: 'relative' },

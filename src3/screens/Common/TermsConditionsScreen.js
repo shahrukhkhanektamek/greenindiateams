@@ -32,64 +32,28 @@ const TermsConditionsScreen = ({ navigation }) => {
       >
         <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm)}>
           <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb3)}>
-            Last Updated: December 2024
+            Last Updated: January 2026
           </Text>
           
           <Text style={clsx(styles.textBase, styles.textBlack, styles.mb-4)}>
-            Please read these Terms and Conditions carefully before using the Green India Teams app.
+            By entering your mobile number and verifying OTP, you agree to our Terms & Conditions and Privacy Policy. You consent to the collection and use of your mobile number and basic details for account verification, service booking, communication, and support related to our door-to-door home services across Delhi NCR.
           </Text>
-          
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mt-6, styles.mb-3)}>
-            1. Acceptance of Terms
+
+          <Text style={clsx(styles.textBase, styles.textBlack, styles.mb-4)}>
+            We do not store OTPs or sell your personal data. Information is shared only with verified service partners when required to complete your service. Your data is stored securely and retained only as necessary for service, legal, or operational purposes. You may withdraw consent or request data correction or deletion at any time.
           </Text>
           <Text style={clsx(styles.textBase, styles.textBlack, styles.mb-4)}>
-            By accessing and using this app, you accept and agree to be bound by the terms and provision of this agreement.
+            Our services are available only to users above 18 years of age. By proceeding, you confirm your acceptance of data processing in accordance with applicable Indian laws, including the Digital Personal Data Protection (DPDP) Act, 2023.
           </Text>
           
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mt-6, styles.mb-3)}>
-            2. User Responsibilities
+          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mt2, styles.mb-3)}>
+            Confirmation Statement
           </Text>
-          <Text style={clsx(styles.textBase, styles.textBlack, styles.mb-4)}>
-            • You are responsible for maintaining the confidentiality of your account
-            {'\n'}• You must provide accurate information
-            {'\n'}• You agree to use the app only for lawful purposes
+          <Text style={clsx(styles.textBase, styles.textBlack, styles.mb-4, styles.mt1)}>
+            You have successfully verified your mobile number. By continuing, you confirm that the information provided by you is correct and verified, and you agree to our Terms & Conditions and Privacy Policy.
           </Text>
-          
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mt-6, styles.mb-3)}>
-            3. Service Provider Terms
-          </Text>
-          <Text style={clsx(styles.textBase, styles.textBlack, styles.mb-4)}>
-            • Service providers must maintain professional conduct
-            {'\n'}• Timely completion of services is expected
-            {'\n'}• Quality standards must be maintained
-          </Text>
-          
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mt-6, styles.mb-3)}>
-            4. Payments
-          </Text>
-          <Text style={clsx(styles.textBase, styles.textBlack, styles.mb-4)}>
-            • All payments are processed securely
-            {'\n'}• Service fees are non-refundable
-            {'\n'}• Payment disputes must be reported within 24 hours
-          </Text>
-          
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mt-6, styles.mb-3)}>
-            5. Privacy
-          </Text>
-          <Text style={clsx(styles.textBase, styles.textBlack, styles.mb-4)}>
-            Your privacy is important to us. Please read our Privacy Policy.
-          </Text>
-          
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mt-6, styles.mb-3)}>
-            6. Limitation of Liability
-          </Text>
-          <Text style={clsx(styles.textBase, styles.textBlack, styles.mb-4)}>
-            We shall not be liable for any indirect, incidental, special, consequential or punitive damages.
-          </Text>
-          
-          <Text style={clsx(styles.textBase, styles.textMuted, styles.mt-6)}>
-            For any questions about these Terms, please contact us at support@greenindiateams.com
-          </Text>
+        
+         
         </View>
       </ScrollView>
     </View>

@@ -16,6 +16,8 @@ import { colors } from '../../styles/colors';
 import { AppContext } from '../../Context/AppContext';
 import { navigate } from '../../navigation/navigationService';
 
+import PermissionManager, { PermissionUtils } from '../../components/PermissionManager';
+
 const ProviderOTPLoginScreen = ({ navigation, route }) => {
   const {
     setUser,
@@ -380,6 +382,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={clsx(styles.flex1, styles.bgSurface)}
     >
+      <PermissionManager />
       <ScrollView
         contentContainerStyle={clsx(styles.flexGrow1)}
         showsVerticalScrollIndicator={false}

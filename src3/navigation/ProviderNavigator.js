@@ -21,6 +21,7 @@ import ProviderProfileScreen from '../screens/Provider/Profile/ProviderProfileSc
 import ProfileUpdateScreen from '../screens/Provider/Profile/ProfileUpdateScreen';
 
 import KYCUpdateScreen from '../screens/Provider/Kyc/KYCUpdateScreen';
+import KYCViewScreen from '../screens/Provider/Kyc/KYCViewScreen';
 import KYCStatusScreen from '../screens/Provider/Kyc/KYCStatusScreen';
  
 import TrainingScheduleScreen from '../screens/Provider/Training/TrainingScheduleScreen';
@@ -153,6 +154,7 @@ function ProviderNavigator() {
           <Stack.Screen name="ProfileUpdate" component={ProfileUpdateScreen} />
 
           <Stack.Screen name="KycScreen" component={KYCUpdateScreen} /> 
+          <Stack.Screen name="KYCView" component={KYCViewScreen} /> 
 
           <Stack.Screen name="Training" component={TrainingScheduleScreen} /> 
           <Stack.Screen name="TrainingStatus" component={TrainingStatusScreen} />

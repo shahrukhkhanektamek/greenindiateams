@@ -6,16 +6,17 @@ import NetInfo from '@react-native-community/netinfo';
 import PageLoading from '../components/Common/Loader/PageLoding';
 import Loader from '../components/Common/Loader/Loader';
 import CustomSidebar from '../components/Provider/CustomSidebar';
-import { reset } from "../navigation/navigationService";
+import { reset } from "../navigation/navigationService"; 
 
 export const AppContext = createContext();
-const ENVIRONMENT = "production"; // production or development
+const ENVIRONMENT = "development"; // production or development
 const rzorepay_key = 'rzp_test_RHmDyqCFCKQ5XV';
 
 // API URLs configuration - Consider moving to environment variables
 const BASE_URLS = {
   // development: "http://192.168.1.25:8080/",
-  production: "http://145.223.18.56:3001/",
+  production: "https://oyekabadwale.com/",
+  // production: "http://145.223.18.56:3001/",
   
   development: "http://192.168.1.10:8080/",
   // development: "http://192.168.1.61:8080/",
@@ -71,6 +72,7 @@ export const AppProvider = ({ children }) => {
       subCategoryList: `${commUrl}sub-category`,
       subSubCategoryList: `${commUrl}sub-sub-category`,
       subSubSubCategoryList: `${commUrl}sub-sub-sub-category`,
+      cityList: `${commUrl}city`,
       serviceList: `${commUrl}service`,
       timeSlot: `${commUrl}time-slot/available/by-date`, 
       addRemoveCart: `${commUrl}cart/create-cart`,

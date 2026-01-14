@@ -66,6 +66,7 @@ export const colors = {
   
   gray50: '#FAFAFA',
   gray100: '#F5F5F5',
+  winner: '#fdf7d7',
   gray200: '#EEEEEE',
   gray300: '#E0E0E0',
   gray400: '#BDBDBD',

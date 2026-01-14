@@ -83,7 +83,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
         setTrainingDetails({
           title: trainer.subject || 'Technical Training',
           instructor: trainer.fullName || 'Trainer Name',
-          duration: `${trainer.startTime || '10:00'} - ${trainer.endTime || '12:00'}`,
+          duration: `${formatTime(trainer.startTime) || '10:00'} - ${formatTime(trainer.endTime) || '12:00'}`,
           startTime: trainer.startTime || '10:00',
           endTime: trainer.endTime || '12:00',
           location: trainer.location || 'Training Center',
@@ -221,15 +221,36 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
     });
   };
 
-  const formatTime = (date) => {
-    if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
-      return 'Select Time';
+  const formatTime = (timeString) => {
+    // If timeString is already a Date object
+    if (timeString instanceof Date && !isNaN(timeString.getTime())) {
+      return timeString.toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
     }
-    return date.toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
+    
+    // If timeString is in "HH:mm" format (e.g., "14:30")
+    if (typeof timeString === 'string' && timeString.includes(':')) {
+      try {
+        const [hours, minutes] = timeString.split(':').map(Number);
+        const date = new Date();
+        date.setHours(hours, minutes, 0, 0);
+        
+        return date.toLocaleTimeString('en-IN', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        });
+      } catch (error) {
+        console.error('Error formatting time:', error);
+        return timeString;
+      }
+    }
+    
+    // Return as is if can't parse
+    return timeString;
   };
 
   const handleDateChange = (event, selectedDate) => {
@@ -683,9 +704,9 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
             {/* Training Details Card */}
             <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm, styles.mb6)}>
               <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
-                <Icon name="school" size={24} color={colors.primary} />
+                <Icon name="school" size={18} color={colors.primary} style={clsx(styles.mr2)} />
                 <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.ml3)}>
-                  {trainingDetails.title}
+                   {trainingDetails.title}
                 </Text>
               </View>
               
@@ -791,24 +812,6 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
                 </TouchableOpacity>
               </View>
 
-              {/* Selected Schedule Summary */}
-              <View style={clsx(styles.p4, styles.bgPrimaryLight, styles.roundedLg, styles.mb4)}>
-                <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary, styles.mb2)}>
-                  Selected Schedule:
-                </Text>
-                <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-                  <Icon name="event" size={20} color={colors.primary} />
-                  <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.ml2)}>
-                    {formatDate(scheduleData.trainingDate)}
-                  </Text>
-                </View>
-                <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt2)}>
-                  <Icon name="schedule" size={20} color={colors.primary} />
-                  <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.ml2)}>
-                    {formatTime(scheduleData.trainingTime)}
-                  </Text>
-                </View>
-              </View>
 
               {/* Action Buttons */}
               <View style={clsx(styles.mt4)}>
@@ -876,9 +879,30 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
                 {'\n'}• Maximum participants: {trainingDetails.maxParticipant}
                 {'\n'}• Rescheduling is allowed up to 24 hours before training
                 {'\n'}• Location: {trainingDetails.location}
-                {'\n'}• For any queries, contact support: +91-9876543210
               </Text>
             </View>
+              
+            {/* Contact Support */}
+            <TouchableOpacity
+              style={clsx(
+                styles.mt6,
+                styles.p4,
+                styles.border,
+                styles.borderPrimary,
+                styles.roundedLg,
+                styles.itemsCenter,
+                styles.flexRow,
+                styles.justifyCenter
+              )}
+              onPress={() => navigation.navigate('Support')}
+              disabled={refreshing}
+            >
+              <Icon name="help" size={20} color={colors.primary} />
+              <Text style={clsx(styles.textBase, styles.textPrimary, styles.ml2)}>
+                Need Help? Contact Support
+              </Text>
+            </TouchableOpacity>
+
           </>
         )}
       </ScrollView>

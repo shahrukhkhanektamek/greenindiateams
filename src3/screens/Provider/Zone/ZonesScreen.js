@@ -180,7 +180,7 @@ const ZonesScreen = ({ navigation }) => {
 
 const handleZonePress = (zone) => {
 
-    return true;
+    // return true;
   console.log('Zone pressed:', zone.name);
   console.log('Zone geometry:', zone.geometry);
   
@@ -473,7 +473,7 @@ const renderZoneDetailsModal = () => {
             <View style={clsx(
               styles.absolute,
               styles.bottom4,
-              styles.left4,
+              styles.left0,
               styles.right4,
               styles.bgWhite,
               styles.p3,
@@ -635,24 +635,7 @@ const renderZoneDetailsModal = () => {
             
             {/* Actions */}
             <View style={clsx(styles.mt4, styles.flexRow, styles.spaceX2)}>
-              <TouchableOpacity
-                style={clsx(
-                  styles.flex1,
-                  styles.p3,
-                  styles.bgPrimary,
-                  styles.roundedLg,
-                  styles.itemsCenter
-                )}
-                onPress={() => {
-                  // Navigate to professionals in this zone
-                  navigation.navigate('ZoneProfessionals', { zoneId: selectedZone._id });
-                  setShowMapModal(false);
-                }}
-              >
-                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textWhite)}>
-                  View Zone Analytics
-                </Text>
-              </TouchableOpacity>
+             
               
               <TouchableOpacity
                 style={clsx(

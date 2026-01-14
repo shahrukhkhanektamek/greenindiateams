@@ -66,14 +66,25 @@ const EarningScreen = ({ navigation }) => {
           setEarnings(earningsData);
         }
         
-        // Set summary data
+        // Set summary data from response
         if (response.summary) {
-          setSummary(response.summary);
+          setSummary({
+            totalEarning: response.summary.totalEarning || 0,
+            totalPayable: response.summary.totalPayable || 0,
+            totalRecords: response.summary.totalRecords || 0,
+          });
         }
         
-        // Set pagination data
+        // Set pagination data from response.pagination
         if (response.pagination) {
-          setPagination(response.pagination);
+          setPagination({
+            page: response.pagination.currentPage || page,
+            limit: response.pagination.limit || 10,
+            totalPages: response.pagination.totalPages || 1,
+            total: response.pagination.total || 0,
+            hasNextPage: response.pagination.hasNextPage || false,
+            hasPrevPage: response.pagination.hasPrevPage || false,
+          });
         }
         
         // Show success message if data loaded
@@ -172,6 +183,14 @@ const EarningScreen = ({ navigation }) => {
     }
   };
 
+  const getPayoutStatusText = (status) => {
+    return status ? 'Paid' : 'Pending';
+  };
+
+  const getPayoutStatusColor = (status) => {
+    return status ? styles.textSuccess : styles.textWarning;
+  };
+
   const renderEarningCard = (earning) => {
     const booking = earning.booking || {};
     const service = earning.service || {};
@@ -201,11 +220,16 @@ const EarningScreen = ({ navigation }) => {
           
           {service.items?.map((item, index) => (
             <View key={index} style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
-              <Text style={clsx(styles.textSm, styles.textBlack)} numberOfLines={1}>
-                {item.serviceName || 'Service'} ×{item.quantity || 1}
-              </Text>
+              <View style={clsx(styles.flex1, styles.mr2)}>
+                <Text style={clsx(styles.textSm, styles.textBlack)} numberOfLines={1}>
+                  {item.serviceId?.name || 'Service'}
+                </Text>
+                <Text style={clsx(styles.textXs, styles.textMuted)}>
+                  Quantity: {item.quantity || 1}
+                </Text>
+              </View>
               <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
-                {formatCurrency(item.total || 0)}
+                {formatCurrency(item.salePrice || 0)}
               </Text>
             </View>
           ))}
@@ -218,11 +242,16 @@ const EarningScreen = ({ navigation }) => {
               </Text>
               {service.additionalParts.map((part, index) => (
                 <View key={index} style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
-                  <Text style={clsx(styles.textXs, styles.textBlack)} numberOfLines={1}>
-                    {part.partName || 'Part'}
-                  </Text>
+                  <View style={clsx(styles.flex1, styles.mr2)}>
+                    <Text style={clsx(styles.textXs, styles.textBlack)} numberOfLines={1}>
+                      {part.description || 'Part'}
+                    </Text>
+                    <Text style={clsx(styles.textXs, styles.textMuted)}>
+                      Quantity: {part.quantity || 1}
+                    </Text>
+                  </View>
                   <Text style={clsx(styles.textXs, styles.fontMedium, styles.textWarning)}>
-                    {formatCurrency(part.price || 0)}
+                    {formatCurrency((part.unitPrice || 0) * (part.quantity || 1))}
                   </Text>
                 </View>
               ))}
@@ -243,19 +272,37 @@ const EarningScreen = ({ navigation }) => {
           
           <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
             <Text style={clsx(styles.textSm, styles.textBlack)}>
-              GST ({booking.gstPercent || 0}%):
+              Additional Parts:
             </Text>
-            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textError)}>
-              {formatCurrency(booking.gstAmount || 0)}
+            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textWarning)}>
+              {formatCurrency(service.additionalPartAmount || 0)}
             </Text>
           </View>
           
           <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
             <Text style={clsx(styles.textSm, styles.textBlack)}>
+              GST Amount:
+            </Text>
+            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textError)}>
+              {formatCurrency(service.gstAmount || 0)}
+            </Text>
+          </View>
+          
+          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
+            <Text style={clsx(styles.textSm, styles.textBlack)}>
+              Discount:
+            </Text>
+            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textSuccess)}>
+              -{formatCurrency(service.discountAmount || 0)}
+            </Text>
+          </View>
+          
+          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2, styles.pt2, styles.borderT, styles.borderGrayLight)}>
+            <Text style={clsx(styles.textSm, styles.fontBold, styles.textBlack)}>
               Total Payable:
             </Text>
-            <Text style={clsx(styles.textSm, styles.fontBold, styles.textSuccess)}>
-              {formatCurrency(earning.payableAmount || booking.payableAmount || 0)}
+            <Text style={clsx(styles.textSm, styles.fontBold, styles.textPrimary)}>
+              {formatCurrency(service.totalPayableAmount || booking.payableAmount || 0)}
             </Text>
           </View>
           
@@ -272,12 +319,27 @@ const EarningScreen = ({ navigation }) => {
               <Text style={clsx(styles.textLg, styles.fontBold, styles.textSuccess)}>
                 {formatCurrency(earning.earningAmount || 0)}
               </Text>
-              <Text style={clsx(styles.textXs, styles.textMuted)}>
-                {earning.payoutStatus ? 'Paid' : 'Pending'}
+              <Text style={clsx(styles.textXs, getPayoutStatusColor(earning.payoutStatus))}>
+                {getPayoutStatusText(earning.payoutStatus)}
               </Text>
             </View>
           </View>
         </View>
+
+        {/* Customer Info */}
+        {earning.customer && (
+          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3, styles.p2, styles.bgGray, styles.roundedLg)}>
+            <Icon name="person" size={16} color={colors.primary} style={clsx(styles.mr2)} />
+            <View>
+              <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack)}>
+                {earning.customer.name || 'Customer'}
+              </Text>
+              <Text style={clsx(styles.textXs, styles.textMuted)}>
+                {earning.customer.mobile || 'No contact'}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Footer */}
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
@@ -286,7 +348,10 @@ const EarningScreen = ({ navigation }) => {
               Booking Date
             </Text>
             <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack)}>
-              {formatDate(booking.createdAt)}
+              {formatDate(booking.scheduleDate)}
+            </Text>
+            <Text style={clsx(styles.textXs, styles.textMuted)}>
+              {booking.scheduleTime}
             </Text>
           </View>
           
@@ -408,7 +473,9 @@ const EarningScreen = ({ navigation }) => {
             
             <View style={clsx(styles.itemsCenter, styles.flex1, styles.borderL, styles.borderGrayLight)}>
               <Text style={clsx(styles.textBase, styles.fontBold, styles.textWarning)}>
-                {formatCurrency((summary.totalEarning || 0) / (summary.totalRecords || 1))}
+                {summary.totalRecords > 0 ? 
+                  formatCurrency(summary.totalEarning / summary.totalRecords) : 
+                  formatCurrency(0)}
               </Text>
               <Text style={clsx(styles.textXs, styles.textMuted)}>
                 Avg. Per Booking
@@ -483,7 +550,7 @@ const EarningScreen = ({ navigation }) => {
               {/* Load More Button */}
               {pagination.hasNextPage && !loadingMore && (
                 <TouchableOpacity
-                  style={clsx(styles.bgPrimaryLight, styles.p3, styles.roundedLg, styles.itemsCenter, styles.mt-3)}
+                  style={clsx(styles.bgPrimaryLight, styles.p3, styles.roundedLg, styles.itemsCenter, styles.mt3)}
                   onPress={loadMore}
                 >
                   <View style={clsx(styles.flexRow, styles.itemsCenter)}>
@@ -516,7 +583,11 @@ const EarningScreen = ({ navigation }) => {
                     • Your total earnings: {formatCurrency(summary.totalEarning || 0)}
                   </Text>
                   <Text style={clsx(styles.textSm, styles.textBlack)}>
-                    • Average earnings per booking: {formatCurrency((summary.totalEarning || 0) / (summary.totalRecords || 1))}
+                    • Average earnings per booking: {
+                      summary.totalRecords > 0 ? 
+                      formatCurrency(summary.totalEarning / summary.totalRecords) : 
+                      formatCurrency(0)
+                    }
                   </Text>
                 </View>
               </View>

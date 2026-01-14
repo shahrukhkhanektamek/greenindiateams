@@ -40,7 +40,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
     branchName: '',
     accountHolderName: '',
     accountNumber: '',
-    confirmAccountNumber: '',
+    confirmAccountNumber: '', 
     ifscCode: '',
     panCardNumber: '',
     aadharCardNumber: '',
@@ -67,6 +67,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
           bankName: apiData.bankName || '',
           branchName: apiData.branchName || '',
           accountNumber: apiData.accountNumber || '',
+          accountHolderName: apiData.accountHolderName || '',
           confirmAccountNumber: apiData.accountNumber || '', // For confirmation field
           ifscCode: apiData.ifscCode || '',
           panCardNumber: apiData.panCardNumber || '',
@@ -279,7 +280,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         maxWidth: 800,
         maxHeight: 800,
         quality: 0.8,
-        saveToPhotos: true,
+        saveToPhotos: false,
         cameraType: 'back',
       };
 
@@ -562,7 +563,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
       style={clsx(styles.flex1, styles.bgSurface)}
     >
       <Header
-        title="Update KYC Details"
+        title="KYC Details"
         showBack
         showNotification={false}
         type="white"
@@ -687,18 +688,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
           </Text>
         </View>
 
-        {/* Important Notes */}
-        <View style={clsx(styles.mt6, styles.p4, styles.bgWarningLight, styles.roundedLg)}>
-          <Text style={clsx(styles.textBase, styles.fontBold, styles.textWarning, styles.mb2)}>
-            Important Notes:
-          </Text>
-          <Text style={clsx(styles.textSm, styles.textWarning)}>
-            • All images should be clear and readable
-            {'\n'}• File size should not exceed 5MB
-            {'\n'}• Supported formats: JPG, PNG
-            {'\n'}• Ensure all documents are valid and not expired
-          </Text>
-        </View>
+       
 
         {/* Update Button */}
         <TouchableOpacity
@@ -714,7 +704,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
             <ActivityIndicator color={colors.white} size="small" />
           ) : (
             <Text style={clsx(styles.buttonText)}>
-              Update KYC Details
+              Submit
             </Text>
           )}
         </TouchableOpacity>

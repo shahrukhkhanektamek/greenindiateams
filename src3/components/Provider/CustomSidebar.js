@@ -20,8 +20,6 @@ const { width, height } = Dimensions.get('window');
 
 const CustomSidebar = ({ state, isVisible, onClose }) => {
   const { setUser, user, setLoading, storage, UploadUrl, imageCheck } = useContext(AppContext);
-
- 
   
   const slideAnim = useRef(new Animated.Value(-width)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -193,7 +191,8 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
               />
               <View style={styles.profileDetails}>
                 <Text style={styles.profileName}>{user?.name}</Text>
-                <Text style={styles.profileID}>ID: RRR1000</Text>
+                <Text style={styles.profileID}>ID: {user?.servicemanId}</Text>
+                <Text style={styles.profileID}>Mobile: {user?.user?.mobile}</Text>
                 <View style={styles.ratingContainer}>
                   <Icon name="star" size={14} color={colors.warning} />
                   <Text style={styles.ratingText}>

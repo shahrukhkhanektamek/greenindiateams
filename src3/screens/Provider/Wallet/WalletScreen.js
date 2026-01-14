@@ -55,12 +55,12 @@ const WalletScreen = ({ navigation }) => {
       // Prepare API parameters
       const currentPage = isLoadMore ? pagination.page + 1 : 1;
       const params = {
-        type: filter === 'all' ? 'all' : filter,
-        period: selectedPeriod,
+        transactionType: filter === 'all' ? 'all' : filter,
+        time: selectedPeriod,
         page: currentPage,
         limit: pagination.limit
       };
-      
+      console.log(params)
       // Call API to get wallet transactions and summary
       const response = await postData(
         params,
@@ -303,7 +303,7 @@ const WalletScreen = ({ navigation }) => {
           styles.borderLeft4,
           isCredit ? styles.borderSuccess : styles.borderError
         )}
-        onPress={() => handleViewTransaction(item)}
+        // onPress={() => handleViewTransaction(item)}
       >
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb2)}>
           <View style={clsx(styles.flexRow, styles.itemsCenter)}>
@@ -504,8 +504,8 @@ const WalletScreen = ({ navigation }) => {
             <View style={clsx(styles.flexRow, styles.flexWrap)}>
               {[
                 { key: 'all', label: 'All', icon: 'list' },
-                { key: 'credit', label: 'Credits', icon: 'add-circle' },
-                { key: 'debit', label: 'Debits', icon: 'remove-circle' },
+                { key: 'Credit', label: 'Credits', icon: 'add-circle' },
+                { key: 'Debit', label: 'Debits', icon: 'remove-circle' },
               ].map((item) => (
                 <TouchableOpacity
                   key={item.key}
@@ -546,8 +546,8 @@ const WalletScreen = ({ navigation }) => {
               {[
                 { key: 'all', label: 'All Time' },
                 { key: 'today', label: 'Today' },
-                { key: 'week', label: 'This Week' },
-                { key: 'month', label: 'This Month' },
+                { key: 'this week', label: 'Week' },
+                { key: 'this month', label: 'Month' },
               ].map((item) => (
                 <TouchableOpacity
                   key={item.key}

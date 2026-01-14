@@ -677,13 +677,13 @@ const ProviderProfileScreen = ({ navigation, route }) => {
 
         {/* Settings */}
         <View style={clsx(styles.mx4, styles.mt4)}>
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
+          {/* <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
             Account Settings
-          </Text>
+          </Text> */}
           
           <View style={clsx(styles.bgWhite, styles.roundedLg, styles.overflowHidden, styles.shadow)}>
             {[
-              { key: 'notifications', label: 'Push Notifications', icon: 'notifications' },
+              // { key: 'notifications', label: 'Push Notifications', icon: 'notifications' },
             ].map((setting, index) => (
               <View key={setting.key}>
                 <TouchableOpacity
@@ -713,13 +713,7 @@ const ProviderProfileScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        {/* Menu Items */}
-        <View style={clsx(styles.mx4, styles.mt4)}>
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
-            More Options
-          </Text>
-          {menuItems.map(renderMenuItem)}
-        </View>
+        
 
         {/* Logout Button */}
         <View style={clsx(styles.mx4, styles.mt4, styles.mb6)}>

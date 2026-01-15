@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  Modal,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as ImagePicker from 'react-native-image-picker';
@@ -19,12 +20,17 @@ import { AppContext } from '../../../Context/AppContext';
 import { FlatList } from 'react-native-gesture-handler';
 
 const ProviderProfileScreen = ({ navigation, route }) => {
-  const { Toast, Urls, postData, user, UploadUrl } = useContext(AppContext);
+  const { Toast, Urls, postData, user, UploadUrl, fetchProfile } = useContext(AppContext);
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [profileData, setProfileData] = useState(null);
   const [profileImage, setProfileImage] = useState('');
+  
+  // Modal states
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [uploading, setUploading] = useState(false);
   
   const [settings, setSettings] = useState({
     notifications: true,
@@ -36,13 +42,6 @@ const ProviderProfileScreen = ({ navigation, route }) => {
   });
 
   const menuItems = [
-    // {
-    //   id: 'bank',
-    //   title: 'Bank & Payment',
-    //   icon: 'account-balance',
-    //   color: colors.secondary,
-    //   onPress: () => navigation.navigate('BankDetails'),
-    // },
     {
       id: 'areas',
       title: 'Service Areas',
@@ -137,75 +136,94 @@ const ProviderProfileScreen = ({ navigation, route }) => {
     fetchProfileData();
   }, [fetchProfileData]);
 
-  const handleImagePick = () => {
+  // Handle image response for modal
+  const handleImageResponse = (response) => {
+    if (response.didCancel) {
+      console.log('User cancelled image picker');
+    } else if (response.error) {
+      console.log('ImagePicker Error: ', response.error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to pick image',
+      });
+    } else if (response.assets && response.assets[0]) {
+      setSelectedImage(response.assets[0].uri);
+    }
+  };
+
+  // Open camera from modal
+  const openCamera = () => {
     const options = {
-      title: 'Select Profile Picture',
-      storageOptions: {
-        skipBackup: true,
-        path: 'images',
-      },
       mediaType: 'photo',
       quality: 0.8,
       maxWidth: 800,
       maxHeight: 800,
     };
+    
+    ImagePicker.launchCamera(options, handleImageResponse);
+  };
 
-    ImagePicker.launchImageLibrary(options, async (response) => {
-      if (response.didCancel) {
-        console.log('User cancelled image picker');
-      } else if (response.error) {
-        console.log('ImagePicker Error: ', response.error);
-        Toast.show({
-          type: 'error',
-          text1: 'Error',
-          text2: 'Failed to pick image',
+  // Open gallery from modal
+  const openGallery = () => {
+    const options = {
+      mediaType: 'photo',
+      quality: 0.8,
+      maxWidth: 800,
+      maxHeight: 800,
+    };
+    
+    ImagePicker.launchImageLibrary(options, handleImageResponse);
+  };
+
+  // Upload image from modal
+  const uploadProfileImage = async () => {
+    if (selectedImage && !uploading) {
+      setUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append('profileImage', {
+          uri: selectedImage,
+          type: 'image/jpeg',
+          name: `profile_${Date.now()}.jpg`,
         });
-      } else if (response.assets && response.assets[0]) {
-        try {
-          const imageUri = response.assets[0].uri;
-          
-          // Create form data for image upload
-          const formData = new FormData();
-          formData.append('profileImage', {
-            uri: imageUri,
-            type: response.assets[0].type || 'image/jpeg',
-            name: `profile_${Date.now()}.jpg`,
+        
+        const updateResponse = await postData(
+          formData,
+          `${Urls.profileUpdate}`,
+          'POST',
+          { isFileUpload: true }
+        );
+        
+        if (updateResponse?.success) {
+          setProfileImage(selectedImage);
+          await fetchProfileData();
+          await fetchProfile();
+          Toast.show({
+            type: 'success',
+            text1: 'Success',
+            text2: 'Profile picture updated successfully',
           });
-          
-          // Call API to update profile image
-          const updateResponse = await postData(
-            formData,
-            `${Urls.updateProfileImage}`,
-            'POST',
-            { isFileUpload: true }
-          );
-          
-          if (updateResponse?.success) {
-            setProfileImage(imageUri);
-            // Refresh profile data to get updated image URL
-            fetchProfileData();
-            Toast.show({
-              type: 'success',
-              text1: 'Success',
-              text2: 'Profile picture updated successfully',
-            });
-          } else {
-            Toast.show({
-              type: 'error',
-              text1: 'Error',
-              text2: updateResponse?.message || 'Failed to update profile picture',
-            });
-          }
-        } catch (error) {
-          console.error('Upload image error:', error);
+          setModalVisible(false);
+          setSelectedImage(null);
+        } else {
           Toast.show({
             type: 'error',
-            text1: 'Upload Failed',
-            text2: 'Failed to upload profile picture',
+            text1: 'Error',
+            text2: updateResponse?.message || 'Failed to update profile picture',
           });
         }
+      } catch (error) {
+        console.error('Upload image error:', error);
+        Toast.show({
+          type: 'error',
+          text1: 'Upload Failed',
+          text2: 'Failed to upload profile picture',
+        });
+      } finally {
+        setUploading(false);
       }
-    });
+    }
   };
 
   const handleLogout = () => {
@@ -385,7 +403,7 @@ const ProviderProfileScreen = ({ navigation, route }) => {
           <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p4, styles.shadow, styles.itemsCenter)}>
             <TouchableOpacity
               style={clsx(styles.positionRelative)}
-              // onPress={handleImagePick}
+              onPress={() => setModalVisible(true)}
             >
               {profileImage ? (
                 <Image
@@ -404,6 +422,18 @@ const ProviderProfileScreen = ({ navigation, route }) => {
                 </View>
               )}
               
+              <View style={clsx(
+                styles.positionAbsolute,
+                styles.bottom0,
+                styles.right0,
+                styles.bgPrimary,
+                styles.roundedFull,
+                styles.p2,
+                styles.border2,
+                styles.borderWhite
+              )}>
+                <Icon name="camera-alt" size={16} color={colors.white} />
+              </View>
             </TouchableOpacity>
 
             <Text style={clsx(styles.text2xl, styles.fontBold, styles.textBlack, styles.mt4)}>
@@ -639,7 +669,6 @@ const ProviderProfileScreen = ({ navigation, route }) => {
         )}
 
         {/* Categories */}
-        {/* Categories */}
         {profileData.categories && profileData.categories.length > 0 && (
           <View style={clsx(styles.mx4, styles.mt4)}>
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
@@ -661,7 +690,7 @@ const ProviderProfileScreen = ({ navigation, route }) => {
                       styles.roundedFull,
                       styles.border,
                       styles.borderPrimary,
-                      styles.mr2 // gap की जगह mr2 use करें
+                      styles.mr2
                     )}
                   >
                     <Text style={clsx(styles.textSm, styles.fontMedium, styles.textWhite)}>
@@ -677,13 +706,8 @@ const ProviderProfileScreen = ({ navigation, route }) => {
 
         {/* Settings */}
         <View style={clsx(styles.mx4, styles.mt4)}>
-          {/* <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
-            Account Settings
-          </Text> */}
-          
           <View style={clsx(styles.bgWhite, styles.roundedLg, styles.overflowHidden, styles.shadow)}>
             {[
-              // { key: 'notifications', label: 'Push Notifications', icon: 'notifications' },
             ].map((setting, index) => (
               <View key={setting.key}>
                 <TouchableOpacity
@@ -713,8 +737,6 @@ const ProviderProfileScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        
-
         {/* Logout Button */}
         <View style={clsx(styles.mx4, styles.mt4, styles.mb6)}>
           <TouchableOpacity
@@ -735,6 +757,186 @@ const ProviderProfileScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Profile Image Upload Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => {
+          setModalVisible(!modalVisible);
+        }}
+      >
+        <View style={clsx(
+          styles.flex1,
+          styles.justifyCenter,
+          styles.itemsCenter,
+          styles.bgBlack50
+        )}>
+          <View style={clsx(
+            styles.bgWhite,
+            styles.roundedLg,
+            styles.p6,
+            styles.m4,
+            styles.wFull,
+            styles.maxW96
+          )}>
+            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4)}>
+              <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
+                Update Profile Picture
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setModalVisible(false);
+                  setSelectedImage(null);
+                }}
+                style={clsx(styles.p1)}
+              >
+                <Icon name="close" size={24} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedImage ? (
+              <View style={clsx(styles.itemsCenter, styles.mb6)}>
+                <Image
+                  source={{ uri: selectedImage }}
+                  style={{
+                    width: 200,
+                    height: 200,
+                    borderRadius: 100,
+                    borderWidth: 2,
+                    borderColor: colors.primary,
+                  }}
+                  resizeMode="cover"
+                />
+              </View>
+            ) : (
+              <View style={clsx(
+                styles.itemsCenter,
+                styles.justifyCenter,
+                styles.bgGray100,
+                styles.roundedLg,
+                { height: 200 },
+                styles.mb6
+              )}>
+                <Icon name="photo-camera" size={64} color={colors.gray500} />
+                <Text style={clsx(styles.textBase, styles.textMuted, styles.mt2)}>
+                  No image selected
+                </Text>
+              </View>
+            )}
+
+            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.spaceX2)}>
+              <TouchableOpacity
+                style={clsx(
+                  styles.flex1,
+                  styles.flexRow,
+                  styles.itemsCenter,
+                  styles.justifyCenter,
+                  styles.py3,
+                  styles.px4,
+                  styles.bgGray100,
+                  styles.roundedLg,
+                  styles.mr1
+                )}
+                onPress={openCamera}
+                disabled={uploading}
+              >
+                <Icon name="camera-alt" size={20} color={colors.text} />
+                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.ml2)}>
+                  Camera
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={clsx(
+                  styles.flex1,
+                  styles.flexRow,
+                  styles.itemsCenter,
+                  styles.justifyCenter,
+                  styles.py3,
+                  styles.px4,
+                  styles.bgGray100,
+                  styles.roundedLg,
+                  styles.ml1
+                )}
+                onPress={openGallery}
+                disabled={uploading}
+              >
+                <Icon name="photo-library" size={20} color={colors.text} />
+                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.ml2)}>
+                  Gallery
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mt4)}>
+              <TouchableOpacity
+                style={clsx(
+                  styles.flex1,
+                  styles.itemsCenter,
+                  styles.justifyCenter,
+                  styles.py3,
+                  styles.px4,
+                  styles.bgErrorLight,
+                  styles.roundedLg,
+                  styles.mr1
+                )}
+                onPress={() => {
+                  setModalVisible(false);
+                  setSelectedImage(null);
+                }}
+                disabled={uploading}
+              >
+                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textError)}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={clsx(
+                  styles.flex1,
+                  styles.itemsCenter,
+                  styles.justifyCenter,
+                  styles.py3,
+                  styles.px4,
+                  styles.bgPrimary,
+                  styles.roundedLg,
+                  styles.ml1,
+                  { opacity: selectedImage ? 1 : 0.5 }
+                )}
+                onPress={uploadProfileImage}
+                disabled={!selectedImage || uploading}
+              >
+                {uploading ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={clsx(styles.textBase, styles.fontMedium, styles.textWhite)}>
+                    Upload
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {selectedImage && (
+              <TouchableOpacity
+                style={clsx(
+                  styles.itemsCenter,
+                  styles.justifyCenter,
+                  styles.mt4,
+                  styles.py2
+                )}
+                onPress={() => setSelectedImage(null)}
+                disabled={uploading}
+              >
+                <Text style={clsx(styles.textSm, styles.textError, styles.fontMedium)}>
+                  Remove Selected Image
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };

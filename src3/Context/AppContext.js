@@ -98,6 +98,11 @@ export const AppProvider = ({ children }) => {
 
       myEarnings: `${serviceManUrl}serviceman-earning`,
 
+      serviceAvailability: `${serviceManUrl}serviceman-time-slot/get-all`,
+      addAvailability: `${serviceManUrl}serviceman-time-slot`,
+      updateAvailability: `${serviceManUrl}serviceman-time-slot/update`,
+      deleteAvailability: `${serviceManUrl}serviceman-time-slot/delete`,
+
       review: `${serviceManUrl}review`,
       booking: `${serviceManUrl}booking`,
       bookingAccept: `${serviceManUrl}booking/accept`,

@@ -11,6 +11,7 @@ import ProviderNavigator from './src3/navigation/ProviderNavigator';
 import { AppProvider } from './src3/Context/AppContext';
 import ErrorBoundary from './src3/components/Common/ErrorBoundary'; 
 import NetworkIndicator from './src3/components/Common/NetworkIndicator';
+import MainLayout from './src3/screens/Common/MainLayout'; 
 
 // Import navigation service
 import { navigationRef } from './src3/navigation/navigationService';
@@ -44,7 +45,7 @@ export default function App() {
           
           <SafeAreaView 
             style={{ 
-              flex: 1,
+              flex: 1, 
               backgroundColor: '#FFFFFF',
             }} 
             edges={['top', 'bottom', 'left', 'right']}
@@ -53,8 +54,10 @@ export default function App() {
             <MenuProvider>
               <AppProvider>
                 {/* Pass navigationRef to NavigationContainer */}
-                <NavigationContainer ref={navigationRef}>
-                  <ProviderNavigator />
+                <NavigationContainer ref={navigationRef}> 
+                  {/* <MainLayout>  */}
+                    <ProviderNavigator />
+                  {/* </MainLayout>  */}
                 </NavigationContainer>
               </AppProvider>
             </MenuProvider>

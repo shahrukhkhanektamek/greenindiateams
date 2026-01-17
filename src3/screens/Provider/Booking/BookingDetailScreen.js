@@ -11,21 +11,24 @@ import {
   ActivityIndicator,
   Dimensions,
   Modal,
-  Platform, PermissionsAndroid 
+  Platform, 
+  TextInput,
+  StyleSheet,
+  PermissionsAndroid
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { Camera, useCameraDevices } from 'react-native-vision-camera';
 import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import { AppContext } from '../../../Context/AppContext';
 import Geolocation from '@react-native-community/geolocation';
-import { PERMISSIONS, request, check } from 'react-native-permissions';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const BookingDetailScreen = ({ navigation, route }) => {
   const bookingId = route.params.booking._id;
   
-  const { Toast, Urls, postData, user, token, UploadUrl } = useContext(AppContext);
+  const { Toast, Urls, postData, user, token, UploadUrl, imageCheck } = useContext(AppContext);
 
   const [bookingData, setBookingData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -33,15 +36,25 @@ const BookingDetailScreen = ({ navigation, route }) => {
   
   // Location Verification States
   const [checkingLocation, setCheckingLocation] = useState(false);
-  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showServiceModal, setShowServiceModal] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [distanceToBooking, setDistanceToBooking] = useState(null);
   const [locationStatus, setLocationStatus] = useState('');
   const [locationError, setLocationError] = useState('');
   
-  // Selfie States
+  // Service Modal Flow States
+  const [serviceModalStep, setServiceModalStep] = useState('location'); // 'location', 'selfie', 'otp'
   const [selectedSelfie, setSelectedSelfie] = useState(null);
+  const [otpInputs, setOtpInputs] = useState(Array(4).fill(''));
+  const [verifyingOTP, setVerifyingOTP] = useState(false);
   
+  // Camera States
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraPermission, setCameraPermission] = useState(false);
+  const devices = useCameraDevices();
+  const device = devices[1];
+  const cameraRef = useRef(null);
+  console.log(devices)
   // Media Upload States
   const [capturedBeforeImages, setCapturedBeforeImages] = useState([]);
   const [capturedBeforeVideos, setCapturedBeforeVideos] = useState([]);
@@ -66,9 +79,24 @@ const BookingDetailScreen = ({ navigation, route }) => {
     loadBookingDetails();
   }, []);
 
+  useEffect(() => {
+    // checkCameraPermission();
+    setCameraPermission(true);
+  }, []);
 
-
-
+  const checkCameraPermission = async () => {
+    try {
+      const cameraPermissionStatus = await Camera.getCameraPermissionStatus();
+      if (cameraPermissionStatus === 'authorized') {
+        setCameraPermission(true);
+      } else {
+        const newCameraPermission = await Camera.requestCameraPermission();
+        setCameraPermission(newCameraPermission === 'authorized');
+      }
+    } catch (error) {
+      console.error('Error checking camera permission:', error);
+    }
+  };
 
   const loadBookingDetails = async () => {
     try {
@@ -149,30 +177,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
     }
   };
 
-  // Function to check location permissions
-  const checkLocationPermissions = async () => {
-    try {
-      let permission;
-      if (Platform.OS === 'ios') {
-        permission = PERMISSIONS.IOS.LOCATION_WHEN_IN_USE;
-      } else {
-        permission = PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
-      }
-
-      const status = await check(permission);
-      
-      if (status === 'granted') {
-        return true;
-      } else {
-        const result = await request(permission);
-        return result === 'granted';
-      }
-    } catch (error) {
-      console.error('Error checking location permissions:', error);
-      return false;
-    }
-  };
-
   // Function to get current location
   const getCurrentLocation = async () => {
     try {
@@ -219,24 +223,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
     }
   };
 
-  // Function to calculate distance between two coordinates in kilometers
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // Radius of the earth in km
-    const dLat = deg2rad(lat2 - lat1);
-    const dLon = deg2rad(lon2 - lon1);
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const distance = R * c; // Distance in km
-    return distance;
-  };
-
-  const deg2rad = (deg) => {
-    return deg * (Math.PI/180);
-  };
-
   // Main function to verify location
   const verifyLocation = async () => {
     try {
@@ -257,14 +243,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
       const bookingLat = parseFloat(address.lat);
       const bookingLng = parseFloat(address.long);
       
-      // Check location permissions
-      const hasPermission = await checkLocationPermissions();
-      if (!hasPermission) {
-        setLocationStatus('error');
-        setLocationError('Location permission is required to verify location');
-        return false;
-      }
-
       // Get current location
       const location = await getCurrentLocation();
       setCurrentLocation(location);
@@ -287,11 +265,10 @@ const BookingDetailScreen = ({ navigation, route }) => {
         distance = response.data.distance;
         nearby = response.data.nearby;
         distanceCheck = response.data.distanceCheck;
-
-        // setDistanceToBooking(distance);
+        setDistanceToBooking(distance);
       
-        // Check if within allowed distance (500 meters = 0.5 km)
-        if (distance <= distanceCheck) { // Within 500 meters
+        // Check if within allowed distance
+        if (distance <= distanceCheck) {
           setLocationStatus('success');
           return true;
         } else {
@@ -300,14 +277,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
         }
       }
 
-      // Calculate distance
-      // const distance = calculateDistance(
-      //   location.latitude,
-      //   location.longitude,
-      //   bookingLat,
-      //   bookingLng
-      // );      
-      
+      return false;
       
     } catch (error) {
       console.error('Error verifying location:', error);
@@ -321,19 +291,24 @@ const BookingDetailScreen = ({ navigation, route }) => {
 
   // Function to handle start service with location verification
   const handleStartService = async () => {
+
+    navigation.navigate('StartServiceScreen', {
+      bookingData,
+      loadBookingDetails,
+    });
+    return false;
+
     try {
+      setServiceModalStep('location');
+      setShowServiceModal(true);
       setCheckingLocation(true);
       
       // First verify location
       const isAtLocation = await verifyLocation();
       
       if (isAtLocation) {
-        // Location is verified, proceed to OTP verification
-        setShowLocationModal(false);
-        openOTPVerification();
-      } else {
-        // Show location verification modal
-        setShowLocationModal(true);
+        // Location is verified, move to selfie step
+        setServiceModalStep('selfie');
       }
     } catch (error) {
       console.error('Error in handleStartService:', error);
@@ -349,44 +324,12 @@ const BookingDetailScreen = ({ navigation, route }) => {
 
   // Function to retry location verification
   const retryLocationCheck = async () => {
+    setCheckingLocation(true);
     const isAtLocation = await verifyLocation();
     if (isAtLocation) {
-      setShowLocationModal(false);
-      openOTPVerification();
+      setServiceModalStep('selfie');
     }
-  };
-
-  // Function to show location modal
-  const showLocationVerificationModal = () => {
-    setShowLocationModal(true);
-    verifyLocation(); // Start verification when modal opens
-  };
-
-  // Function to navigate to location in maps
-  const navigateToBookingLocation = () => {
-    const booking = bookingData?.booking;
-    const address = booking?.addressId;
-    
-    if (address && address.lat && address.long) {
-      const bookingLat = parseFloat(address.lat);
-      const bookingLng = parseFloat(address.long);
-      
-      const url = Platform.select({
-        ios: `maps://?q=${bookingLat},${bookingLng}`,
-        android: `geo:${bookingLat},${bookingLng}?q=${bookingLat},${bookingLng}`,
-      });
-      
-      Linking.openURL(url).catch(() => {
-        const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${bookingLat},${bookingLng}`;
-        Linking.openURL(fallbackUrl);
-      });
-    } else {
-      Toast.show({
-        type: 'error',
-        text1: 'Cannot Open Maps',
-        text2: 'Booking location coordinates not available',
-      });
-    }
+    setCheckingLocation(false);
   };
 
   // Function to format distance
@@ -398,239 +341,764 @@ const BookingDetailScreen = ({ navigation, route }) => {
     }
   };
 
-  // Location Verification Modal Component
-  const LocationVerificationModal = () => {
+  // Camera Functions
+  const takeSelfie = async () => {
+    try {
+      if (cameraRef.current) {
+        const photo = await cameraRef.current.takePhoto({
+          flash: 'off',
+          quality: 0.8,
+        });
+        
+        setSelectedSelfie({
+          uri: `file://${photo.path}`,
+          type: 'image/jpeg',
+          name: `selfie_${Date.now()}.jpg`,
+        });
+        
+        // Move to OTP step
+        setShowCamera(false);
+        setServiceModalStep('otp');
+      }
+    } catch (error) {
+      console.error('Error taking selfie:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Camera Error',
+        text2: 'Failed to capture selfie',
+      });
+    }
+  };
+
+  // OTP Functions
+  const handleOtpChange = (text, index) => {
+    const newOtp = [...otpInputs];
+    newOtp[index] = text;
+    setOtpInputs(newOtp);
+    
+    // Auto focus next input
+    if (text && index < 3) {
+      // Focus next input
+    }
+  };
+
+  const verifyOTP = async () => {
+    try {
+      setVerifyingOTP(true);
+      const otpString = otpInputs.join('');
+      
+      // Send OTP verification request
+      const response = await postData(
+        {
+          otp: otpString,
+          bookingId: bookingData?._id,
+          selfie: selectedSelfie,
+        },
+        `${Urls.verifyOTP}`,
+        'POST',
+        {
+          isFileUpload: true,
+        }
+      );
+      
+      if (response?.success) {
+        Toast.show({
+          type: 'success',
+          text1: 'Service Started',
+          text2: 'OTP verified successfully. Service has been started.',
+        });
+        
+        // Close modal and refresh booking details
+        setShowServiceModal(false);
+        loadBookingDetails();
+        
+        // Reset states
+        setServiceModalStep('location');
+        setSelectedSelfie(null);
+        setOtpInputs(Array(4).fill(''));
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'OTP Error',
+          text2: response?.message || 'Invalid OTP',
+        });
+      }
+    } catch (error) {
+      console.error('Error verifying OTP:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to verify OTP',
+      });
+    } finally {
+      setVerifyingOTP(false);
+    }
+  };
+
+  // Resend OTP
+  const resendOTP = async () => {
+    try {
+      const response = await postData(
+        { bookingId: bookingData?._id },
+        `${Urls.resendOTP}`,
+        'POST'
+      );
+      
+      if (response?.success) {
+        Toast.show({
+          type: 'success',
+          text1: 'OTP Sent',
+          text2: 'New OTP has been sent to customer',
+        });
+      }
+    } catch (error) {
+      console.error('Error resending OTP:', error);
+    }
+  };
+
+  // Service Modal Component
+  const ServiceModal = () => {
     const booking = bookingData?.booking;
     const address = booking?.addressId;
     
+    // Render Location Verification Step
+    const renderLocationStep = () => (
+      <View style={clsx(styles.itemsCenter)}>
+        {/* Modal Header */}
+        <View style={clsx(styles.itemsCenter, styles.mb6)}>
+          <View style={[
+            clsx(styles.roundedFull, styles.p3, styles.mb3),
+            locationStatus === 'success' ? { backgroundColor: `${colors.success}20` } :
+            locationStatus === 'far' ? { backgroundColor: `${colors.warning}20` } :
+            locationStatus === 'error' ? { backgroundColor: `${colors.error}20` } :
+            { backgroundColor: `${colors.info}20` }
+          ]}>
+            <Icon 
+              name={
+                locationStatus === 'success' ? 'check-circle' :
+                locationStatus === 'far' ? 'location-off' :
+                locationStatus === 'error' ? 'error' :
+                'my-location'
+              } 
+              size={40} 
+              color={
+                locationStatus === 'success' ? colors.success :
+                locationStatus === 'far' ? colors.warning :
+                locationStatus === 'error' ? colors.error :
+                colors.info
+              } 
+            />
+          </View>
+          
+          <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack, styles.textCenter)}>
+            {locationStatus === 'success' ? 'Location Verified!' :
+             locationStatus === 'far' ? 'Too Far From Location' :
+             locationStatus === 'error' ? 'Location Error' :
+             'Verifying Location...'}
+          </Text>
+          
+          <Text style={clsx(styles.textBase, styles.textMuted, styles.textCenter, styles.mt2)}>
+            {locationStatus === 'success' ? 'You are at the service location' :
+             locationStatus === 'far' ? 'You need to be at the service location to start' :
+             locationStatus === 'error' ? 'Could not verify your location' :
+             'Checking your current location...'}
+          </Text>
+        </View>
+        
+        {/* Location Details */}
+        {currentLocation && distanceToBooking !== null && address?.lat && address?.long && (
+          <View style={clsx(styles.mb6, styles.wFull)}>
+            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
+              <Text style={clsx(styles.textBase, styles.textMuted)}>Your Location:</Text>
+              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+                {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
+              </Text>
+            </View>
+            
+            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
+              <Text style={clsx(styles.textBase, styles.textMuted)}>Service Location:</Text>
+              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+                {parseFloat(address.lat).toFixed(6)}, {parseFloat(address.long).toFixed(6)}
+              </Text>
+            </View>
+            
+            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb4)}>
+              <Text style={clsx(styles.textBase, styles.textMuted)}>Distance:</Text>
+              <Text style={clsx(
+                styles.textBase,
+                styles.fontBold,
+                distanceToBooking <= 0.5 ? styles.textSuccess : styles.textError
+              )}>
+                {formatDistance(distanceToBooking)}
+              </Text>
+            </View>
+            
+            {/* Distance Indicator */}
+            <View style={clsx(styles.mb6)}>
+              <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
+                <Text style={clsx(styles.textSm, styles.textMuted)}>Allowed: 500 meters</Text>
+                <Text style={clsx(styles.textSm, styles.textMuted)}>Current: {formatDistance(distanceToBooking)}</Text>
+              </View>
+              <View style={clsx(styles.bgGray200, styles.roundedFull, styles.overflowHidden, { height: 8 })}>
+                <View 
+                  style={[
+                    clsx(styles.hFull, styles.roundedFull),
+                    { 
+                      width: `${Math.min((distanceToBooking * 1000) / 500 * 100, 100)}%`,
+                      backgroundColor: distanceToBooking <= 0.5 ? colors.success : colors.error
+                    }
+                  ]}
+                />
+              </View>
+            </View>
+          </View>
+        )}
+        
+        {/* Error Message */}
+        {locationError && (
+          <View style={clsx(styles.bgErrorLight, styles.p3, styles.roundedLg, styles.mb6, styles.wFull)}>
+            <Text style={clsx(styles.textSm, styles.textError)}>{locationError}</Text>
+          </View>
+        )}
+        
+        {/* Action Buttons */}
+        <View style={clsx(styles.flexRow, styles.gap3, styles.wFull)}>
+          {locationStatus === 'far' && (
+            <>
+              <TouchableOpacity
+                style={clsx(
+                  styles.flex1,
+                  styles.border,
+                  styles.borderPrimary,
+                  styles.roundedLg,
+                  styles.p3,
+                  styles.itemsCenter,
+                  styles.justifyCenter
+                )}
+                onPress={() => setShowServiceModal(false)}
+              >
+                <Text style={clsx(styles.textPrimary, styles.fontBold)}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={clsx(
+                  styles.flex1,
+                  styles.bgPrimary,
+                  styles.roundedLg,
+                  styles.p3,
+                  styles.itemsCenter,
+                  styles.justifyCenter
+                )}
+                onPress={() => {
+                  if (address && address.lat && address.long) {
+                    const bookingLat = parseFloat(address.lat);
+                    const bookingLng = parseFloat(address.long);
+                    
+                    const url = Platform.select({
+                      ios: `maps://?q=${bookingLat},${bookingLng}`,
+                      android: `geo:${bookingLat},${bookingLng}?q=${bookingLat},${bookingLng}`,
+                    });
+                    
+                    Linking.openURL(url).catch(() => {
+                      const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${bookingLat},${bookingLng}`;
+                      Linking.openURL(fallbackUrl);
+                    });
+                  }
+                }}
+              >
+                <Icon name="directions" size={20} color={colors.white} style={clsx(styles.mr2)} />
+                <Text style={clsx(styles.textWhite, styles.fontBold)}>
+                  Navigate
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+          
+          {locationStatus === 'error' && (
+            <>
+              <TouchableOpacity
+                style={clsx(
+                  styles.flex1,
+                  styles.border,
+                  styles.borderPrimary,
+                  styles.roundedLg,
+                  styles.p3,
+                  styles.itemsCenter,
+                  styles.justifyCenter
+                )}
+                onPress={() => setShowServiceModal(false)}
+              >
+                <Text style={clsx(styles.textPrimary, styles.fontBold)}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={clsx(
+                  styles.flex1,
+                  styles.bgPrimary,
+                  styles.roundedLg,
+                  styles.p3,
+                  styles.itemsCenter,
+                  styles.justifyCenter
+                )}
+                onPress={retryLocationCheck}
+                disabled={checkingLocation}
+              >
+                {checkingLocation ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <>
+                    <Icon name="refresh" size={20} color={colors.white} style={clsx(styles.mr2)} />
+                    <Text style={clsx(styles.textWhite, styles.fontBold)}>
+                      Retry
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
+          
+          {locationStatus === 'success' && (
+            <TouchableOpacity
+              style={clsx(
+                styles.flex1,
+                styles.bgSuccess,
+                styles.roundedLg,
+                styles.p3,
+                styles.itemsCenter,
+                styles.justifyCenter
+              )}
+              onPress={() => setServiceModalStep('selfie')}
+            >
+              <Icon name="check-circle" size={20} color={colors.white} style={clsx(styles.mr2)} />
+              <Text style={clsx(styles.textWhite, styles.fontBold)}>
+                Continue
+              </Text>
+            </TouchableOpacity>
+          )}
+          
+          {(locationStatus === 'checking' || checkingLocation) && (
+            <View style={clsx(styles.flex1, styles.itemsCenter, styles.justifyCenter)}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={clsx(styles.textSm, styles.textMuted, styles.mt3)}>
+                Checking location...
+              </Text>
+            </View>
+          )}
+        </View>
+        
+        {/* Footer Note */}
+        <Text style={clsx(styles.textXs, styles.textMuted, styles.textCenter, styles.mt6)}>
+          Note: You must be within 500 meters of the service location to start
+        </Text>
+      </View>
+    );
+
+    // Render Selfie Capture Step
+    const renderSelfieStep = () => (
+      <View style={clsx(styles.itemsCenter)}>
+        <View style={clsx(styles.itemsCenter, styles.mb6)}>
+          <View style={[
+            clsx(styles.roundedFull, styles.p3, styles.mb3),
+            { backgroundColor: `${colors.primary}20` }
+          ]}>
+            <Icon name="camera-alt" size={40} color={colors.primary} />
+          </View>
+          
+          <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack, styles.textCenter)}>
+            Take Selfie Verification
+          </Text>
+          
+          <Text style={clsx(styles.textBase, styles.textMuted, styles.textCenter, styles.mt2)}>
+            Please take a selfie to verify your identity at the service location
+          </Text>
+        </View>
+        
+        {/* Camera Preview or Selected Selfie */}
+        <View style={[clsx(styles.mb6, styles.roundedLg, styles.overflowHidden), 
+          { width: SCREEN_WIDTH * 0.6, height: SCREEN_WIDTH * 0.8 }]}
+        >
+          {showCamera && device && cameraPermission ? (
+            <>
+              <Camera
+                ref={cameraRef}
+                style={StyleSheet.absoluteFill}
+                device={device}
+                isActive={showCamera}
+                photo={true}
+              />
+              <View style={[StyleSheet.absoluteFill, 
+                { justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 20 }]}
+              >
+                <TouchableOpacity
+                  onPress={takeSelfie}
+                  style={clsx(
+                    styles.bgWhite,
+                    styles.roundedFull,
+                    styles.p3,
+                    styles.shadowLg
+                  )}
+                >
+                  <View style={[clsx(styles.roundedFull), 
+                    { width: 60, height: 60, backgroundColor: colors.primary }]}
+                  />
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : selectedSelfie ? (
+            <Image
+              source={{ uri: selectedSelfie.uri }}
+              style={{ width: '100%', height: '100%' }}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={[clsx(styles.flex1, styles.bgGray200, styles.itemsCenter, styles.justifyCenter)]}>
+              <Icon name="camera-alt" size={60} color={colors.gray400} />
+              <Text style={clsx(styles.textBase, styles.textMuted, styles.mt2)}>
+                Camera preview
+              </Text>
+            </View>
+          )}
+        </View>
+        
+        {/* Selfie Actions */}
+        <View style={clsx(styles.flexRow, styles.gap3, styles.wFull)}>
+          {!selectedSelfie ? (
+            <>
+              <TouchableOpacity
+                style={clsx(
+                  styles.flex1,
+                  styles.border,
+                  styles.borderPrimary,
+                  styles.roundedLg,
+                  styles.p3,
+                  styles.itemsCenter,
+                  styles.justifyCenter
+                )}
+                onPress={() => setServiceModalStep('location')}
+              >
+                <Icon name="arrow-back" size={20} color={colors.primary} style={clsx(styles.mr2)} />
+                <Text style={clsx(styles.textPrimary, styles.fontBold)}>
+                  Back
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={clsx(
+                  styles.flex1,
+                  styles.bgPrimary,
+                  styles.roundedLg,
+                  styles.p3,
+                  styles.itemsCenter,
+                  styles.justifyCenter
+                )}
+                onPress={() => {
+                  setShowCamera(true);
+                }}
+                disabled={!cameraPermission}
+              >
+                <Icon name="camera-alt" size={20} color={colors.white} style={clsx(styles.mr2)} />
+                <Text style={clsx(styles.textWhite, styles.fontBold)}>
+                  {cameraPermission ? 'Open Camera' : 'Permission Needed'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={clsx(
+                  styles.flex1,
+                  styles.border,
+                  styles.borderPrimary,
+                  styles.roundedLg,
+                  styles.p3,
+                  styles.itemsCenter,
+                  styles.justifyCenter
+                )}
+                onPress={() => {
+                  setSelectedSelfie(null);
+                  setShowCamera(true);
+                }}
+              >
+                <Icon name="refresh" size={20} color={colors.primary} style={clsx(styles.mr2)} />
+                <Text style={clsx(styles.textPrimary, styles.fontBold)}>
+                  Retake
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={clsx(
+                  styles.flex1,
+                  styles.bgPrimary,
+                  styles.roundedLg,
+                  styles.p3,
+                  styles.itemsCenter,
+                  styles.justifyCenter
+                )}
+                onPress={() => setServiceModalStep('otp')}
+              >
+                <Icon name="check-circle" size={20} color={colors.white} style={clsx(styles.mr2)} />
+                <Text style={clsx(styles.textWhite, styles.fontBold)}>
+                  Continue
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+        
+        {/* Camera Permission Note */}
+        {!cameraPermission && (
+          <Text style={clsx(styles.textXs, styles.textError, styles.textCenter, styles.mt4)}>
+            Camera permission is required to take selfie
+          </Text>
+        )}
+      </View>
+    );
+
+    // Render OTP Verification Step
+    const renderOTPStep = () => (
+      <View style={clsx(styles.itemsCenter)}>
+        <View style={clsx(styles.itemsCenter, styles.mb6)}>
+          <View style={[
+            clsx(styles.roundedFull, styles.p3, styles.mb3),
+            { backgroundColor: `${colors.info}20` }
+          ]}>
+            <Icon name="lock" size={40} color={colors.info} />
+          </View>
+          
+          <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack, styles.textCenter)}>
+            Enter OTP
+          </Text>
+          
+          <Text style={clsx(styles.textBase, styles.textMuted, styles.textCenter, styles.mt2)}>
+            Please enter the OTP sent to the customer's mobile number
+          </Text>
+        </View>
+        
+        {/* Selected Selfie Preview */}
+        {selectedSelfie && (
+          <View style={clsx(styles.mb6, styles.itemsCenter)}>
+            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
+              Selfie Preview:
+            </Text>
+            <Image
+              source={{ uri: selectedSelfie.uri }}
+              style={{ width: 80, height: 80, borderRadius: 40 }}
+              resizeMode="cover"
+            />
+          </View>
+        )}
+        
+        {/* OTP Input Fields */}
+        <View style={clsx(styles.flexRow, styles.justifyCenter, styles.gap3, styles.mb8)}>
+          {[0, 1, 2, 3].map((index) => (
+            <View key={index} style={[
+              clsx(styles.border, styles.borderPrimary, styles.roundedLg),
+              { 
+                width: 50, 
+                height: 50,
+                backgroundColor: otpInputs[index] ? colors.primaryLight : colors.white
+              }
+            ]}>
+              <TextInput
+                style={[
+                  clsx(styles.textXl, styles.fontBold, styles.textCenter),
+                  { 
+                    width: '100%', 
+                    height: '100%',
+                    color: colors.primary
+                  }
+                ]}
+                keyboardType="number-pad"
+                maxLength={1}
+                value={otpInputs[index]}
+                onChangeText={(text) => handleOtpChange(text, index)}
+                autoFocus={index === 0}
+              />
+            </View>
+          ))}
+        </View>
+        
+        {/* Resend OTP */}
+        <TouchableOpacity
+          onPress={resendOTP}
+          style={clsx(styles.mb6)}
+        >
+          <Text style={clsx(styles.textPrimary, styles.fontMedium)}>
+            Didn't receive OTP? Resend
+          </Text>
+        </TouchableOpacity>
+        
+        {/* OTP Actions */}
+        <View style={clsx(styles.flexRow, styles.gap3, styles.wFull)}>
+          <TouchableOpacity
+            style={clsx(
+              styles.flex1,
+              styles.border,
+              styles.borderPrimary,
+              styles.roundedLg,
+              styles.p3,
+              styles.itemsCenter,
+              styles.justifyCenter
+            )}
+            onPress={() => setServiceModalStep('selfie')}
+          >
+            <Icon name="arrow-back" size={20} color={colors.primary} style={clsx(styles.mr2)} />
+            <Text style={clsx(styles.textPrimary, styles.fontBold)}>
+              Back
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={clsx(
+              styles.flex1,
+              styles.bgSuccess,
+              styles.roundedLg,
+              styles.p3,
+              styles.itemsCenter,
+              styles.justifyCenter
+            )}
+            onPress={verifyOTP}
+            disabled={verifyingOTP || otpInputs.some(digit => !digit)}
+          >
+            {verifyingOTP ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              <>
+                <Icon name="check-circle" size={20} color={colors.white} style={clsx(styles.mr2)} />
+                <Text style={clsx(styles.textWhite, styles.fontBold)}>
+                  Verify & Start
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+
+    // Determine which step to render
+    const renderStepContent = () => {
+      switch (serviceModalStep) {
+        case 'location':
+          return renderLocationStep();
+        case 'selfie':
+          return renderSelfieStep();
+        case 'otp':
+          return renderOTPStep();
+        default:
+          return renderLocationStep();
+      }
+    };
+
+    // Get modal title based on step
+    const getModalTitle = () => {
+      switch (serviceModalStep) {
+        case 'location':
+          return 'Location Verification';
+        case 'selfie':
+          return 'Selfie Verification';
+        case 'otp':
+          return 'OTP Verification';
+        default:
+          return 'Start Service';
+      }
+    };
+
     return (
       <Modal
         animationType="slide"
         transparent={true}
-        visible={showLocationModal}
-        onRequestClose={() => setShowLocationModal(false)}
+        visible={showServiceModal}
+        onRequestClose={() => {
+          if (serviceModalStep === 'location') {
+            setShowServiceModal(false);
+          } else {
+            setServiceModalStep('location');
+          }
+        }}
       >
         <View style={clsx(styles.flex1, styles.justifyCenter, styles.itemsCenter, styles.bgBlack50)}>
-          <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p6, { width: SCREEN_WIDTH * 0.9 })}>
-            
-            {/* Modal Header */}
-            <View style={clsx(styles.itemsCenter, styles.mb6)}>
-              <View style={[
-                clsx(styles.roundedFull, styles.p3, styles.mb3),
-                locationStatus === 'success' ? { backgroundColor: `${colors.success}20` } :
-                locationStatus === 'far' ? { backgroundColor: `${colors.warning}20` } :
-                locationStatus === 'error' ? { backgroundColor: `${colors.error}20` } :
-                { backgroundColor: `${colors.info}20` }
-              ]}>
-                <Icon 
-                  name={
-                    locationStatus === 'success' ? 'check-circle' :
-                    locationStatus === 'far' ? 'location-off' :
-                    locationStatus === 'error' ? 'error' :
-                    'my-location'
-                  } 
-                  size={40} 
-                  color={
-                    locationStatus === 'success' ? colors.success :
-                    locationStatus === 'far' ? colors.warning :
-                    locationStatus === 'error' ? colors.error :
-                    colors.info
-                  } 
-                />
-              </View>
-              
-              <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack, styles.textCenter)}>
-                {locationStatus === 'success' ? 'Location Verified!' :
-                 locationStatus === 'far' ? 'Too Far From Location' :
-                 locationStatus === 'error' ? 'Location Error' :
-                 'Verifying Location...'}
-              </Text>
-              
-              <Text style={clsx(styles.textBase, styles.textMuted, styles.textCenter, styles.mt2)}>
-                {locationStatus === 'success' ? 'You are at the service location' :
-                 locationStatus === 'far' ? 'You need to be at the service location to start' :
-                 locationStatus === 'error' ? 'Could not verify your location' :
-                 'Checking your current location...'}
-              </Text>
-            </View>
-            
-            {/* Location Details */}
-            {currentLocation && distanceToBooking !== null && address?.lat && address?.long && (
-              <View style={clsx(styles.mb6)}>
-                <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
-                  <Text style={clsx(styles.textBase, styles.textMuted)}>Your Location:</Text>
-                  <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-                    {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
-                  </Text>
-                </View>
-                
-                <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
-                  <Text style={clsx(styles.textBase, styles.textMuted)}>Service Location:</Text>
-                  <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-                    {parseFloat(address.lat).toFixed(6)}, {parseFloat(address.long).toFixed(6)}
-                  </Text>
-                </View>
-                
-                <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb4)}>
-                  <Text style={clsx(styles.textBase, styles.textMuted)}>Distance:</Text>
-                  <Text style={clsx(
-                    styles.textBase,
-                    styles.fontBold,
-                    distanceToBooking <= 0.5 ? styles.textSuccess : styles.textError
-                  )}>
-                    {formatDistance(distanceToBooking)}
-                  </Text>
-                </View>
-                
-                {/* Distance Indicator */}
-                <View style={clsx(styles.mb6)}>
-                  <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
-                    <Text style={clsx(styles.textSm, styles.textMuted)}>Allowed: 500 meters</Text>
-                    <Text style={clsx(styles.textSm, styles.textMuted)}>Current: {formatDistance(distanceToBooking)}</Text>
-                  </View>
-                  <View style={clsx(styles.bgGray200, styles.roundedFull, styles.overflowHidden, { height: 8 })}>
-                    <View 
-                      style={[
-                        clsx(styles.hFull, styles.roundedFull),
-                        { 
-                          width: `${Math.min((distanceToBooking * 1000) / 500 * 100, 100)}%`,
-                          backgroundColor: distanceToBooking <= 0.5 ? colors.success : colors.error
-                        }
-                      ]}
-                    />
-                  </View>
-                </View>
-              </View>
-            )}
-            
-            {/* Error Message */}
-            {locationError && (
-              <View style={clsx(styles.bgErrorLight, styles.p3, styles.roundedLg, styles.mb6)}>
-                <Text style={clsx(styles.textSm, styles.textError)}>{locationError}</Text>
-              </View>
-            )}
-            
-            {/* Action Buttons */}
-            <View style={clsx(styles.flexRow, styles.gap3)}>
-              {locationStatus === 'far' && (
-                <>
-                  <TouchableOpacity
-                    style={clsx(
-                      styles.flex1,
-                      styles.border,
-                      styles.borderPrimary,
-                      styles.roundedLg,
-                      styles.p3,
-                      styles.itemsCenter,
-                      styles.justifyCenter
-                    )}
-                    onPress={() => setShowLocationModal(false)}
-                  >
-                    <Text style={clsx(styles.textPrimary, styles.fontBold)}>
-                      Cancel
-                    </Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity
-                    style={clsx(
-                      styles.flex1,
-                      styles.bgPrimary,
-                      styles.roundedLg,
-                      styles.p3,
-                      styles.itemsCenter,
-                      styles.justifyCenter
-                    )}
-                    onPress={navigateToBookingLocation}
-                  >
-                    <Icon name="directions" size={20} color={colors.white} style={clsx(styles.mr2)} />
-                    <Text style={clsx(styles.textWhite, styles.fontBold)}>
-                      Navigate
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              )}
-              
-              {locationStatus === 'error' && (
-                <>
-                  <TouchableOpacity
-                    style={clsx(
-                      styles.flex1,
-                      styles.border,
-                      styles.borderPrimary,
-                      styles.roundedLg,
-                      styles.p3,
-                      styles.itemsCenter,
-                      styles.justifyCenter
-                    )}
-                    onPress={() => setShowLocationModal(false)}
-                  >
-                    <Text style={clsx(styles.textPrimary, styles.fontBold)}>
-                      Cancel
-                    </Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity
-                    style={clsx(
-                      styles.flex1,
-                      styles.bgPrimary,
-                      styles.roundedLg,
-                      styles.p3,
-                      styles.itemsCenter,
-                      styles.justifyCenter
-                    )}
-                    onPress={retryLocationCheck}
-                    disabled={checkingLocation}
-                  >
-                    {checkingLocation ? (
-                      <ActivityIndicator size="small" color={colors.white} />
-                    ) : (
-                      <>
-                        <Icon name="refresh" size={20} color={colors.white} style={clsx(styles.mr2)} />
-                        <Text style={clsx(styles.textWhite, styles.fontBold)}>
-                          Retry
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </>
-              )}
-              
-              {locationStatus === 'success' && (
+          <View style={[
+            clsx(styles.bgWhite, styles.roundedLg, styles.p6), 
+            { 
+              width: SCREEN_WIDTH * 0.9,
+              maxHeight: SCREEN_HEIGHT * 0.8
+            }
+          ]}>
+            {/* Modal Header with Step Indicator */}
+            <View style={clsx(styles.mb6)}>
+              <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4)}>
+                <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)}>
+                  {getModalTitle()}
+                </Text>
                 <TouchableOpacity
-                  style={clsx(
-                    styles.flex1,
-                    styles.bgSuccess,
-                    styles.roundedLg,
-                    styles.p3,
-                    styles.itemsCenter,
-                    styles.justifyCenter
-                  )}
                   onPress={() => {
-                    setShowLocationModal(false);
-                    openOTPVerification();
+                    if (serviceModalStep === 'location') {
+                      setShowServiceModal(false);
+                    } else {
+                      setServiceModalStep('location');
+                    }
                   }}
                 >
-                  <Icon name="check-circle" size={20} color={colors.white} style={clsx(styles.mr2)} />
-                  <Text style={clsx(styles.textWhite, styles.fontBold)}>
-                    Start Service
-                  </Text>
+                  <Icon name="close" size={24} color={colors.gray500} />
                 </TouchableOpacity>
-              )}
+              </View>
               
-              {(locationStatus === 'checking' || checkingLocation) && (
-                <View style={clsx(styles.flex1, styles.itemsCenter, styles.justifyCenter)}>
-                  <ActivityIndicator size="large" color={colors.primary} />
-                  <Text style={clsx(styles.textSm, styles.textMuted, styles.mt3)}>
-                    Checking location...
-                  </Text>
-                </View>
-              )}
+              {/* Step Indicator */}
+              <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
+                {['location', 'selfie', 'otp'].map((step, index) => (
+                  <React.Fragment key={step}>
+                    <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+                      <View style={[
+                        clsx(styles.roundedFull, styles.itemsCenter, styles.justifyCenter),
+                        { 
+                          width: 30, 
+                          height: 30,
+                          backgroundColor: serviceModalStep === step ? colors.primary : 
+                                         ['location', 'selfie', 'otp'].indexOf(serviceModalStep) > index ? colors.success : colors.gray300
+                        }
+                      ]}>
+                        {['location', 'selfie', 'otp'].indexOf(serviceModalStep) > index ? (
+                          <Icon name="check" size={16} color={colors.white} />
+                        ) : (
+                          <Text style={[
+                            clsx(styles.textSm, styles.fontBold),
+                            { color: serviceModalStep === step ? colors.white : colors.gray600 }
+                          ]}>
+                            {index + 1}
+                          </Text>
+                        )}
+                      </View>
+                      <Text style={[
+                        clsx(styles.textSm, styles.ml2, styles.fontMedium),
+                        { 
+                          color: serviceModalStep === step ? colors.primary : 
+                                 ['location', 'selfie', 'otp'].indexOf(serviceModalStep) > index ? colors.success : colors.gray500
+                        }
+                      ]}>
+                        {step === 'location' ? 'Location' : 
+                         step === 'selfie' ? 'Selfie' : 'OTP'}
+                      </Text>
+                    </View>
+                    
+                    {index < 2 && (
+                      <View style={[
+                        clsx(styles.flex1, styles.h1, styles.mx2),
+                        { 
+                          backgroundColor: ['location', 'selfie', 'otp'].indexOf(serviceModalStep) > index ? colors.success : colors.gray300
+                        }
+                      ]} />
+                    )}
+                  </React.Fragment>
+                ))}
+              </View>
             </View>
             
-            {/* Footer Note */}
-            <Text style={clsx(styles.textXs, styles.textMuted, styles.textCenter, styles.mt6)}>
-              Note: You must be within 500 meters of the service location to start
-            </Text>
+            {/* Step Content */}
+            {renderStepContent()}
           </View>
         </View>
       </Modal>
@@ -1138,34 +1606,261 @@ const BookingDetailScreen = ({ navigation, route }) => {
     });
   };
 
-  const openOTPVerification = () => {
-    navigation.navigate('OTPVerificationScreen', {
-      bookingData,
-      selectedSelfie,
-      setSelectedSelfie,
-      loadBookingDetails,
-    });
+  const ActionButton = ({ icon, label, color, onPress, outlined = false, disabled = false }) => (
+    <TouchableOpacity
+      style={clsx(
+        styles.flexRow,
+        styles.itemsCenter,
+        styles.justifyCenter,
+        styles.px4,
+        styles.py3,
+        outlined ? styles.border : null,
+        outlined ? styles.borderPrimary : null,
+        outlined ? styles.bgWhite : null,
+        !outlined ? (disabled ? styles.bgGray300 : { backgroundColor: color || colors.primary }) : null,
+        styles.roundedLg,
+        styles.flex1,
+        styles.mx1,
+        disabled && styles.opacity50
+      )}
+      onPress={onPress}
+      disabled={disabled}
+    >
+      <Icon 
+        name={icon} 
+        size={20} 
+        color={outlined ? colors.primary : (disabled ? colors.gray500 : colors.white)} 
+        style={clsx(styles.mr2)}
+      />
+      <Text style={clsx(
+        styles.fontMedium,
+        outlined ? styles.textPrimary : (disabled ? styles.textGray500 : styles.textWhite)
+      )}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  const InfoCard = ({ title, value, icon, onPress }) => (
+    <TouchableOpacity
+      style={clsx(
+        styles.flexRow,
+        styles.itemsCenter,
+        styles.p3,
+        styles.bgWhite,
+        styles.roundedLg,
+        styles.mb2,
+        styles.shadowSm
+      )}
+      onPress={onPress}
+      disabled={!onPress}
+    >
+      {icon && (
+        <View style={[clsx(styles.roundedFull, styles.p2, styles.mr3), { backgroundColor: `${colors.primary}10` }]}>
+          <Icon name={icon} size={20} color={colors.primary} />
+        </View>
+      )}
+      <View style={clsx(styles.flex1)}>
+        <Text style={clsx(styles.textSm, styles.textMuted)}>
+          {title}
+        </Text>
+        <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+          {value}
+        </Text>
+      </View>
+      {onPress && (
+        <Icon name="chevron-right" size={20} color={colors.textLight} />
+      )}
+    </TouchableOpacity>
+  );
+
+  // Render parts approval section
+  const renderPartsApprovalSection = () => {
+    if (!isPartsApprovalInProgress()) return null;
+    
+    const status = bookingData?.status || '';
+    
+    return (
+      <View style={clsx(styles.px4, styles.mt4)}>
+        <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
+          Parts Approval Status
+        </Text>
+        
+        <View style={clsx(
+          styles.bgWhite,
+          styles.roundedLg,
+          styles.p4,
+          styles.shadowSm
+        )}>
+          {/* Status Badge */}
+          <View style={clsx(
+            styles.flexRow,
+            styles.itemsCenter,
+            styles.justifyBetween,
+            styles.mb4
+          )}>
+            <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+              <View style={[clsx(
+                styles.w3,
+                styles.h3,
+                styles.roundedFull,
+                styles.mr3
+              ), {
+                backgroundColor: 
+                  status === 'partstatusnew' || status === 'partstatusconfirm' ? colors.warning :
+                  status === 'partstatusapprove' ? colors.success :
+                  colors.error
+              }]} />
+              <View>
+                <Text style={clsx(styles.textLg, styles.fontBold, {
+                  color: 
+                    status === 'partstatusnew' || status === 'partstatusconfirm' ? colors.warning :
+                    status === 'partstatusapprove' ? colors.success :
+                    colors.error
+                })}>
+                  {status === 'partstatusnew' ? 'Parts Submitted' :
+                   status === 'partstatusconfirm' ? 'Parts Confirmed' :
+                   status === 'partstatusapprove' ? 'Parts Approved' :
+                   'Parts Rejected'}
+                </Text>
+                <Text style={clsx(styles.textSm, styles.textMuted)}>
+                  {status === 'partstatusnew' ? 'Waiting for customer confirmation' :
+                   status === 'partstatusconfirm' ? 'Customer has confirmed parts' :
+                   status === 'partstatusapprove' ? 'Parts approved by customer' :
+                   'Parts rejected by customer'}
+                </Text>
+              </View>
+            </View>
+            
+            {isPartsPending() && (
+              <TouchableOpacity
+                onPress={cancelPartsRequest}
+                style={clsx(
+                  styles.px3,
+                  styles.py1,
+                  styles.bgErrorLight,
+                  styles.roundedFull
+                )}
+              >
+                <Text style={clsx(styles.textSm, styles.textError, styles.fontMedium)}>
+                  Cancel Request
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          {/* Parts List */}
+          {additionalParts.length > 0 && (
+            <View style={clsx(styles.mb4)}>
+              <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
+                Additional Parts:
+              </Text>
+              {additionalParts.map((part, index) => (
+                <View key={index} style={clsx(
+                  styles.flexRow,
+                  styles.justifyBetween,
+                  styles.itemsCenter,
+                  styles.p2,
+                  styles.bgGray50,
+                  styles.rounded,
+                  styles.mb1
+                )}>
+                  <Text style={clsx(styles.textSm, styles.textBlack)}>
+                    {part.name} (×{part.quantity || 1})
+                  </Text>
+                  <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
+                    ₹{part.price || 0} × {part.quantity || 1} = ₹{(part.price || 0) * (part.quantity || 1)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+          
+          {/* Amount Breakdown */}
+          {partsAmount > 0 && (
+            <View style={clsx(
+              styles.bgGray50,
+              styles.p3,
+              styles.roundedLg
+            )}>
+              <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
+                Amount Breakdown
+              </Text>
+              
+              <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
+                <Text style={clsx(styles.textSm, styles.textMuted)}>
+                  Original Service Amount:
+                </Text>
+                <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack)}>
+                  ₹{originalAmount}
+                </Text>
+              </View>
+              
+              <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
+                <Text style={clsx(styles.textSm, styles.textMuted)}>
+                  Additional Parts Amount:
+                </Text>
+                <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
+                  + ₹{partsAmount}
+                </Text>
+              </View>
+              
+              <View style={clsx(
+                styles.flexRow,
+                styles.justifyBetween,
+                styles.mt2,
+                styles.pt2,
+                styles.borderTop,
+                styles.borderGray300
+              )}>
+                <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
+                  New Total Amount:
+                </Text>
+                <Text style={clsx(styles.textLg, styles.fontBold, styles.textSuccess)}>
+                  ₹{originalAmount + partsAmount}
+                </Text>
+              </View>
+            </View>
+          )}
+          
+          {/* Status Message */}
+          <Text style={clsx(styles.textSm, styles.textMuted, styles.mt4)}>
+            {isPartsPending() 
+              ? 'Parts are pending approval. You cannot upload media or complete service until parts are approved.' 
+              : isPartsApproved()
+              ? 'Parts have been approved. You can now continue with service.'
+              : 'Parts have been rejected. Please proceed with original service only.'}
+          </Text>
+        </View>
+      </View>
+    );
   };
 
-  const handleShareBooking = async () => {
-    try {
-      const shareMessage = `Booking Details:
-        ID: ${formattedData?.bookingId}
-        Service: ${formattedData?.service}
-        Customer: ${formattedData?.customerName}
-        Date: ${formattedData?.date}
-        Time: ${formattedData?.time}
-        Address: ${formattedData?.address}
-        Amount: ₹${formattedData?.amount}
-        Status: ${getStatusLabel(formattedData?.status)}`;
-
-      await Share.share({
-        message: shareMessage,
-        title: 'Booking Details',
-      });
-    } catch (error) {
-      Alert.alert('Error', 'Failed to share booking details');
-    }
+  // Render parts info in service card
+  const renderPartsInfoInServiceCard = () => {
+    if (additionalParts.length === 0) return null;
+    
+    return (
+      <View style={clsx(styles.mt4, styles.p3, styles.bgInfoLight, styles.roundedLg)}>
+        <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
+          Additional Parts Added
+        </Text>
+        
+        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
+          <Text style={clsx(styles.textSm, styles.textMuted)}>Parts Amount:</Text>
+          <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
+            ₹{partsAmount}
+          </Text>
+        </View>
+        
+        <View style={clsx(styles.flexRow, styles.justifyBetween)}>
+          <Text style={clsx(styles.textSm, styles.textMuted)}>Total Amount:</Text>
+          <Text style={clsx(styles.textLg, styles.fontBold, styles.textSuccess)}>
+            ₹{originalAmount + partsAmount}
+          </Text>
+        </View>
+      </View>
+    );
   };
 
   // MEDIA DISPLAY COMPONENTS
@@ -1464,263 +2159,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
     );
   }
 
-  const ActionButton = ({ icon, label, color, onPress, outlined = false, disabled = false }) => (
-    <TouchableOpacity
-      style={clsx(
-        styles.flexRow,
-        styles.itemsCenter,
-        styles.justifyCenter,
-        styles.px4,
-        styles.py3,
-        outlined ? styles.border : null,
-        outlined ? styles.borderPrimary : null,
-        outlined ? styles.bgWhite : null,
-        !outlined ? (disabled ? styles.bgGray300 : { backgroundColor: color || colors.primary }) : null,
-        styles.roundedLg,
-        styles.flex1,
-        styles.mx1,
-        disabled && styles.opacity50
-      )}
-      onPress={onPress}
-      disabled={disabled}
-    >
-      <Icon 
-        name={icon} 
-        size={20} 
-        color={outlined ? colors.primary : (disabled ? colors.gray500 : colors.white)} 
-        style={clsx(styles.mr2)}
-      />
-      <Text style={clsx(
-        styles.fontMedium,
-        outlined ? styles.textPrimary : (disabled ? styles.textGray500 : styles.textWhite)
-      )}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-
-  const InfoCard = ({ title, value, icon, onPress }) => (
-    <TouchableOpacity
-      style={clsx(
-        styles.flexRow,
-        styles.itemsCenter,
-        styles.p3,
-        styles.bgWhite,
-        styles.roundedLg,
-        styles.mb2,
-        styles.shadowSm
-      )}
-      onPress={onPress}
-      disabled={!onPress}
-    >
-      {icon && (
-        <View style={[clsx(styles.roundedFull, styles.p2, styles.mr3), { backgroundColor: `${colors.primary}10` }]}>
-          <Icon name={icon} size={20} color={colors.primary} />
-        </View>
-      )}
-      <View style={clsx(styles.flex1)}>
-        <Text style={clsx(styles.textSm, styles.textMuted)}>
-          {title}
-        </Text>
-        <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-          {value}
-        </Text>
-      </View>
-      {onPress && (
-        <Icon name="chevron-right" size={20} color={colors.textLight} />
-      )}
-    </TouchableOpacity>
-  );
-
-  // Render parts approval section
-  const renderPartsApprovalSection = () => {
-    if (!isPartsApprovalInProgress()) return null;
-    
-    const status = bookingData?.status || '';
-    
-    return (
-      <View style={clsx(styles.px4, styles.mt4)}>
-        <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
-          Parts Approval Status
-        </Text>
-        
-        <View style={clsx(
-          styles.bgWhite,
-          styles.roundedLg,
-          styles.p4,
-          styles.shadowSm
-        )}>
-          {/* Status Badge */}
-          <View style={clsx(
-            styles.flexRow,
-            styles.itemsCenter,
-            styles.justifyBetween,
-            styles.mb4
-          )}>
-            <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-              <View style={[clsx(
-                styles.w3,
-                styles.h3,
-                styles.roundedFull,
-                styles.mr3
-              ), {
-                backgroundColor: 
-                  status === 'partstatusnew' || status === 'partstatusconfirm' ? colors.warning :
-                  status === 'partstatusapprove' ? colors.success :
-                  colors.error
-              }]} />
-              <View>
-                <Text style={clsx(styles.textLg, styles.fontBold, {
-                  color: 
-                    status === 'partstatusnew' || status === 'partstatusconfirm' ? colors.warning :
-                    status === 'partstatusapprove' ? colors.success :
-                    colors.error
-                })}>
-                  {status === 'partstatusnew' ? 'Parts Submitted' :
-                   status === 'partstatusconfirm' ? 'Parts Confirmed' :
-                   status === 'partstatusapprove' ? 'Parts Approved' :
-                   'Parts Rejected'}
-                </Text>
-                <Text style={clsx(styles.textSm, styles.textMuted)}>
-                  {status === 'partstatusnew' ? 'Waiting for customer confirmation' :
-                   status === 'partstatusconfirm' ? 'Customer has confirmed parts' :
-                   status === 'partstatusapprove' ? 'Parts approved by customer' :
-                   'Parts rejected by customer'}
-                </Text>
-              </View>
-            </View>
-            
-            {isPartsPending() && (
-              <TouchableOpacity
-                onPress={cancelPartsRequest}
-                style={clsx(
-                  styles.px3,
-                  styles.py1,
-                  styles.bgErrorLight,
-                  styles.roundedFull
-                )}
-              >
-                <Text style={clsx(styles.textSm, styles.textError, styles.fontMedium)}>
-                  Cancel Request
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          
-          {/* Parts List */}
-          {additionalParts.length > 0 && (
-            <View style={clsx(styles.mb4)}>
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
-                Additional Parts:
-              </Text>
-              {additionalParts.map((part, index) => (
-                <View key={index} style={clsx(
-                  styles.flexRow,
-                  styles.justifyBetween,
-                  styles.itemsCenter,
-                  styles.p2,
-                  styles.bgGray50,
-                  styles.rounded,
-                  styles.mb1
-                )}>
-                  <Text style={clsx(styles.textSm, styles.textBlack)}>
-                    {part.name} (×{part.quantity || 1})
-                  </Text>
-                  <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
-                    ₹{part.price || 0} × {part.quantity || 1} = ₹{(part.price || 0) * (part.quantity || 1)}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          )}
-          
-          {/* Amount Breakdown */}
-          {partsAmount > 0 && (
-            <View style={clsx(
-              styles.bgGray50,
-              styles.p3,
-              styles.roundedLg
-            )}>
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
-                Amount Breakdown
-              </Text>
-              
-              <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
-                <Text style={clsx(styles.textSm, styles.textMuted)}>
-                  Original Service Amount:
-                </Text>
-                <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack)}>
-                  ₹{originalAmount}
-                </Text>
-              </View>
-              
-              <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
-                <Text style={clsx(styles.textSm, styles.textMuted)}>
-                  Additional Parts Amount:
-                </Text>
-                <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
-                  + ₹{partsAmount}
-                </Text>
-              </View>
-              
-              <View style={clsx(
-                styles.flexRow,
-                styles.justifyBetween,
-                styles.mt2,
-                styles.pt2,
-                styles.borderTop,
-                styles.borderGray300
-              )}>
-                <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
-                  New Total Amount:
-                </Text>
-                <Text style={clsx(styles.textLg, styles.fontBold, styles.textSuccess)}>
-                  ₹{originalAmount + partsAmount}
-                </Text>
-              </View>
-            </View>
-          )}
-          
-          {/* Status Message */}
-          <Text style={clsx(styles.textSm, styles.textMuted, styles.mt4)}>
-            {isPartsPending() 
-              ? 'Parts are pending approval. You cannot upload media or complete service until parts are approved.' 
-              : isPartsApproved()
-              ? 'Parts have been approved. You can now continue with service.'
-              : 'Parts have been rejected. Please proceed with original service only.'}
-          </Text>
-        </View>
-      </View>
-    );
-  };
-
-  // Render parts info in service card
-  const renderPartsInfoInServiceCard = () => {
-    if (additionalParts.length === 0) return null;
-    
-    return (
-      <View style={clsx(styles.mt4, styles.p3, styles.bgInfoLight, styles.roundedLg)}>
-        <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
-          Additional Parts Added
-        </Text>
-        
-        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
-          <Text style={clsx(styles.textSm, styles.textMuted)}>Parts Amount:</Text>
-          <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
-            ₹{partsAmount}
-          </Text>
-        </View>
-        
-        <View style={clsx(styles.flexRow, styles.justifyBetween)}>
-          <Text style={clsx(styles.textSm, styles.textMuted)}>Total Amount:</Text>
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textSuccess)}>
-            ₹{originalAmount + partsAmount}
-          </Text>
-        </View>
-      </View>
-    );
-  };
-
   return (
     <View style={clsx(styles.flex1, styles.bgSurface)}>
       
@@ -1733,7 +2171,22 @@ const BookingDetailScreen = ({ navigation, route }) => {
           <Text style={clsx(styles.textWhite, styles.textXl, styles.fontBold)}>
             Booking Details
           </Text>
-          <TouchableOpacity onPress={handleShareBooking}>
+          <TouchableOpacity onPress={() => {
+            const shareMessage = `Booking Details:
+              ID: ${formattedData?.bookingId}
+              Service: ${formattedData?.service}
+              Customer: ${formattedData?.customerName}
+              Date: ${formattedData?.date}
+              Time: ${formattedData?.time}
+              Address: ${formattedData?.address}
+              Amount: ₹${formattedData?.amount}
+              Status: ${getStatusLabel(formattedData?.status)}`;
+
+            Share.share({
+              message: shareMessage,
+              title: 'Booking Details',
+            }).catch(error => Alert.alert('Error', 'Failed to share booking details'));
+          }}>
             <Icon name="share" size={24} color={colors.white} />
           </TouchableOpacity>
         </View>
@@ -1879,7 +2332,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
               ]}>
                 {formattedData.profileImage ? (
                   <Image
-                    source={{ uri: UploadUrl+'/'+formattedData.profileImage }}
+                    source={{ uri: imageCheck(UploadUrl+'/'+formattedData.profileImage, 'user.png') }}
                     style={{ width: '100%', height: '100%' }}
                   />
                 ) : (
@@ -1892,49 +2345,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
                 <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)}>
                   {formattedData.customerName}
                 </Text>
-                <Text style={clsx(styles.textSm, styles.textMuted)}>
-                  📞 {formattedData.mobile}
-                </Text>
               </View>
-            </View>
-
-            {/* Contact Buttons */}
-            <View style={clsx(styles.flexRow, styles.gap2)}>
-              <TouchableOpacity
-                style={clsx(
-                  styles.flexRow,
-                  styles.itemsCenter,
-                  styles.justifyCenter,
-                  styles.flex1,
-                  styles.bgPrimary,
-                  styles.py2,
-                  styles.roundedLg
-                )}
-                onPress={() => Linking.openURL(`tel:${formattedData.mobile}`)}
-              >
-                <Icon name="call" size={20} color={colors.white} style={clsx(styles.mr2)} />
-                <Text style={clsx(styles.textWhite, styles.fontMedium)}>
-                  Call
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={clsx(
-                  styles.flexRow,
-                  styles.itemsCenter,
-                  styles.justifyCenter,
-                  styles.flex1,
-                  styles.bgSuccess,
-                  styles.py2,
-                  styles.roundedLg
-                )}
-                onPress={() => Linking.openURL(`sms:${formattedData.mobile}`)}
-              >
-                <Icon name="message" size={20} color={colors.white} style={clsx(styles.mr2)} />
-                <Text style={clsx(styles.textWhite, styles.fontMedium)}>
-                  Message
-                </Text>
-              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -2125,7 +2536,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
               icon="play-arrow"
               label="Start Service"
               color={colors.primary}
-              onPress={showLocationVerificationModal}
+              onPress={handleStartService}
               disabled={checkingLocation}
             />
           </>
@@ -2191,8 +2602,8 @@ const BookingDetailScreen = ({ navigation, route }) => {
         ) : null}
       </View>
 
-      {/* Location Verification Modal */}
-      <LocationVerificationModal />
+      {/* Service Modal (Location + Selfie + OTP) */}
+      <ServiceModal />
     </View>
   );
 };

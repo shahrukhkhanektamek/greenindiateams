@@ -31,6 +31,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
   } = useContext(AppContext);
 
   const [phone, setPhone] = useState('');
+  const [isNew, setisNew] = useState(0);
   const [otp, setOtp] = useState(['', '', '', '']);
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -207,6 +208,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
           // Store user data and token
           const userData = response?.user || {};
           const token = response?.token || '';
+          setisNew(response?.isNew)
           
           if (token) {
             await storage.set('token', token);
@@ -253,7 +255,11 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
     let Goscreen = '';
     if(user)
     {
-      if(!user.profile && !user.dob)
+      if(isNew==0)
+      {
+        Goscreen = 'IntroEarning';
+      }
+      else if(!user.profile && !user.dob)
       {
         Goscreen = 'ProfileUpdate';
       }

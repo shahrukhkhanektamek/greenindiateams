@@ -448,12 +448,12 @@ const ProviderProfileScreen = ({ navigation, route }) => {
               <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mx1)}>
                 {profileData.averageRating}
               </Text>
-              <Text style={clsx(styles.textSm, styles.textMuted)}>
+              {/* <Text style={clsx(styles.textSm, styles.textMuted)}>
                 ({profileData.completedJob || 0} completed jobs)
-              </Text>
+              </Text> */}
             </View>
 
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={clsx(
                 styles.flexRow,
                 styles.itemsCenter,
@@ -470,7 +470,7 @@ const ProviderProfileScreen = ({ navigation, route }) => {
               <Text style={clsx(styles.textPrimary, styles.fontMedium, styles.ml1)}>
                 Edit Profile
               </Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
         </View>
 
@@ -669,7 +669,7 @@ const ProviderProfileScreen = ({ navigation, route }) => {
         )}
 
         {/* Categories */}
-        {profileData.categories && profileData.categories.length > 0 && (
+        {/* {profileData.categories && profileData.categories.length > 0 && (
           <View style={clsx(styles.mx4, styles.mt4)}>
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
               Service Categories
@@ -702,7 +702,7 @@ const ProviderProfileScreen = ({ navigation, route }) => {
               />
             </View>
           </View>
-        )}
+        )} */}
 
         {/* Settings */}
         <View style={clsx(styles.mx4, styles.mt4)}>

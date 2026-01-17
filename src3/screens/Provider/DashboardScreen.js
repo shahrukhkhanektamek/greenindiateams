@@ -16,8 +16,8 @@ import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import styles, { clsx } from '../../styles/globalStyles';
 import { colors } from '../../styles/colors';
 import { AppContext } from '../../Context/AppContext';
+import FooterMenu from '../../components/Provider/FooterMenu';
 // import PermissionScreen from '../PermissionScreen';
-import PermissionManager, { PermissionUtils } from '../../components/PermissionManager';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -813,6 +813,7 @@ const DashboardScreen = ({ navigation }) => {
         </View>
 
       </ScrollView>
+      <FooterMenu />
     </View>
   );
 };

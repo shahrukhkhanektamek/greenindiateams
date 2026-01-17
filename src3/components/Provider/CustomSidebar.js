@@ -19,7 +19,7 @@ import { navigate, reset } from '../../navigation/navigationService';
 const { width, height } = Dimensions.get('window');
 
 const CustomSidebar = ({ state, isVisible, onClose }) => {
-  const { setUser, user, setLoading, storage, UploadUrl, imageCheck } = useContext(AppContext);
+  const { Urls, postData, setUser, user, setLoading, storage, UploadUrl, imageCheck, fetchProfile } = useContext(AppContext);
   
   const slideAnim = useRef(new Animated.Value(-width)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -105,6 +105,46 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
 
   const MenuItem = ({ item }) => {
     const isActive = isActiveRoute(item.screen);
+    const oldLabel = item.label;
+    
+    const handlePress = async () => {
+      if (item.screen !== 'TrainingStatus') {
+        navigate(item.screen);
+        closeSidebar();
+      } else {
+        try {
+          const response = await postData({}, Urls.profileDetail, 'GET', { showErrorMessage: false, showSuccessMessage: false });
+
+          if (response?.success) {
+            const apiData = response.data || {};      
+            storage.set('user', apiData);
+            setUser(apiData);
+            if(apiData?.trainingScheduleSubmit)
+            {
+              // "New", "Confirm", "Reject", "Complete"  
+              if(apiData?.trainingScheduleSubmit.trainingScheduleStatus=='Complete')
+              {
+                navigate('TrainingHistory');
+                closeSidebar();
+              }
+              else{
+                navigate(item.screen);   
+                closeSidebar();         
+              }
+            }
+            else{
+              navigate(item.screen);
+              closeSidebar();
+            }
+          } else {
+            
+
+          }
+        } catch (error) {
+          
+        }
+      }
+    };
     
     return (
       <TouchableOpacity
@@ -112,10 +152,7 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
           styles.menuItem,
           isActive && styles.activeMenuItem
         ]}
-        onPress={() => {
-          navigate(item.screen);
-          closeSidebar();
-        }}
+        onPress={handlePress}
         activeOpacity={0.7}
       >
         <View style={[

@@ -10,6 +10,7 @@ import DashboardScreen from '../screens/Provider/DashboardScreen';
 import BookingListScreen from '../screens/Provider/Booking/BookingListScreen';
 import BookingDetailScreen from '../screens/Provider/Booking/BookingDetailScreen';
 
+import StartServiceScreen from '../screens/Provider/Booking/StartServiceScreen';
 import OTPVerificationScreen from '../screens/Provider/Booking/OTPVerificationScreen';
 import SelfieCaptureScreen from '../screens/Provider/Booking/SelfieCaptureScreen';
 import MediaCaptureScreen from '../screens/Provider/Booking/MediaCaptureScreen';
@@ -24,6 +25,7 @@ import KYCUpdateScreen from '../screens/Provider/Kyc/KYCUpdateScreen';
 import KYCViewScreen from '../screens/Provider/Kyc/KYCViewScreen';
 import KYCStatusScreen from '../screens/Provider/Kyc/KYCStatusScreen';
  
+import TrainingHistoryScreen from '../screens/Provider/Training/TrainingHistoryScreen';
 import TrainingScheduleScreen from '../screens/Provider/Training/TrainingScheduleScreen';
 import TrainingStatusScreen from '../screens/Provider/Training/TrainingStatusScreen';
 
@@ -74,26 +76,20 @@ function ProviderNavigator() {
   const [isSplashVisible, setIsSplashVisible] = useState(true);
 
   useEffect(() => { 
-    fetchProfile()
+    fetchProfile();
   }, []);
 
   useEffect(() => { 
     const initializeApp = async () => {
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      // setUser(null); // For demo, set to false to see auth flow
       setIsSplashVisible(false); 
     };
  
- 
-      const checkRootAccess = async () => {
-        profileStatus()
-        // console.log(user)  
-        // console.log(storage.get('token'))   
-        // setrootScreen('ProviderDashboard');
-     };
+    const checkRootAccess = async () => {
+      profileStatus();
+    };
 
-
-    checkRootAccess()
+    checkRootAccess();
     initializeApp();
   }, [user]);
 
@@ -101,93 +97,291 @@ function ProviderNavigator() {
     return <SplashScreen />;
   }
 
+  // Common screen options for all screens
+  const commonScreenOptions = {
+    headerShown: false, // MainLayout handles the header
+    animation: 'slide_from_right',
+    gestureEnabled: true,
+    cardStyle: {
+      backgroundColor: '#FFFFFF',
+    },
+  };
 
- 
+  // Options for screens that need custom animations
+  const noAnimationOptions = {
+    ...commonScreenOptions,
+    animation: 'none',
+  };
+
+  // Options for modal-like screens
+  const modalOptions = {
+    ...commonScreenOptions,
+    presentation: 'modal',
+    animation: 'slide_from_bottom',
+  };
 
   return (
-    // NavigationContainer removed from here
     <Stack.Navigator
       initialRouteName={rootScreen}
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: '#FF6B6B',
-        },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
-        headerShown: false,
-        animation: 'slide_from_right',
-        gestureEnabled: true,
-      }}
+      screenOptions={commonScreenOptions}
     >
-      <Stack.Screen name="IntroEarning" component={IntroEarningScreen}/>            
-      <Stack.Screen name="KYCStatus" component={KYCStatusScreen} />
-      <Stack.Screen name="Support" component={SupportScreen}/>
-      <Stack.Screen name="TermsCondition" component={TermsConditionsScreen}/>
+      {/* =========== COMMON SCREENS (Always Available) =========== */}
+      <Stack.Screen 
+        name="IntroEarning" 
+        component={IntroEarningScreen}
+        options={noAnimationOptions} 
+      />            
+      
+      <Stack.Screen 
+        name="KYCStatus" 
+        component={KYCStatusScreen}
+      />
+      
+      <Stack.Screen 
+        name="Support" 
+        component={SupportScreen}
+      />
+      
+      <Stack.Screen 
+        name="TermsCondition" 
+        component={TermsConditionsScreen}
+      />
+      
+      {/* =========== AUTH FLOW (When user is NOT logged in) =========== */}
       {!user ? (
-        // =========== AUTH SCREENS ===========
         <>
-          <Stack.Screen name="Intro" component={IntroScreen} options={{ headerShown: false }} />            
-          <Stack.Screen name="ProviderLogin" component={ProviderLoginScreen} />            
-          <Stack.Screen name="ProviderOTPLogin" component={ProviderOTPLoginScreen}/>            
-          <Stack.Screen name="ProviderForgotPassword" component={ProviderForgotPasswordScreen}/>            
-          <Stack.Screen name="ProviderSignup" component={ProviderSignupScreen}/>            
-          <Stack.Screen name="Verification" component={VerificationScreen}/>            
-          <Stack.Screen name="ProviderDashboard" component={DashboardScreen}/>
-          <Stack.Screen name="ProfileUpdate" component={ProfileUpdateScreen} />
+          {/* Splash/Intro Screens */}
+          <Stack.Screen 
+            name="Intro" 
+            component={IntroScreen}
+            options={noAnimationOptions}
+          />            
+          
+          {/* Login/Signup Screens */}
+          <Stack.Screen 
+            name="ProviderLogin" 
+            component={ProviderLoginScreen}
+          />            
+          
+          <Stack.Screen 
+            name="ProviderOTPLogin" 
+            component={ProviderOTPLoginScreen}
+          />            
+          
+          <Stack.Screen 
+            name="ProviderForgotPassword" 
+            component={ProviderForgotPasswordScreen}
+          />            
+          
+          <Stack.Screen 
+            name="ProviderSignup" 
+            component={ProviderSignupScreen}
+          />            
+          
+          <Stack.Screen 
+            name="Verification" 
+            component={VerificationScreen}
+          />            
+          
+          {/* Dashboard for non-logged in users (if needed) */}
+          <Stack.Screen 
+            name="ProviderDashboard" 
+            component={DashboardScreen}
+          />
+          
+          {/* Profile Update for non-logged in users (if needed) */}
+          <Stack.Screen 
+            name="ProfileUpdate" 
+            component={ProfileUpdateScreen}
+          />
         </> 
       ) : (
-        // =========== MAIN APP SCREENS ===========
+        /* =========== MAIN APP SCREENS (When user IS logged in) =========== */
         <>
-          <Stack.Screen name="ProviderOTPLogin" component={ProviderOTPLoginScreen}/>            
-          <Stack.Screen name="ProviderDashboard" component={DashboardScreen}/>
-
-          <Stack.Screen name="Bookings" component={BookingListScreen}/>
-          <Stack.Screen name="BookingDetail" component={BookingDetailScreen}/> 
-
-          <Stack.Screen name="OTPVerificationScreen" component={OTPVerificationScreen}/> 
-          <Stack.Screen name="SelfieCaptureScreen" component={SelfieCaptureScreen}/> 
-          <Stack.Screen name="MediaCaptureScreen" component={MediaCaptureScreen}/> 
-          <Stack.Screen name="CompleteBookingScreen" component={CompleteBookingScreen}/> 
-          <Stack.Screen name="PartsSelectionScreen" component={PartsSelectionScreen}/> 
-
-          <Stack.Screen name="ProviderProfile" component={ProviderProfileScreen}/>
-          <Stack.Screen name="ProfileUpdate" component={ProfileUpdateScreen} />
-
-          <Stack.Screen name="KycScreen" component={KYCUpdateScreen} /> 
-          <Stack.Screen name="KYCView" component={KYCViewScreen} /> 
-
-          <Stack.Screen name="Training" component={TrainingScheduleScreen} /> 
-          <Stack.Screen name="TrainingStatus" component={TrainingStatusScreen} />
-
-          <Stack.Screen name="AvailabilityScreen" component={ServiceAvailabilityScreen} />
-
-          <Stack.Screen name="ZonesScreen" component={ZonesScreen} />
-
-          <Stack.Screen name="TodayJobs" component={TodayJobsScreen}/>            
-          <Stack.Screen name="JobDetails" component={JobDetailsScreen}/>                        
-
-          <Stack.Screen name="Earnings" component={EarningsScreen}/>
-          <Stack.Screen name="EarningDetails" component={EarningDetailsScreen}/>
-
-          <Stack.Screen name="Wallet" component={WalletScreen}/>
-          <Stack.Screen name="AddWallet" component={AddWalletScreen}/>
-
-          <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen}/>
-          <Stack.Screen name="TransactionDetails" component={TransactionDetailsScreen}/>
-
-          <Stack.Screen name="Schedule" component={ScheduleScreen}/>            
-          <Stack.Screen name="Performance" component={PerformanceScreen}/>            
-          <Stack.Screen name="Tools" component={ToolsScreen}/>
+          {/* =========== DASHBOARD & MAIN SCREENS =========== */}
+          <Stack.Screen 
+            name="ProviderDashboard" 
+            component={DashboardScreen}
+          />
           
-          <Stack.Screen name="Profile" component={ProfileScreen}/>
-          <Stack.Screen name="Settings" component={SettingsScreen}/>
+          {/* =========== BOOKING RELATED SCREENS =========== */}
+          <Stack.Screen 
+            name="Bookings" 
+            component={BookingListScreen}
+          />
           
+          <Stack.Screen 
+            name="BookingDetail" 
+            component={BookingDetailScreen}
+          /> 
+
+          <Stack.Screen 
+            name="OTPVerificationScreen" 
+            component={OTPVerificationScreen}
+            options={modalOptions}
+          /> 
+
+          <Stack.Screen 
+            name="StartServiceScreen" 
+            component={StartServiceScreen}
+            options={modalOptions}
+          /> 
+          
+          <Stack.Screen 
+            name="SelfieCaptureScreen" 
+            component={SelfieCaptureScreen}
+            options={modalOptions}
+          /> 
+          
+          <Stack.Screen 
+            name="MediaCaptureScreen" 
+            component={MediaCaptureScreen}
+            options={modalOptions}
+          /> 
+          
+          <Stack.Screen 
+            name="CompleteBookingScreen" 
+            component={CompleteBookingScreen}
+            options={modalOptions}
+          /> 
+          
+          <Stack.Screen 
+            name="PartsSelectionScreen" 
+            component={PartsSelectionScreen}
+            options={modalOptions}
+          /> 
+
+          {/* =========== PROFILE SCREENS =========== */}
+          <Stack.Screen 
+            name="ProviderProfile" 
+            component={ProviderProfileScreen}
+          />
+          
+          <Stack.Screen 
+            name="ProfileUpdate" 
+            component={ProfileUpdateScreen}
+          />
+
+          {/* =========== KYC SCREENS =========== */}
+          <Stack.Screen 
+            name="KycScreen" 
+            component={KYCUpdateScreen}
+          /> 
+          
+          <Stack.Screen 
+            name="KYCView" 
+            component={KYCViewScreen}
+          /> 
+
+          {/* =========== TRAINING SCREENS =========== */}
+          <Stack.Screen 
+            name="TrainingHistory" 
+            component={TrainingHistoryScreen}
+          /> 
+          
+          <Stack.Screen 
+            name="Training" 
+            component={TrainingScheduleScreen}
+          /> 
+          
+          <Stack.Screen 
+            name="TrainingStatus" 
+            component={TrainingStatusScreen}
+          />
+
+          {/* =========== AVAILABILITY SCREENS =========== */}
+          <Stack.Screen 
+            name="AvailabilityScreen" 
+            component={ServiceAvailabilityScreen}
+          />
+
+          {/* =========== ZONE SCREENS =========== */}
+          <Stack.Screen 
+            name="ZonesScreen" 
+            component={ZonesScreen}
+          />
+
+          {/* =========== JOBS SCREENS =========== */}
+          <Stack.Screen 
+            name="TodayJobs" 
+            component={TodayJobsScreen}
+          />            
+          
+          <Stack.Screen 
+            name="JobDetails" 
+            component={JobDetailsScreen}
+          />                        
+
+          {/* =========== EARNINGS SCREENS =========== */}
+          <Stack.Screen 
+            name="Earnings" 
+            component={EarningsScreen}
+          />
+          
+          <Stack.Screen 
+            name="EarningDetails" 
+            component={EarningDetailsScreen}
+          />
+
+          {/* =========== WALLET SCREENS =========== */}
+          <Stack.Screen 
+            name="Wallet" 
+            component={WalletScreen}
+          />
+          
+          <Stack.Screen 
+            name="AddWallet" 
+            component={AddWalletScreen}
+            options={modalOptions}
+          />
+
+          {/* =========== TRANSACTION SCREENS =========== */}
+          <Stack.Screen 
+            name="TransactionHistory" 
+            component={TransactionHistoryScreen}
+          />
+          
+          <Stack.Screen 
+            name="TransactionDetails" 
+            component={TransactionDetailsScreen}
+          />
+
+          {/* =========== OTHER SCREENS =========== */}
+          <Stack.Screen 
+            name="Schedule" 
+            component={ScheduleScreen}
+          />            
+          
+          <Stack.Screen 
+            name="Performance" 
+            component={PerformanceScreen}
+          />            
+          
+          <Stack.Screen 
+            name="Tools" 
+            component={ToolsScreen}
+          />
+          
+          {/* =========== COMMON APP SCREENS =========== */}
+          <Stack.Screen 
+            name="Profile" 
+            component={ProfileScreen}
+          />
+          
+          <Stack.Screen 
+            name="Settings" 
+            component={SettingsScreen}
+          />
+
+          {/* =========== AUTH SCREENS (for logged in users if needed) =========== */}
+          <Stack.Screen 
+            name="ProviderOTPLogin" 
+            component={ProviderOTPLoginScreen}
+          />
         </>
       )}
     </Stack.Navigator>
   );
 }
 
-export default ProviderNavigator;
+export default ProviderNavigator; 

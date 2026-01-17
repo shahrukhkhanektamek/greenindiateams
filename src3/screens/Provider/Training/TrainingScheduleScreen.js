@@ -7,9 +7,9 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  FlatList,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import Header from '../../../components/Common/Header';
@@ -29,17 +29,16 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
   const [noTrainingFound, setNoTrainingFound] = useState(false);
+  const [availableDates, setAvailableDates] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [isFetchingDateData, setIsFetchingDateData] = useState(false);
   
   // Initial schedule data
   const [scheduleData, setScheduleData] = useState({
-    trainingDate: new Date(),
-    trainingTime: new Date(),
+    trainingDate: null,
     status: 'pending', // 'pending', 'scheduled', 'cancelled', 'rescheduled'
     originalDate: null,
-    originalTime: null,
     scheduleId: null,
   });
 
@@ -57,13 +56,32 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
     maxParticipant: '',
   });
 
+  // Format date to yyyy-mm-dd
+  const formatDateToYYYYMMDD = (date) => {
+    if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+      return '';
+    }
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Fetch training schedule data
-  const fetchTrainingData = async () => {
+  const fetchTrainingData = async (date = null) => {
     setLoading(true);
     setNoTrainingFound(false);
     
     try {
-      const response = await postData({}, Urls.trainingSchedule, 'GET', { 
+      // Prepare query parameters
+      let params = {};
+      if (date) {
+        const dateStr = formatDateToYYYYMMDD(date);
+        params = { date: dateStr };
+      }
+      console.log('API Params:', params);
+      
+      const response = await postData(params, Urls.trainingSchedule, 'GET', { 
         showErrorMessage: false, showSuccessMessage: false 
       });
       
@@ -81,76 +99,73 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
         // Extract training details from trainer object
         const trainer = apiData.trainer;
         setTrainingDetails({
-          title: trainer.subject || 'Technical Training',
-          instructor: trainer.fullName || 'Trainer Name',
-          duration: `${formatTime(trainer.startTime) || '10:00'} - ${formatTime(trainer.endTime) || '12:00'}`,
-          startTime: trainer.startTime || '10:00',
-          endTime: trainer.endTime || '12:00',
-          location: trainer.location || 'Training Center',
+          title: trainer.subject || 'AC Home Appliance Repair And Services',
+          instructor: trainer.fullName || 'Suneel Kumar',
+          duration: `${formatTime(trainer.startTime) || '16:16'} - ${formatTime(trainer.endTime) || '22:12'}`,
+          startTime: trainer.startTime || '16:16',
+          endTime: trainer.endTime || '22:12',
+          location: trainer.location || 'Delhi',
           type: 'Classroom',
-          description: trainer.description || 'Technical training session',
-          maxParticipant: trainer.maxParticipant || '50',
+          description: trainer.description || 'This training covers the basics of AC and home appliance repair, including installation, troubleshooting, maintenance, and safety practices. Technicians will learn common fault diagnosis, proper tool usage, and customer service standards to deliver quality and reliable service.',
+          maxParticipant: trainer.maxParticipant || '2',
           trainingId: apiData._id || '',
         });
         
-        // Set schedule data if exists (from trainigSubmit object)
-        if (apiData.trainigSubmit && apiData.trainigSubmit._id) {
-          const schedule = apiData.trainigSubmit;
-          
-          // Create Date objects from scheduleDate and scheduleTime
-          let trainingDate = new Date();
-          let trainingTime = new Date();
-          
-          if (schedule.scheduleDate) {
-            // Parse date string
-            trainingDate = new Date(schedule.scheduleDate);
-            
-            // If we have scheduleTime, combine with date
-            if (schedule.scheduleTime) {
-              // Parse time string (e.g., "15:30")
-              const [hours, minutes] = schedule.scheduleTime.split(':').map(Number);
-              trainingDate.setHours(hours, minutes, 0, 0);
-              trainingTime = new Date(trainingDate);
-            } else {
-              trainingTime = new Date(trainingDate);
-              trainingTime.setHours(10, 0, 0, 0); // Default time 10:00 AM
-            }
-          }
-          
-          // Determine status based on API data 
-          let status = 'pending';
-          if (schedule.trainingScheduleStatus === 'New' || schedule.status === true) {
-            status = 'scheduled';
-          } else if (schedule.status === false) {
-            status = 'cancelled';
-          }
-          
-          setScheduleData({
-            trainingDate: trainingDate,
-            trainingTime: trainingTime,
-            status: status,
-            originalDate: new Date(trainingDate),
-            originalTime: new Date(trainingTime),
-            scheduleId: schedule._id,
+        // Process available dates from dates array
+        if (apiData.dates && apiData.dates.length > 0) {
+          const dates = apiData.dates.map(dateStr => {
+            // Parse date string and create Date object
+            const dateObj = new Date(dateStr);
+            // Set time to noon to avoid timezone issues
+            dateObj.setHours(12, 0, 0, 0);
+            return dateObj;
           });
-        } else {
-          // No schedule exists, set as pending
-          const tomorrow = new Date();
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          const defaultTime = new Date(tomorrow);
-          defaultTime.setHours(10, 0, 0, 0);
           
+          // Sort dates in ascending order
+          dates.sort((a, b) => a - b);
+          
+          setAvailableDates(dates);
+          
+          // For first load, set selected date to first available date
+          let dateToSelect = dates[0];
+          if (date) {
+            // If date parameter is provided, use it
+            dateToSelect = date;
+          } else if (selectedDate) {
+            // Keep previously selected date if available
+            dateToSelect = selectedDate;
+          }
+          
+          // Make sure selected date is valid and in available dates
+          const isValidDate = dateToSelect instanceof Date && !isNaN(dateToSelect.getTime());
+          const isInAvailableDates = dates.some(d => 
+            d.toDateString() === dateToSelect.toDateString()
+          );
+          
+          if (!isValidDate || !isInAvailableDates) {
+            dateToSelect = dates[0];
+          }
+          
+          setSelectedDate(dateToSelect);
+          
+          // Check if there is existing schedule in API response
+          // In new API response, there's no trainigSubmit object
+          // So we need to check if schedule exists from previous calls or context
+          
+          // For now, set as pending since no schedule exists in this response
           setScheduleData({
-            trainingDate: tomorrow,
-            trainingTime: defaultTime,
+            trainingDate: dateToSelect,
             status: 'pending',
-            originalDate: new Date(tomorrow),
-            originalTime: new Date(defaultTime),
+            originalDate: new Date(dateToSelect),
             scheduleId: null,
           });
+          
+          setNoTrainingFound(false);
+        } else {
+          // No dates available
+          setNoTrainingFound(true);
+          setDefaultData();
         }
-        
-        setNoTrainingFound(false);
       } else {
         // API success false - No training found
         setNoTrainingFound(true);
@@ -164,39 +179,47 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
       setLoading(false);
       setDataLoaded(true);
       setRefreshing(false);
+      setIsFetchingDateData(false);
     }
+  };
+
+  // Handle date selection
+  const handleDateSelect = async (date) => {
+    setSelectedDate(date);
+    setIsFetchingDateData(true);
+    
+    // Call API with selected date
+    await fetchTrainingData(date);
   };
 
   // Helper function to set default data
   const setDefaultData = () => {
     // Set default values
     setTrainingDetails({
-      title: 'Technical Training',
-      instructor: 'Trainer Name',
-      duration: '10:00 - 12:00',
-      startTime: '10:00', 
-      endTime: '12:00',
-      location: 'Training Center',
+      title: 'AC Home Appliance Repair And Services',
+      instructor: 'Suneel Kumar',
+      duration: '16:16 - 22:12',
+      startTime: '16:16', 
+      endTime: '22:12',
+      location: 'Delhi',
       type: 'Classroom',
-      description: 'Technical training session',
-      maxParticipant: '50',
+      description: 'This training covers the basics of AC and home appliance repair, including installation, troubleshooting, maintenance, and safety practices. Technicians will learn common fault diagnosis, proper tool usage, and customer service standards to deliver quality and reliable service.',
+      maxParticipant: '2',
       trainingId: '',
     });
     
-    // Set default date to tomorrow with pending status
+    // Set default date to first available date or tomorrow
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const defaultTime = new Date(tomorrow);
-    defaultTime.setHours(10, 0, 0, 0);
     
     setScheduleData({
       trainingDate: tomorrow,
-      trainingTime: defaultTime,
       status: 'pending',
       originalDate: new Date(tomorrow),
-      originalTime: new Date(defaultTime),
       scheduleId: null,
     });
+    
+    setSelectedDate(tomorrow);
   };
 
   useEffect(() => {
@@ -206,7 +229,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
   // Refresh function
   const onRefresh = () => {
     setRefreshing(true);
-    fetchTrainingData();
+    fetchTrainingData(selectedDate);
   };
 
   const formatDate = (date) => {
@@ -253,66 +276,39 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
     return timeString;
   };
 
-  const handleDateChange = (event, selectedDate) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
-      setScheduleData({ ...scheduleData, trainingDate: selectedDate });
-    }
-  };
-
-  const handleTimeChange = (event, selectedTime) => {
-    setShowTimePicker(false);
-    if (selectedTime) {
-      setScheduleData({ ...scheduleData, trainingTime: selectedTime });
-    }
-  };
-
   const isScheduleModified = () => {
-    if (!scheduleData.originalDate || !scheduleData.originalTime) return false;
+    if (!scheduleData.originalDate) return false;
     
     if (!(scheduleData.trainingDate instanceof Date) || !(scheduleData.originalDate instanceof Date)) {
       return false;
     }
     
-    const dateChanged = scheduleData.trainingDate.toDateString() !== scheduleData.originalDate.toDateString();
-    const timeChanged = formatTime(scheduleData.trainingTime) !== formatTime(scheduleData.originalTime);
-    
-    return dateChanged || timeChanged;
+    return scheduleData.trainingDate.toDateString() !== scheduleData.originalDate.toDateString();
   };
 
   const validateSchedule = () => {
-    const now = new Date();
-    const selectedDateTime = new Date(scheduleData.trainingDate);
-    selectedDateTime.setHours(
-      scheduleData.trainingTime.getHours(),
-      scheduleData.trainingTime.getMinutes(),
-      0,
-      0
-    );
-
-    // Check if selected date is in the past
-    if (selectedDateTime < now) {
+    if (!selectedDate) {
       Toast.show({
         type: 'error',
-        text1: 'Invalid Schedule',
-        text2: 'Please select a future date and time',
+        text1: 'Invalid Date',
+        text2: 'Please select a date',
       });
       return false;
     }
 
-    // Check if date is at least tomorrow
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    
-    const selectedDateOnly = new Date(scheduleData.trainingDate);
+    const now = new Date();
+    const selectedDateOnly = new Date(selectedDate);
     selectedDateOnly.setHours(0, 0, 0, 0);
     
-    if (selectedDateOnly < tomorrow) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Check if selected date is in the past
+    if (selectedDateOnly < today) {
       Toast.show({
         type: 'error',
         text1: 'Invalid Date',
-        text2: 'Please select a date from tomorrow onwards',
+        text2: 'Please select a future date',
       });
       return false;
     }
@@ -329,16 +325,11 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
     setLoading(true);
 
     try {
-      // Format date as ISO string (YYYY-MM-DDTHH:mm:ss.sssZ)
-      const year = scheduleData.trainingDate.getFullYear();
-      const month = String(scheduleData.trainingDate.getMonth() + 1).padStart(2, '0');
-      const day = String(scheduleData.trainingDate.getDate()).padStart(2, '0');
-      const formattedDate = `${year}-${month}-${day}T00:00:00.000Z`;
+      // Format date as yyyy-mm-dd
+      const formattedDate = formatDateToYYYYMMDD(selectedDate);
       
-      // Format time as HH:mm
-      const hours = String(scheduleData.trainingTime.getHours()).padStart(2, '0');
-      const minutes = String(scheduleData.trainingTime.getMinutes()).padStart(2, '0');
-      const formattedTime = `${hours}:${minutes}`;
+      // Format time as HH:mm (from API)
+      const formattedTime = trainingDetails.startTime || "16:16";
 
       // Prepare data for API based on your response structure
       const submitData = {
@@ -374,29 +365,22 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
         const newSchedule = response.data?.trainigSubmit || response.data;
         
         if (newSchedule) {
-          // Create Date objects from new schedule
+          // Create Date object from new schedule
           let newDate = new Date();
-          let newTime = new Date();
-          
           if (newSchedule.scheduleDate) {
             newDate = new Date(newSchedule.scheduleDate);
-            
-            if (newSchedule.scheduleTime) {
-              const [hours, minutes] = newSchedule.scheduleTime.split(':').map(Number);
-              newDate.setHours(hours, minutes, 0, 0);
-              newTime = new Date(newDate);
-            }
           }
           
           setScheduleData(prev => ({
             ...prev,
             trainingDate: newDate,
-            trainingTime: newTime,
             originalDate: new Date(newDate),
-            originalTime: new Date(newTime),
             status: 'scheduled',
             scheduleId: newSchedule._id,
           }));
+          
+          // Update selected date
+          setSelectedDate(newDate);
         }
         
         await fetchProfile();
@@ -428,16 +412,11 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
     setLoading(true);
 
     try {
-      // Format date as ISO string (YYYY-MM-DDTHH:mm:ss.sssZ)
-      const year = scheduleData.trainingDate.getFullYear();
-      const month = String(scheduleData.trainingDate.getMonth() + 1).padStart(2, '0');
-      const day = String(scheduleData.trainingDate.getDate()).padStart(2, '0');
-      const formattedDate = `${year}-${month}-${day}T00:00:00.000Z`;
+      // Format date as yyyy-mm-dd
+      const formattedDate = formatDateToYYYYMMDD(selectedDate);
       
-      // Format time as HH:mm
-      const hours = String(scheduleData.trainingTime.getHours()).padStart(2, '0');
-      const minutes = String(scheduleData.trainingTime.getMinutes()).padStart(2, '0');
-      const formattedTime = `${hours}:${minutes}`;
+      // Format time as HH:mm (from API)
+      const formattedTime = trainingDetails.startTime || "16:16";
 
       // Prepare data for API
       const submitData = {
@@ -470,26 +449,19 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
         
         if (newSchedule) {
           let newDate = new Date();
-          let newTime = new Date();
-          
           if (newSchedule.scheduleDate) {
             newDate = new Date(newSchedule.scheduleDate);
-            
-            if (newSchedule.scheduleTime) {
-              const [hours, minutes] = newSchedule.scheduleTime.split(':').map(Number);
-              newDate.setHours(hours, minutes, 0, 0);
-              newTime = new Date(newDate);
-            }
           }
           
           setScheduleData(prev => ({
             ...prev,
             trainingDate: newDate,
-            trainingTime: newTime,
             originalDate: new Date(newDate),
-            originalTime: new Date(newTime),
             status: 'rescheduled',
           }));
+          
+          // Update selected date
+          setSelectedDate(newDate);
         }
         
         await fetchProfile();
@@ -607,7 +579,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
       const timer = setTimeout(() => {
         Alert.alert(
           'Confirm Reschedule',
-          `New schedule: ${formatDate(scheduleData.trainingDate)} at ${formatTime(scheduleData.trainingTime)}`,
+          `New schedule: ${formatDate(selectedDate)} at ${formatTime(trainingDetails.startTime)}`,
           [
             {
               text: 'Cancel',
@@ -617,7 +589,6 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
                 setScheduleData(prev => ({
                   ...prev,
                   trainingDate: prev.originalDate,
-                  trainingTime: prev.originalTime,
                 }));
               }
             },
@@ -631,7 +602,56 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
       
       return () => clearTimeout(timer);
     }
-  }, [scheduleData.trainingDate, scheduleData.trainingTime]);
+  }, [selectedDate, scheduleData.trainingDate]);
+
+  // Date item component
+  const DateItem = ({ date, index }) => {
+    const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
+    const dateStr = date.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+    });
+    const dayStr = date.toLocaleDateString('en-IN', {
+      weekday: 'short',
+    });
+
+    return (
+      <TouchableOpacity
+        style={clsx(
+          styles.p3,
+          styles.mr3,
+          styles.itemsCenter,
+          styles.roundedMd,
+          styles.border,
+          isSelected ? styles.borderPrimary : styles.borderGray,
+          isSelected ? styles.bgPrimaryLight : styles.bgWhite
+        )}
+        onPress={() => handleDateSelect(date)}
+        disabled={isFetchingDateData || scheduleData.status === 'cancelled' || scheduleData.status === 'completed'}
+      >
+        <Text style={clsx(
+          styles.textSm,
+          isSelected ? styles.textPrimary : styles.textMuted
+        )}>
+          {dayStr}
+        </Text>
+        <Text style={clsx(
+          styles.textLg,
+          styles.fontBold,
+          styles.mt1,
+          isSelected ? styles.textPrimary : styles.textBlack
+        )}>
+          {dateStr.split(' ')[0]}
+        </Text>
+        <Text style={clsx(
+          styles.textSm,
+          isSelected ? styles.textPrimary : styles.textMuted
+        )}>
+          {dateStr.split(' ')[1]}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   if (!dataLoaded && loading) {
     return (
@@ -701,6 +721,68 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
           </View>
         ) : (
           <>
+            {/* Available Dates Selector */}
+            {availableDates.length > 0 && (
+              <View style={clsx(styles.mb6)}>
+                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb3)}>
+                  Select Training Date
+                </Text>
+                
+                {isFetchingDateData && (
+                  <View style={clsx(styles.mb3, styles.flexRow, styles.itemsCenter)}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={clsx(styles.textSm, styles.textMuted, styles.ml2)}>
+                      Loading training details...
+                    </Text>
+                  </View>
+                )}
+                
+                <FlatList
+                  horizontal
+                  data={availableDates}
+                  renderItem={({ item, index }) => (
+                    <DateItem date={item} index={index} />
+                  )}
+                  keyExtractor={(item, index) => index.toString()}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={clsx(styles.py2)}
+                />
+              </View>
+            )}
+
+            {/* Selected Date Display */}
+            {selectedDate && (
+              <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm, styles.mb6)}>
+                <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
+                  <Icon name="event" size={18} color={colors.primary} style={clsx(styles.mr2)} />
+                  <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.ml3)}>
+                    Selected Training Date
+                  </Text>
+                </View>
+                
+                <View style={clsx(
+                  styles.p3,
+                  styles.bgPrimaryLight,
+                  styles.rounded,
+                  styles.flexRow,
+                  styles.justifyBetween,
+                  styles.itemsCenter
+                )}>
+                  <View>
+                    <Text style={clsx(styles.textSm, styles.textPrimary)}>Date</Text>
+                    <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mt1)}>
+                      {formatDate(selectedDate)}
+                    </Text>
+                  </View>
+                  <Icon name="check-circle" size={24} color={colors.primary} />
+                </View>
+                
+                <Text style={clsx(styles.textSm, styles.textMuted, styles.mt3)}>
+                  Time: {trainingDetails.duration}
+                </Text>
+              </View>
+            )}
+
             {/* Training Details Card */}
             <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm, styles.mb6)}>
               <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
@@ -750,71 +832,56 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
 
             {/* Schedule Section */}
             <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm)}>
-              <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb4)}>
-                Training Schedule
-              </Text>
+              
 
-              {/* Status Display */}
-              <View style={clsx(styles.p3, statusInfo.bg, styles.rounded, styles.mb4, styles.flexRow, styles.itemsCenter)}>
-                <Icon name={statusInfo.icon} size={20} color={statusInfo.color} />
-                <Text style={clsx(styles.textBase, styles.fontMedium, styles.ml2, { color: statusInfo.color })}>
-                  Status: {statusInfo.text}
-                </Text>
-              </View>
-
-              {/* Date Selection */}
+              {/* Selected Date Info */}
               <View style={clsx(styles.mb4)}>
                 <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb3)}>
-                  Training Date
+                  Scheduled Date & Time
                 </Text>
                 
-                <TouchableOpacity
-                  style={clsx(
-                    styles.input,
-                    styles.flexRow,
-                    styles.justifyBetween,
-                    styles.itemsCenter,
-                    styles.p3
-                  )}
-                  disabled={loading || scheduleData.status === 'cancelled' || scheduleData.status === 'completed'}
-                >
+                <View style={clsx(
+                  styles.input,
+                  styles.flexRow,
+                  styles.justifyBetween,
+                  styles.itemsCenter,
+                  styles.p3
+                )}>
                   <View>
-                    <Text style={clsx(styles.textSm, styles.textMuted)}>Selected Date</Text>
+                    <Text style={clsx(styles.textSm, styles.textMuted)}>Date</Text>
                     <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mt1)}>
-                      {formatDate(scheduleData.trainingDate)}
+                      {selectedDate ? formatDate(selectedDate) : 'Not selected'}
                     </Text>
                   </View>
-                </TouchableOpacity>
-              </View>
-
-              {/* Time Selection */}
-              <View style={clsx(styles.mb6)}>
-                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb3)}>
-                  Training Time
-                </Text>
+                  <Icon name="event" size={24} color={colors.primary} />
+                </View>
                 
-                <TouchableOpacity
-                  style={clsx(
-                    styles.input,
-                    styles.flexRow,
-                    styles.justifyBetween,
-                    styles.itemsCenter,
-                    styles.p3
-                  )}
-                  disabled={loading || scheduleData.status === 'cancelled' || scheduleData.status === 'completed'}
-                >
-                  <View>
-                    <Text style={clsx(styles.textSm, styles.textMuted)}>Selected Time</Text>
-                    <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mt1)}>
-                      {formatTime(scheduleData.trainingTime)}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
+                <Text style={clsx(styles.textSm, styles.textMuted, styles.mt3)}>
+                  Time: {trainingDetails.duration}
+                </Text>
               </View>
-
 
               {/* Action Buttons */}
               <View style={clsx(styles.mt4)}>
+                {/* Cancel Button (only for scheduled/rescheduled status) */}
+                {(scheduleData.status === 'scheduled' || scheduleData.status === 'rescheduled') && (
+                  <TouchableOpacity
+                    style={clsx(
+                      styles.buttonError,
+                      styles.mb3
+                    )}
+                    onPress={handleCancelTraining}
+                    disabled={loading}
+                  >
+                    <View style={clsx(styles.flexRow, styles.justifyCenter, styles.itemsCenter)}>
+                      <Icon name="cancel" size={20} color={colors.white} style={clsx(styles.mr2)} />
+                      <Text style={clsx(styles.buttonText)}>
+                        Cancel Training
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
                 {/* Reschedule Button (only for scheduled/rescheduled status) */}
                 {(scheduleData.status === 'scheduled' || scheduleData.status === 'rescheduled') && !isScheduleModified() && (
                   <TouchableOpacity
@@ -825,7 +892,9 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
                       styles.justifyCenter,
                       styles.itemsCenter
                     )}
-                    onPress={confirmReschedule}
+                    onPress={() => {
+                      // User can select a new date from available dates
+                    }}
                     disabled={loading}
                   >
                     <Icon name="update" size={20} color={colors.primary} style={clsx(styles.mr2)} />
@@ -834,8 +903,6 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
                     </Text>
                   </TouchableOpacity>
                 )}
-
-                
 
                 {/* Confirm/Schedule Button (for pending status or when modified) */}
                 {(scheduleData.status === 'pending' || isScheduleModified()) && (
@@ -902,32 +969,9 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
                 Need Help? Contact Support
               </Text>
             </TouchableOpacity>
-
           </>
         )}
       </ScrollView>
-
-      {/* Date Picker */}
-      {showDatePicker && (
-        <DateTimePicker
-          value={scheduleData.trainingDate}
-          mode="date"
-          display="default"
-          onChange={handleDateChange}
-          minimumDate={new Date(new Date().setDate(new Date().getDate() + 1))}
-        />
-      )}
-
-      {/* Time Picker */}
-      {showTimePicker && (
-        <DateTimePicker
-          value={scheduleData.trainingTime}
-          mode="time"
-          display="spinner"
-          onChange={handleTimeChange}
-          is24Hour={false}
-        />
-      )}
     </View>
   );
 };

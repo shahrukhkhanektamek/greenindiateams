@@ -11,14 +11,14 @@ import { reset } from "../navigation/navigationService";
 export const AppContext = createContext();
 const ENVIRONMENT = "development"; // production or development
 const rzorepay_key = 'rzp_test_RHmDyqCFCKQ5XV';
-
+ 
 // API URLs configuration - Consider moving to environment variables
 const BASE_URLS = {
-  // development: "http://192.168.1.25:8080/",
+  development: "http://192.168.1.25:8080/",
   production: "https://oyekabadwale.com/",
   // production: "http://145.223.18.56:3001/",
   
-  development: "http://192.168.1.10:8080/",
+  // development: "http://192.168.1.10:8080/",
   // development: "http://192.168.1.61:8080/",
   // production: "https://api.example.com/"
 };
@@ -89,6 +89,7 @@ export const AppProvider = ({ children }) => {
 
       zonesList: `${serviceManUrl}profile/zone`,
 
+      trainingHistory: `${serviceManUrl}training-schedule-submit/all`,
       trainingSchedule: `${serviceManUrl}training-schedule/next/upcoming`,
       trainingScheduleUpdate: `${serviceManUrl}training-schedule-submit`,
       trainingScheduleDetail: `${serviceManUrl}training-schedule-submit/detail`,
@@ -559,9 +560,9 @@ export const AppProvider = ({ children }) => {
     } catch (error) {
       console.error('Error fetching profile data:', error);
       // If API fails but route params exist, use them
-      if (route.params?.profile) {
-        setFormData(route.params.profile);
-      }
+      // if (route.params?.profile) {
+      //   setFormData(route.params.profile);
+      // }
       return false;
     }
   };
@@ -695,7 +696,7 @@ export const AppProvider = ({ children }) => {
     storage,
     mainUrl,
     setLoading,
-  ]);
+  ]); 
 
  
 

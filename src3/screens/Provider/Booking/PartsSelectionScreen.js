@@ -144,7 +144,8 @@ const PartsSelectionScreen = ({ navigation, route }) => {
     // Calculate parts amount from selected parts
     Object.values(selectedParts).forEach(part => {
       const quantity = quantities[part.key] || 1;
-      partsTotal += (part.price || 0) * quantity;
+      // अब unitPrice का उपयोग करें
+      partsTotal += (part.unitPrice || 0) * quantity;
     });
     
     setPartsAmount(partsTotal);
@@ -165,10 +166,12 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       setSelectedParts(newSelectedParts);
       setQuantities(newQuantities);
     } else {
-      // Calculate total price (price + labourCharge)
+      // Calculate total price - अब unitPrice का उपयोग करें
       const price = parseFloat(rate.serviceCharge?.price || 0);
       const labourCharge = parseFloat(rate.serviceCharge?.labourCharge || 0);
-      const totalPrice = price + labourCharge;
+      const discountPrice = parseFloat(rate.serviceCharge?.discountPrice || 0);
+      // unitPrice का उपयोग करें (यह पहले से ही discount लगा हुआ price है)
+      const unitPrice = parseFloat(rate.unitPrice || 0);
       
       // Find service item to get its ID
       const serviceItem = serviceItems.find(s => s.id === serviceItemId);
@@ -180,10 +183,10 @@ const PartsSelectionScreen = ({ navigation, route }) => {
           key: key,
           rateId: rate._id,
           description: rate.description,
-          price: totalPrice,
+          unitPrice: unitPrice, // unitPrice का उपयोग करें
           originalPrice: price,
           labourCharge: labourCharge,
-          discountPrice: rate.serviceCharge?.discountPrice || 0,
+          discountPrice: discountPrice,
           serviceItemId: serviceItem?.id, // यह booking item का _id है
           serviceId: serviceItem?.serviceId, // यह service का _id है
           serviceItemName: serviceItem?.name,
@@ -214,7 +217,9 @@ const PartsSelectionScreen = ({ navigation, route }) => {
     const key = `${rate._id}_${serviceItemId}`;
     const price = parseFloat(rate.serviceCharge?.price || 0);
     const labourCharge = parseFloat(rate.serviceCharge?.labourCharge || 0);
-    const totalPrice = price + labourCharge;
+    const discountPrice = parseFloat(rate.serviceCharge?.discountPrice || 0);
+    // unitPrice का उपयोग करें
+    const unitPrice = parseFloat(rate.unitPrice || 0);
     
     // Find service item to get its ID
     const serviceItem = serviceItems.find(s => s.id === serviceItemId);
@@ -223,10 +228,10 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       key: key,
       rateId: rate._id,
       description: rate.description,
-      price: totalPrice,
+      unitPrice: unitPrice, // unitPrice का उपयोग करें
       originalPrice: price,
       labourCharge: labourCharge,
-      discountPrice: rate.serviceCharge?.discountPrice || 0,
+      discountPrice: discountPrice,
       serviceItemId: serviceItem?.id,
       serviceId: serviceItem?.serviceId,
       serviceItemName: serviceItem?.name,
@@ -273,10 +278,10 @@ const PartsSelectionScreen = ({ navigation, route }) => {
           serviceId: part.serviceId, // service का _id (optional)
           rateId: part.rateId,
           description: part.description,
-          unitPrice: part.price,
+          unitPrice: part.unitPrice, // unitPrice का उपयोग करें
           quantity: quantity,
           labourCharge: part.labourCharge,
-          totalPrice: part.price * quantity,
+          totalPrice: part.unitPrice * quantity, // unitPrice का उपयोग करें
           groupTitle: part.groupTitle
         };
       });
@@ -335,8 +340,10 @@ const PartsSelectionScreen = ({ navigation, route }) => {
     const quantity = quantities[key] || (isSelected ? 1 : 0);
     const price = parseFloat(rate.serviceCharge?.price || 0);
     const labourCharge = parseFloat(rate.serviceCharge?.labourCharge || 0);
-    const totalPrice = price + labourCharge;
-    const itemTotalPrice = totalPrice * quantity;
+    const discountPrice = parseFloat(rate.serviceCharge?.discountPrice || 0);
+    // unitPrice का उपयोग करें
+    const unitPrice = parseFloat(rate.unitPrice || 0);
+    const itemTotalPrice = unitPrice * quantity;
     
     return (
       <View style={clsx(
@@ -368,15 +375,15 @@ const PartsSelectionScreen = ({ navigation, route }) => {
               </Text>
             )}
             
-            {rate.serviceCharge?.discountPrice && (
+            {discountPrice > 0 && (
               <Text style={clsx(styles.textSm, styles.textSuccess, styles.mr2)}>
-                Discount: ₹{rate.serviceCharge.discountPrice}
+                Discount: ₹{discountPrice}
               </Text>
             )}
           </View>
           
           <Text style={clsx(styles.textXs, styles.fontBold, styles.textPrimary, styles.mt1)}>
-            Total: ₹{totalPrice}
+            Unit Price: ₹{unitPrice}
           </Text>
         </View>
         
@@ -499,7 +506,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
                     </Text>
                   </View>
                   <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
-                    {quantity} × ₹{part.price} = ₹{quantity * part.price}
+                    {quantity} × ₹{part.unitPrice} = ₹{quantity * part.unitPrice}
                   </Text>
                 </View>
               );
@@ -571,7 +578,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
                   </Text>
                 )}
                 <Text style={clsx(styles.textSm, styles.fontBold, styles.textPrimary)}>
-                  Total per unit: ₹{selectedPartForQuantity.price}
+                  Unit Price: ₹{selectedPartForQuantity.unitPrice}
                 </Text>
               </View>
               
@@ -628,7 +635,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
               </View>
               
               <Text style={clsx(styles.textLg, styles.fontBold, styles.textPrimary, styles.textCenter, styles.mb4)}>
-                Total: ₹{(selectedPartForQuantity.price * (quantities[selectedPartForQuantity.key] || 1))}
+                Total: ₹{(selectedPartForQuantity.unitPrice * (quantities[selectedPartForQuantity.key] || 1))}
               </Text>
             </>
           )}
@@ -689,7 +696,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
   }
 
   return (
-    <View style={clsx(styles.flex1, styles.bgSurface)}>
+    <View style={clsx(styles.flex1)}>
       {/* Header */}
       <View style={clsx(styles.bgPrimary, styles.px4, styles.pt3, styles.pb4)}>
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4)}>
@@ -711,8 +718,8 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       </View>
 
       <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={clsx(styles.pb24)}
+        showsVerticalScrollIndicator={true}
+        contentContainerStyle={clsx(styles.pb8)}
       >
         {/* Amount Summary */}
         <View style={clsx(styles.p4)}>

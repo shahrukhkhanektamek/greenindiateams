@@ -16,6 +16,7 @@ import SelfieCaptureScreen from '../screens/Provider/Booking/SelfieCaptureScreen
 import MediaCaptureScreen from '../screens/Provider/Booking/MediaCaptureScreen';
 import CompleteBookingScreen from '../screens/Provider/Booking/CompleteBookingScreen';
 import PartsSelectionScreen from '../screens/Provider/Booking/PartsSelectionScreen';
+import QrPaymentScreen from '../screens/Provider/Booking/QrPaymentScreen';
 
 
 import ProviderProfileScreen from '../screens/Provider/Profile/ProviderProfileScreen';
@@ -248,6 +249,12 @@ function ProviderNavigator() {
           <Stack.Screen 
             name="PartsSelectionScreen" 
             component={PartsSelectionScreen}
+            options={modalOptions}
+          /> 
+          
+          <Stack.Screen 
+            name="QrPaymentScreen" 
+            component={QrPaymentScreen}
             options={modalOptions}
           /> 
 

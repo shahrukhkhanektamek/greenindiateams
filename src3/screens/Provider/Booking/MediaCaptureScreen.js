@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   StatusBar,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { launchCamera } from 'react-native-image-picker';
@@ -29,6 +30,25 @@ const MediaCaptureScreen = () => {
   const { Toast } = useContext(AppContext);
   
   const [capturing, setCapturing] = useState(false);
+  const [hasOpenedCamera, setHasOpenedCamera] = useState(false);
+
+  useEffect(() => {
+    // Automatically open camera when screen loads
+    const timer = setTimeout(() => {
+      if (!hasOpenedCamera) {
+        openCameraAutomatically();
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  const openCameraAutomatically = async () => {
+    if (!hasOpenedCamera) {
+      setHasOpenedCamera(true);
+      await captureMedia();
+    }
+  };
 
   const handleBack = () => {
     navigation.goBack();
@@ -56,7 +76,8 @@ const MediaCaptureScreen = () => {
       const result = await launchCamera(options);
       
       if (result.didCancel) {
-        setCapturing(false);
+        // If user cancels, go back
+        navigation.goBack();
         return;
       }
       
@@ -104,67 +125,137 @@ const MediaCaptureScreen = () => {
     }
   };
 
+  const handleRetry = async () => {
+    await captureMedia();
+  };
+
   return (
     <View style={clsx(styles.flex1, styles.bgSurface)}>
-      <StatusBar backgroundColor="rgba(0,0,0,0.5)" barStyle="light-content" />
+      <StatusBar 
+        backgroundColor={mediaType.includes('image') ? colors.black : colors.danger} 
+        barStyle="light-content" 
+      />
       
-      <TouchableOpacity
-        style={clsx(styles.flex1, styles.bgBlack50)}
-        activeOpacity={1}
-        onPress={handleBack}
-      >
-        <View style={clsx(styles.flex1, styles.justifyEnd)}>
-          <View style={clsx(styles.bgWhite, styles.roundedT3xl, styles.p6)}>
-            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb6)}>
-              <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)}>
-                {mediaType === 'before-image' ? 'Capture Before Service Image' :
-                 mediaType === 'before-video' ? 'Record Before Service Video' :
-                 mediaType === 'after-image' ? 'Capture After Service Image' : 'Record After Service Video'}
+      {/* Header - Only shown when not capturing */}
+      {!capturing && (
+        <View style={clsx(
+          styles.flexRow, 
+          styles.itemsCenter, 
+          styles.justifyBetween, 
+          styles.p4, 
+          styles.bgWhite, 
+          Platform.OS === 'ios' ? styles.pt12 : styles.pt4
+        )}>
+          <TouchableOpacity 
+            onPress={handleBack}
+            style={clsx(styles.p2)}
+          >
+            <Icon name="arrow-back" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          
+          <Text style={clsx(styles.textXl, styles.fontBold, styles.textPrimary)}>
+            {mediaType === 'before-image' ? 'Capture Before Image' :
+             mediaType === 'before-video' ? 'Record Before Video' :
+             mediaType === 'after-image' ? 'Capture After Image' : 'Record After Video'}
+          </Text>
+          
+          <View style={clsx(styles.w10)} />
+        </View>
+      )}
+
+      {/* Main Content */}
+      <View style={clsx(styles.flex1, styles.justifyCenter, styles.itemsCenter, styles.p6)}>
+        {capturing ? (
+          <View style={clsx(styles.itemsCenter, styles.justifyCenter)}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={clsx(styles.textLg, styles.fontBold, styles.textPrimary, styles.mt4)}>
+              Opening Camera...
+            </Text>
+            <Text style={clsx(styles.textBase, styles.textMuted, styles.mt2, styles.textCenter)}>
+              Please wait while we open the camera
+            </Text>
+          </View>
+        ) : (
+          <View style={clsx(styles.itemsCenter, styles.justifyCenter)}>
+            <View style={clsx(styles.mb8, styles.itemsCenter)}>
+              <Icon 
+                name={mediaType.includes('image') ? 'camera-alt' : 'videocam'} 
+                size={64} 
+                color={colors.primary} 
+                style={clsx(styles.mb4)}
+              />
+              <Text style={clsx(styles.textXl, styles.fontBold, styles.textPrimary, styles.mb2)}>
+                Camera Closed
               </Text>
-              <TouchableOpacity 
-                onPress={handleBack}
-                disabled={capturing}
-              >
-                <Icon name="close" size={24} color={colors.textMuted} />
-              </TouchableOpacity>
+              <Text style={clsx(styles.textBase, styles.textMuted, styles.textCenter)}>
+                {mediaType.includes('image') 
+                  ? 'The camera was closed without capturing a photo'
+                  : 'The camera was closed without recording a video'}
+              </Text>
             </View>
 
             <TouchableOpacity
               style={clsx(
-                styles.border,
-                styles.borderPrimary,
-                styles.roundedLg,
+                styles.bgPrimary,
+                styles.roundedFull,
                 styles.p6,
                 styles.itemsCenter,
                 styles.justifyCenter,
-                capturing && styles.opacity50
+                styles.mb4
               )}
-              onPress={captureMedia}
-              disabled={capturing}
+              onPress={handleRetry}
+              activeOpacity={0.8}
             >
-              {capturing ? (
-                <ActivityIndicator size="large" color={colors.primary} />
-              ) : (
-                <>
-                  <Icon 
-                    name={mediaType.includes('image') ? 'camera-alt' : 'videocam'} 
-                    size={64} 
-                    color={colors.primary} 
-                  />
-                  <Text style={clsx(styles.textPrimary, styles.fontBold, styles.mt4, styles.textLg)}>
-                    {mediaType.includes('image') ? 'Take Photo' : 'Record Video'}
-                  </Text>
-                  <Text style={clsx(styles.textSm, styles.textMuted, styles.mt2)}>
-                    {mediaType.includes('image') 
-                      ? 'Camera will open to take photo' 
-                      : 'Camera will open to record video (max 60 seconds)'}
-                  </Text>
-                </>
+              <Icon 
+                name={mediaType.includes('image') ? 'camera' : 'videocam'} 
+                size={32} 
+                color={colors.white} 
+              />
+            </TouchableOpacity>
+            
+            <Text style={clsx(styles.textLg, styles.fontBold, styles.textPrimary, styles.mb2)}>
+              Tap to {mediaType.includes('image') ? 'Take Photo' : 'Record Video'}
+            </Text>
+            
+            <Text style={clsx(styles.textSm, styles.textMuted, styles.textCenter, styles.mb6)}>
+              {mediaType.includes('image') 
+                ? 'Camera will open to take a photo'
+                : 'Camera will open to record video (max 60 seconds)'}
+            </Text>
+
+            <TouchableOpacity
+              style={clsx(
+                styles.border,
+                styles.borderMuted,
+                styles.roundedLg,
+                styles.p4,
+                styles.itemsCenter,
+                styles.justifyCenter,
+                styles.mt4
               )}
+              onPress={handleBack}
+            >
+              <Text style={clsx(styles.textBase, styles.textMuted)}>
+                Go Back Without Capturing
+              </Text>
             </TouchableOpacity>
           </View>
+        )}
+      </View>
+
+      {/* Footer Tips */}
+      {!capturing && (
+        <View style={clsx(styles.p4, styles.bgGray50)}>
+          <Text style={clsx(styles.fontBold, styles.textPrimary, styles.mb2, styles.textCenter)}>
+            Quick Tips:
+          </Text>
+          <Text style={clsx(styles.textSm, styles.textMuted, styles.textCenter)}>
+            {mediaType.includes('image') 
+              ? '• Ensure good lighting • Keep camera steady • Focus on subject'
+              : '• Hold phone horizontally • Record in good light • Speak clearly if needed'}
+          </Text>
         </View>
-      </TouchableOpacity>
+      )}
     </View>
   );
 };

@@ -424,6 +424,10 @@ const StartServiceScreen = ({ navigation, route }) => {
 
   // OTP Functions
   const sendOTPAutomatically = async () => {
+    setOtpSent(true);
+    setOtpTimer(120);
+    return true;
+
     try {
       setAutoSendingOTP(true);
       setLoading(true);
@@ -481,7 +485,7 @@ const StartServiceScreen = ({ navigation, route }) => {
       
       const response = await postData(
         formData,
-        `${Urls.verifyOTP}`,
+        `${Urls.verifyOtpAndStart}/${bookingData?._id}`,
         'POST',
         {
           isFileUpload: true,
@@ -1103,14 +1107,14 @@ const StartServiceScreen = ({ navigation, route }) => {
             ))}
           </View>
 
-          {/* OTP Timer */}
+          {/* OTP Timer 
           {otpTimer > 0 && (
             <View style={clsx(styles.itemsCenter, styles.mb4)}>
               <Text style={clsx(styles.textBase, styles.textMuted)}>
                 Resend OTP in {formatTime(otpTimer)}
               </Text>
             </View>
-          )}
+          )} */}
 
           {/* Auto Verification Status */}
           {autoVerifyingOTP && (

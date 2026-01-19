@@ -1,625 +1,705 @@
+// screens/QRPaymentScreen.js
 import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
-  ScrollView,
   Image,
+  ScrollView,
+  TouchableOpacity,
   ActivityIndicator,
-  Alert,
+  BackHandler,
+  Linking,
+  Clipboard,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import RazorpayCheckout from 'react-native-razorpay';
 import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
+import Header from '../../../components/Common/Header';
 import { AppContext } from '../../../Context/AppContext';
 
-const QrPaymentScreen = () => {
+const QRPaymentScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const { Toast, Urls, postData, user } = useContext(AppContext);
+  
   const { 
-    bookingData,
+    bookingData, 
     totalAmount,
-    onPaymentSuccess
+    onPaymentSuccess 
   } = route.params || {};
 
-  const { Toast, Urls, postData } = useContext(AppContext);
+  console.log('QRPaymentScreen bookingData:', bookingData);
   
-  const [paymentInProgress, setPaymentInProgress] = useState(false);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
-  const [paymentFailed, setPaymentFailed] = useState(false);
-  const [paymentId, setPaymentId] = useState('');
-  const [orderId, setOrderId] = useState('');
-  const [qrCodeImage, setQrCodeImage] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState(''); // 'qr', 'upi', 'card'
+  const [loading, setLoading] = useState(true);
+  const [polling, setPolling] = useState(false);
+  const [transaction, setTransaction] = useState(null);
+  const [qrImage, setQrImage] = useState('');
+  const [pollingInterval, setPollingInterval] = useState(null);
+  const [paymentStatus, setPaymentStatus] = useState('pending');
+  const [pollingError, setPollingError] = useState(null);
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
 
+  const bookingId = bookingData?.bookingId;
+
+  // 1. Screen खुलते ही Transaction Create API Call
   useEffect(() => {
-    // Initialize payment options when screen loads
-    initializePayment();
-  }, []);
-
-  const initializePayment = async () => {
-    try {
-      setPaymentInProgress(true);
-      
-      // Step 1: Create order on your backend
-      const amountInPaise = Math.round(totalAmount * 100);
-      
-      const orderData = {
-        amount: amountInPaise,
-        currency: "INR",
-        receipt: `booking_${bookingData?.bookingId}_${Date.now()}`,
-        notes: {
-          bookingId: bookingData?.bookingId,
-          customerName: bookingData?.customerName || 'Customer',
-          serviceType: "Service Booking"
-        }
-      };
-
-      // Call your backend API to create Razorpay order
-      const orderResponse = await postData(
-        orderData,
-        `${Urls.baseUrl}/api/razorpay/create-order`,
-        'POST'
-      );
-
-      if (orderResponse?.success) {
-        const { id: razorpayOrderId } = orderResponse.data;
-        setOrderId(razorpayOrderId);
-        
-        // Generate QR code for UPI payment
-        // Format: upi://pay?pa=merchant-vpa@razorpay&pn=MerchantName&am=amount&cu=INR
-        const upiId = 'YOUR_MERCHANT_UPI_ID@razorpay'; // Replace with your UPI ID
-        const merchantName = 'Your Service Company';
-        const qrData = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(merchantName)}&am=${totalAmount}&cu=INR&tn=Booking-${bookingData?.bookingId}`;
-        
-        // Generate QR code using a service
-        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}&format=png`;
-        setQrCodeImage(qrCodeUrl);
-        
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Payment Error',
-          text2: 'Failed to initialize payment. Please try again.',
-        });
-      }
-      
-    } catch (error) {
-      console.error('Payment initialization error:', error);
+    if (!bookingId) {
       Toast.show({
         type: 'error',
-        text1: 'Error',
-        text2: 'Unable to setup payment',
+        text1: 'Booking Not Found',
+        text2: 'Booking ID is required',
       });
-    } finally {
-      setPaymentInProgress(false);
+      navigation.goBack();
+      return;
     }
-  };
+    
+    createTransaction();
+    
+    // Back button handler
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    
+    return () => {
+      backHandler.remove();
+      stopPolling();
+    };
+  }, [bookingId]);
 
-  const handleBack = () => {
-    if (paymentInProgress) {
+  const handleBackPress = () => {
+    if (polling && !paymentCompleted) {
       Alert.alert(
         'Payment in Progress',
-        'Are you sure you want to leave? Payment process will be cancelled.',
+        'Payment is being processed. Are you sure you want to go back?',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Leave', onPress: () => navigation.goBack() }
+          { 
+            text: 'Yes', 
+            onPress: () => {
+              stopPolling();
+              navigation.goBack();
+            }
+          }
         ]
       );
-    } else {
-      navigation.goBack();
+      return true;
     }
+    return false;
   };
 
-  const handleUPIPayment = () => {
-    setPaymentMethod('upi');
-    startRazorpayPayment();
-  };
-
-  const handleCardPayment = () => {
-    setPaymentMethod('card');
-    startRazorpayPayment();
-  };
-
-  const startRazorpayPayment = async () => {
+  // 2. Transaction Create Function - CompleteBooking से आया हुआ amount use करें
+  const createTransaction = async () => {
     try {
-      setPaymentInProgress(true);
+      setLoading(true);
+      setPollingError(null);
       
-      const options = {
-        description: `Payment for Booking #${bookingData?.bookingId}`,
-        image: 'https://your-company-logo.png', // Add your logo URL
-        currency: 'INR',
-        key: 'YOUR_RAZORPAY_KEY_ID', // Replace with your Razorpay key
-        amount: Math.round(totalAmount * 100),
-        name: 'Your Service Company',
-        order_id: orderId, // Use the order ID created earlier
-        prefill: {
-          email: bookingData?.customerEmail || 'customer@example.com',
-          contact: bookingData?.customerPhone || '+919876543210',
-          name: bookingData?.customerName || 'Customer Name'
-        },
-        theme: { color: colors.primary },
-        method: paymentMethod === 'upi' ? {
-          upi: true
-        } : {
-          card: true,
-          netbanking: true,
-          wallet: true
-        }
+      // Use amount from CompleteBookingScreen or calculate from bookingData
+      const payableAmount = totalAmount;
+      
+      
+      const data = {
+        bookingId: bookingId,
+        type: 'bookingComplete',
+        // amount: payableAmount // CompleteBookingScreen से आया हुआ amount
       };
+      
+      console.log('Creating transaction for amount:', data);
+      const response = await postData(
+        data,
+        Urls.createTransaction,
+        'POST'
+      );
 
-      RazorpayCheckout.open(options)
-        .then(async (data) => {
-          // Handle successful payment
-          console.log('Payment success:', data);
-          
-          const paymentData = {
-            razorpay_payment_id: data.razorpay_payment_id,
-            razorpay_order_id: data.razorpay_order_id,
-            razorpay_signature: data.razorpay_signature,
-            bookingId: bookingData?.bookingId,
-            amount: totalAmount,
-            paymentMethod: paymentMethod
-          };
-          
-          // Verify payment with your backend
-          const verifyResponse = await verifyPayment(paymentData);
-          
-          if (verifyResponse?.success) {
-            setPaymentSuccess(true);
-            setPaymentId(data.razorpay_payment_id);
-            
-            Toast.show({
-              type: 'success',
-              text1: 'Payment Successful',
-              text2: 'Your payment has been received',
-            });
-            
-            // Call success callback after 2 seconds
-            setTimeout(() => {
-              if (onPaymentSuccess) {
-                onPaymentSuccess({
-                  paymentId: data.razorpay_payment_id,
-                  orderId: data.razorpay_order_id,
-                  amount: totalAmount,
-                  paymentMethod: paymentMethod
-                });
-              }
-              navigation.goBack();
-            }, 2000);
-            
-          } else {
-            setPaymentFailed(true);
-            Toast.show({
-              type: 'error',
-              text1: 'Payment Verification Failed',
-              text2: 'Please contact support',
-            });
-          }
-        })
-        .catch((error) => {
-          // Handle payment failure
-          console.error('Payment error:', error);
-          setPaymentFailed(true);
-          
-          let errorMessage = 'Payment failed or cancelled';
-          if (error.error) {
-            errorMessage = error.error.description || errorMessage;
-          }
-          
-          Toast.show({
-            type: 'error',
-            text1: 'Payment Failed',
-            text2: errorMessage,
-          });
-        })
-        .finally(() => {
-          setPaymentInProgress(false);
-        });
+      console.log('Transaction response:', response);
+
+      if (response?.success) {
+        setTransaction(response.transactionDetail);
+        setQrImage(response.qrImage);
         
-    } catch (error) {
-      console.error('Payment error:', error);
-      setPaymentInProgress(false);
-      setPaymentFailed(true);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Payment process failed',
-      });
-    }
-  };
-
-  const verifyPayment = async (paymentData) => {
-    try {
-      const response = await postData(
-        paymentData,
-        `${Urls.baseUrl}/api/razorpay/verify-payment`,
-        'POST'
-      );
-      return response;
-    } catch (error) {
-      console.error('Verification error:', error);
-      return { success: false, message: 'Verification failed' };
-    }
-  };
-
-  const checkQRPaymentStatus = async () => {
-    try {
-      setPaymentInProgress(true);
-      
-      // Check if payment was made via QR code
-      const checkData = {
-        orderId: orderId,
-        bookingId: bookingData?.bookingId,
-        amount: totalAmount
-      };
-      
-      const response = await postData(
-        checkData,
-        `${Urls.baseUrl}/api/razorpay/check-payment`,
-        'POST'
-      );
-      
-      if (response?.success && response.data.status === 'captured') {
-        setPaymentSuccess(true);
-        setPaymentId(response.data.paymentId);
+        // Start polling for payment status
+        startPolling(response.transactionDetail.id);
         
         Toast.show({
           type: 'success',
-          text1: 'Payment Received',
-          text2: 'QR Code payment successful!',
+          text1: 'QR Generated',
+          text2: 'Scan QR to complete payment',
         });
+      } else {
+        throw new Error(response?.message || 'Failed to create QR transaction');
+      }
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: 'Transaction Failed',
+        text2: error.message || 'Unable to create payment QR',
+      });
+      console.error('Create transaction error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 3. Polling Function - हर 3 सेकंड में
+  const startPolling = (transactionId) => {
+    return true;
+    setPolling(true);
+    setPollingError(null);
+    
+    const interval = setInterval(async () => {
+      try {
+        const data = {
+          transactionTableId:transactionId
+        };
         
-        // Call success callback
-        setTimeout(() => {
-          if (onPaymentSuccess) {
-            onPaymentSuccess({
-              paymentId: response.data.paymentId,
-              orderId: orderId,
-              amount: totalAmount,
-              paymentMethod: 'qr'
+        const response = await postData(
+          data,
+          Urls.verifyTransaction,
+          'POST'
+        );
+
+        console.log('Polling response:', response);
+
+        if (response?.success) {
+          if (response.paymentStatus === 'success' || response.transaction?.status === 'success') {
+            handlePaymentSuccess(response);
+          } else if (response.paymentStatus === 'failed' || response.transaction?.status === 'failed') {
+            setPaymentStatus('failed');
+            stopPolling();
+            
+            Toast.show({
+              type: 'error',
+              text1: 'Payment Failed',
+              text2: 'Please try again or use another payment method.',
             });
           }
-          navigation.goBack();
-        }, 2000);
-        
-      } else {
-        Toast.show({
-          type: 'warning',
-          text1: 'Payment Pending',
-          text2: 'Scan and complete the payment',
-        });
+          // If pending, continue polling
+        } else {
+          setPollingError(response?.message || 'Polling failed');
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+        setPollingError('Error checking payment status');
       }
-      
-    } catch (error) {
-      console.error('Check payment error:', error);
+    }, 3000); // 3 seconds
+
+    setPollingInterval(interval);
+  };
+
+  const handlePaymentSuccess = (response) => {
+    setPaymentStatus('success');
+    setPaymentCompleted(true);
+    stopPolling();
+    
+    const paymentData = {
+      success: true,
+      amount: totalAmount,
+      paymentId: response.transaction?.transactionId || response.paymentId,
+      orderId: transaction?.razorpayOrderId || response.orderId,
+      transactionId: response.transaction?._id
+    };
+    
+    Toast.show({
+      type: 'success',
+      text1: 'Payment Successful!',
+      text2: 'Your payment has been confirmed.',
+    });
+    
+    // Call onPaymentSuccess callback if provided from CompleteBookingScreen
+    if (onPaymentSuccess && typeof onPaymentSuccess === 'function') {
+      onPaymentSuccess(paymentData);
+    }
+    
+    // Auto navigate back after 2 seconds
+    setTimeout(() => {
+      navigation.goBack();
+    }, 2000);
+  };
+
+  const stopPolling = () => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      setPollingInterval(null);
+    }
+    setPolling(false);
+  };
+
+  // 4. Copy QR Link
+  const copyQRLink = () => {
+    if (!qrImage) return;
+    
+    Clipboard.setString(qrImage);
+    Toast.show({
+      type: 'success',
+      text1: 'Copied!',
+      text2: 'Payment link copied to clipboard',
+    });
+  };
+
+  // 5. Open in Browser
+  const openInBrowser = () => {
+    if (!qrImage) return;
+    
+    Linking.openURL(qrImage).catch(err => {
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: 'Unable to check payment status',
+        text2: 'Could not open payment link',
       });
-    } finally {
-      setPaymentInProgress(false);
+    });
+  };
+
+  // 6. Retry polling
+  const retryPolling = () => {
+    if (transaction?._id) {
+      setPollingError(null);
+      startPolling(transaction._id);
     }
   };
 
-  const renderQRCodeSection = () => (
-    <View style={clsx(styles.itemsCenter, styles.justifyCenter, styles.mb8)}>
-      <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb4)}>
-        Scan QR Code to Pay
-      </Text>
-      
-      <View style={clsx(
-        styles.p6,
-        styles.bgWhite,
-        styles.border,
-        styles.borderGray300,
-        styles.roundedXl,
-        styles.itemsCenter,
-        styles.justifyCenter,
-        styles.mb4
-      )}>
-        {qrCodeImage ? (
-          <Image
-            source={{ uri: qrCodeImage }}
-            style={clsx(styles.w64, styles.h64)}
-            resizeMode="contain"
-          />
-        ) : (
-          <ActivityIndicator size="large" color={colors.primary} />
-        )}
-        
-        {paymentSuccess && (
-          <View style={clsx(styles.mt4, styles.p2, styles.bgSuccess, styles.roundedFull)}>
-            <Icon name="check" size={24} color={colors.white} />
-          </View>
-        )}
-      </View>
-      
-      <View style={clsx(styles.mb6, styles.wFull)}>
-        <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
-          How to Pay via QR Code:
-        </Text>
-        <View style={clsx(styles.pl4)}>
-          <Text style={clsx(styles.textSm, styles.textMuted, styles.mb1)}>
-            1. Open any UPI app (GPay, PhonePe, Paytm)
-          </Text>
-          <Text style={clsx(styles.textSm, styles.textMuted, styles.mb1)}>
-            2. Tap on 'Scan QR Code'
-          </Text>
-          <Text style={clsx(styles.textSm, styles.textMuted, styles.mb1)}>
-            3. Scan the QR code above
-          </Text>
-          <Text style={clsx(styles.textSm, styles.textMuted, styles.mb1)}>
-            4. Verify amount: ₹{totalAmount}
-          </Text>
-          <Text style={clsx(styles.textSm, styles.textMuted)}>
-            5. Enter UPI PIN and complete payment
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-
-  const renderPaymentOptions = () => (
-    <View style={clsx(styles.mb8)}>
-      <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb4)}>
-        Other Payment Options
-      </Text>
-      
-      <TouchableOpacity
-        style={clsx(
-          styles.flexRow,
-          styles.itemsCenter,
-          styles.p4,
-          styles.mb3,
-          styles.bgWhite,
-          styles.border,
-          styles.borderPrimary,
-          styles.roundedLg
-        )}
-        onPress={handleUPIPayment}
-        disabled={paymentInProgress || paymentSuccess}
-      >
-        <View style={clsx(styles.w10, styles.h10, styles.bgPrimaryLight, styles.roundedFull, styles.itemsCenter, styles.justifyCenter, styles.mr3)}>
-          <Icon name="account-balance-wallet" size={24} color={colors.primary} />
-        </View>
-        <View style={clsx(styles.flex1)}>
-          <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
-            Pay via UPI
-          </Text>
-          <Text style={clsx(styles.textSm, styles.textMuted)}>
-            Instant payment using any UPI app
-          </Text>
-        </View>
-        <Icon name="chevron-right" size={24} color={colors.primary} />
-      </TouchableOpacity>
-      
-      <TouchableOpacity
-        style={clsx(
-          styles.flexRow,
-          styles.itemsCenter,
-          styles.p4,
-          styles.bgWhite,
-          styles.border,
-          styles.borderPrimary,
-          styles.roundedLg
-        )}
-        onPress={handleCardPayment}
-        disabled={paymentInProgress || paymentSuccess}
-      >
-        <View style={clsx(styles.w10, styles.h10, styles.bgPrimaryLight, styles.roundedFull, styles.itemsCenter, styles.justifyCenter, styles.mr3)}>
-          <Icon name="credit-card" size={24} color={colors.primary} />
-        </View>
-        <View style={clsx(styles.flex1)}>
-          <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
-            Pay via Card / Net Banking
-          </Text>
-          <Text style={clsx(styles.textSm, styles.textMuted)}>
-            Credit Card, Debit Card or Net Banking
-          </Text>
-        </View>
-        <Icon name="chevron-right" size={24} color={colors.primary} />
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderPaymentStatus = () => {
-    if (paymentSuccess) {
-      return (
-        <View style={clsx(
-          styles.p4,
-          styles.bgSuccessLight,
-          styles.roundedLg,
-          styles.itemsCenter,
-          styles.mb6
-        )}>
-          <Icon name="check-circle" size={32} color={colors.success} style={clsx(styles.mb2)} />
-          <Text style={clsx(styles.textBase, styles.fontBold, styles.textSuccess)}>
-            Payment Successful!
-          </Text>
-          <Text style={clsx(styles.textSm, styles.textMuted, styles.textCenter)}>
-            Payment ID: {paymentId?.substring(0, 12)}...
-          </Text>
-          <Text style={clsx(styles.textXs, styles.textMuted, styles.mt1)}>
-            Redirecting back to booking...
-          </Text>
-        </View>
-      );
-    }
-    
-    if (paymentFailed) {
-      return (
-        <View style={clsx(
-          styles.p4,
-          styles.bgErrorLight,
-          styles.roundedLg,
-          styles.itemsCenter,
-          styles.mb6
-        )}>
-          <Icon name="error" size={32} color={colors.error} style={clsx(styles.mb2)} />
-          <Text style={clsx(styles.textBase, styles.fontBold, styles.textError)}>
-            Payment Failed
-          </Text>
-          <Text style={clsx(styles.textSm, styles.textMuted, styles.textCenter)}>
-            Please try another payment method
-          </Text>
-        </View>
-      );
-    }
-    
-    return null;
+  // 7. Handle cancel payment
+  const handleCancel = () => {
+    Alert.alert(
+      'Cancel Payment',
+      'Are you sure you want to cancel this payment?',
+      [
+        { text: 'No', style: 'cancel' },
+        { 
+          text: 'Yes', 
+          onPress: () => {
+            stopPolling();
+            navigation.goBack();
+          }
+        }
+      ]
+    );
   };
 
-  const renderActionButtons = () => (
-    <View style={clsx(styles.spaceY3)}>
-      {/* Check QR Payment Status Button */}
-      <TouchableOpacity
-        style={clsx(
-          styles.bgPrimary,
-          styles.roundedLg,
-          styles.p4,
-          styles.itemsCenter,
-          styles.justifyCenter,
-          (paymentInProgress || paymentSuccess) && styles.opacity50
-        )}
-        onPress={checkQRPaymentStatus}
-        disabled={paymentInProgress || paymentSuccess}
-      >
-        {paymentInProgress ? (
-          <ActivityIndicator size="small" color={colors.white} />
-        ) : (
-          <Text style={clsx(styles.textWhite, styles.fontBold, styles.textBase)}>
-            {paymentSuccess ? 'Payment Verified' : 'Check Payment Status'}
-          </Text>
-        )}
-      </TouchableOpacity>
+  // 8. Manual Payment Verify Button
+  const handleManualVerify = async () => {
+    return false;
+    try {
+      if (!transaction?._id) {
+        Toast.show({
+          type: 'error',
+          text1: 'No Transaction',
+          text2: 'Transaction not found',
+        });
+        return;
+      }
+      
+      const data = {
+        transactionId: transaction._id
+      };
+      
+      const response = await postData(
+        data,
+        Urls.verifyTransaction,
+        'POST'
+      );
 
-      {/* For Testing: Manual Success Button */}
-      {__DEV__ && (
-        <TouchableOpacity
-          style={clsx(
-            styles.bgInfo,
-            styles.roundedLg,
-            styles.p4,
-            styles.itemsCenter,
-            styles.justifyCenter,
-            styles.mt3
-          )}
-          onPress={() => {
-            setPaymentSuccess(true);
-            setPaymentId(`test_payment_${Date.now()}`);
-            Toast.show({
-              type: 'success',
-              text1: 'Test Payment',
-              text2: 'Payment marked as successful for testing',
-            });
-            setTimeout(() => {
-              if (onPaymentSuccess) {
-                onPaymentSuccess({
-                  paymentId: `test_payment_${Date.now()}`,
-                  orderId: orderId || `test_order_${Date.now()}`,
-                  amount: totalAmount,
-                  paymentMethod: 'test'
-                });
-              }
-              navigation.goBack();
-            }, 1500);
-          }}
-        >
-          <Text style={clsx(styles.textWhite, styles.fontBold, styles.textBase)}>
-            Test: Mark as Paid (Dev Only)
-          </Text>
-        </TouchableOpacity>
-      )}
+      if (response?.success) {
+        if (response.paymentStatus === 'success') {
+          handlePaymentSuccess(response);
+        } else {
+          Toast.show({
+            type: 'info',
+            text1: 'Payment Pending',
+            text2: 'Payment not yet received',
+          });
+        }
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Verification Failed',
+          text2: response?.message || 'Unable to verify payment',
+        });
+      }
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to verify payment',
+      });
+    }
+  };
 
-      {/* Back Button */}
-      <TouchableOpacity
-        style={clsx(
-          styles.border,
-          styles.borderGray400,
-          styles.roundedLg,
-          styles.p4,
-          styles.itemsCenter,
-          styles.justifyCenter,
-          styles.mt3
-        )}
-        onPress={handleBack}
-        disabled={paymentInProgress}
-      >
-        <Text style={clsx(styles.textGray700, styles.fontBold, styles.textBase)}>
-          Back to Booking
+  if (loading) {
+    return (
+      <View style={clsx(styles.flex1, styles.bgSurface, styles.itemsCenter, styles.justifyCenter)}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={clsx(styles.textLg, styles.textPrimary, styles.mt4, styles.fontMedium)}>
+          Creating QR Code...
         </Text>
-      </TouchableOpacity>
-    </View>
-  );
+      </View>
+    );
+  }
+
+  // Calculate display amount
+  const displayAmount = totalAmount || 0;
 
   return (
-    <View style={clsx(styles.flex1, styles.bgWhite)}>
-      {/* Header */}
-      <View style={[clsx(styles.bgPrimary, styles.px4, styles.py3)]}>
-        <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-          <TouchableOpacity 
-            onPress={handleBack}
-            style={clsx(styles.mr3)}
-            disabled={paymentInProgress}
-          >
-            <Icon 
-              name="arrow-back" 
-              size={24} 
-              color={paymentInProgress ? colors.gray300 : colors.white} 
-            />
-          </TouchableOpacity>
-          <Text style={clsx(styles.textWhite, styles.textXl, styles.fontBold)}>
-            Make Payment
-          </Text>
-        </View>
-      </View>
+    <View style={clsx(styles.flex1, styles.bgSurface)}>
+      <Header
+        title="Scan & Pay"
+        showBack
+        showNotification={false}
+        type="white"
+        rightAction={false}
+        showProfile={false}
+        onBackPress={() => {
+          if (paymentCompleted) {
+            navigation.goBack();
+          } else {
+            handleCancel();
+          }
+        }}
+      />
 
-      <ScrollView 
+      <ScrollView  
         style={clsx(styles.flex1)}
-        showsVerticalScrollIndicator={false}
         contentContainerStyle={clsx(styles.p6)}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Amount Display */}
-        <View style={clsx(styles.itemsCenter, styles.mb6)}>
-          <Text style={clsx(styles.text4xl, styles.fontBold, styles.textPrimary)}>
-            ₹{totalAmount}
-          </Text>
-          <Text style={clsx(styles.textBase, styles.textMuted)}>
-            Payment for Booking #{bookingData?.bookingId}
-          </Text>
+        {/* Booking Info */}
+        <View style={clsx(styles.mb6, styles.p4, styles.bgGrayLight, styles.roundedLg)}>
+          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween, styles.mb2)}>
+            <Text style={clsx(styles.textBase, styles.textMuted)}>
+              Booking ID
+            </Text>
+            <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
+              {bookingData?.bookingNumber || bookingData?.bookingId || 'N/A'}
+            </Text>
+          </View>
+          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween, styles.mb2)}>
+            <Text style={clsx(styles.textBase, styles.textMuted)}>
+              Customer
+            </Text>
+            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+              {bookingData?.customerName || bookingData?.user?.name || 'Customer'}
+            </Text>
+          </View>
+          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween)}>
+            <Text style={clsx(styles.textBase, styles.textMuted)}>
+              Date
+            </Text>
+            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+              {new Date().toLocaleDateString()}
+            </Text>
+          </View>
         </View>
 
-        {/* Payment Status */}
-        {renderPaymentStatus()}
+        {/* Amount Display */}
+        <View style={clsx(styles.mb6, styles.p6, styles.bgPrimaryLight, styles.roundedLg, styles.itemsCenter)}>
+          <Text style={clsx(styles.textBase, styles.textMuted, styles.mb2)}>
+            Total Amount to Pay
+          </Text>
+          <Text style={clsx(styles.text4xl, styles.fontBold, styles.textPrimary)}>
+            ₹{displayAmount.toFixed(2)}
+          </Text>
+          {bookingData?.originalPaymentType === 'cod' && (
+            <Text style={clsx(styles.textSm, styles.textMuted, styles.mt2)}>
+              COD Booking - Collecting Payment
+            </Text>
+          )}
+        </View>
 
-        {/* QR Code Section */}
-        {renderQRCodeSection()}
+        {/* QR Code Container */}
+        <View style={clsx(styles.mb6, styles.p6, styles.bgWhite, styles.roundedLg, styles.shadowMd, styles.itemsCenter)}>
+          {/* QR Code */}
+          <View style={clsx(styles.p4, styles.bgWhite, styles.roundedLg, styles.border, styles.borderGray, styles.mb4)}>
+            {qrImage ? (
+              <Image
+                source={{ uri: qrImage }}
+                style={clsx(styles.w64, styles.h64)}
+                resizeMode="contain"
+              />
+            ) : (
+              <View style={clsx(styles.w64, styles.h64, styles.itemsCenter, styles.justifyCenter)}>
+                <Icon name="qr-code-2" size={48} color={colors.gray400} />
+                <Text style={clsx(styles.textSm, styles.textMuted, styles.mt2)}>
+                  QR Code Not Available
+                </Text>
+              </View>
+            )}
+          </View>
+          
+          {/* Payment Status Indicator */}
+          {paymentStatus === 'pending' && polling && (
+            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb4)}>
+              <ActivityIndicator size="small" color={colors.primary} style={clsx(styles.mr2)} />
+              <Text style={clsx(styles.textBase, styles.textPrimary, styles.fontMedium)}>
+                Checking payment status...
+              </Text>
+            </View>
+          )}
 
-        {/* Other Payment Options */}
-        {renderPaymentOptions()}
+          {paymentStatus === 'success' && (
+            <View style={clsx(styles.mb4, styles.p4, styles.bgSuccessLight, styles.roundedLg, styles.border, styles.borderSuccess)}>
+              <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
+                <Icon name="check-circle" size={24} color={colors.success} style={clsx(styles.mr2)} />
+                <Text style={clsx(styles.textLg, styles.fontBold, styles.textSuccess)}>
+                  Payment Successful!
+                </Text>
+              </View>
+              <Text style={clsx(styles.textBase, styles.textSuccess)}>
+                Payment of ₹{displayAmount.toFixed(2)} has been received.
+              </Text>
+              <Text style={clsx(styles.textSm, styles.textMuted, styles.mt1)}>
+                Redirecting back to booking...
+              </Text>
+            </View>
+          )}
+
+          {paymentStatus === 'failed' && (
+            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb4, styles.p3, styles.bgErrorLight, styles.roundedFull)}>
+              <Icon name="error" size={20} color={colors.error} style={clsx(styles.mr2)} />
+              <Text style={clsx(styles.textBase, styles.fontBold, styles.textError)}>
+                Payment Failed
+              </Text>
+            </View>
+          )}
+
+          {/* Polling Error */}
+          {pollingError && (
+            <View style={clsx(styles.mb4, styles.p4, styles.bgErrorLight, styles.roundedLg, styles.border, styles.borderError)}>
+              <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
+                <Icon name="error" size={20} color={colors.error} style={clsx(styles.mr2)} />
+                <Text style={clsx(styles.textBase, styles.fontBold, styles.textError)}>
+                  Polling Error
+                </Text>
+              </View>
+              <Text style={clsx(styles.textSm, styles.textError, styles.mb3)}>
+                {pollingError}
+              </Text>
+              <TouchableOpacity
+                style={clsx(styles.bgError, styles.rounded, styles.p3, styles.itemsCenter, styles.mb2)}
+                onPress={retryPolling}
+              >
+                <Text style={clsx(styles.textWhite, styles.fontBold)}>
+                  Retry Checking
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Manual Verify Button */}
+          {!paymentCompleted && (
+            <TouchableOpacity
+              style={clsx(
+                styles.bgInfo,
+                styles.roundedLg,
+                styles.p3,
+                styles.itemsCenter,
+                styles.justifyCenter,
+                styles.mb4
+              )}
+              onPress={handleManualVerify}
+            >
+              <Text style={clsx(styles.textWhite, styles.fontBold)}>
+                <Icon name="refresh" size={16} color={colors.white} /> Check Payment Status
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Instructions */}
+          <View style={clsx(styles.mt4, styles.selfStart)}>
+            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
+              How to Pay:
+            </Text>
+            <View style={clsx(styles.ml2)}>
+              <View style={clsx(styles.flexRow, styles.itemsStart, styles.mb2)}>
+                <Text style={clsx(styles.textBase, styles.textPrimary, styles.mr2)}>1.</Text>
+                <Text style={clsx(styles.textBase, styles.textBlack)}>
+                  Open any UPI app (GPay, PhonePe, Paytm, etc.)
+                </Text>
+              </View>
+              <View style={clsx(styles.flexRow, styles.itemsStart, styles.mb2)}>
+                <Text style={clsx(styles.textBase, styles.textPrimary, styles.mr2)}>2.</Text>
+                <Text style={clsx(styles.textBase, styles.textBlack)}>
+                  Scan the QR code above
+                </Text>
+              </View>
+              <View style={clsx(styles.flexRow, styles.itemsStart, styles.mb2)}>
+                <Text style={clsx(styles.textBase, styles.textPrimary, styles.mr2)}>3.</Text>
+                <Text style={clsx(styles.textBase, styles.textBlack)}>
+                  Confirm payment of ₹{displayAmount.toFixed(2)} in your UPI app
+                </Text>
+              </View>
+              <View style={clsx(styles.flexRow, styles.itemsStart)}>
+                <Text style={clsx(styles.textBase, styles.textPrimary, styles.mr2)}>4.</Text>
+                <Text style={clsx(styles.textBase, styles.textBlack)}>
+                  Payment will be confirmed automatically
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
 
         {/* Action Buttons */}
-        {renderActionButtons()}
+        <View style={clsx(styles.gap3)}>
+          {/* Copy Link Button */}
+          <TouchableOpacity
+            style={clsx(
+              styles.bgPrimary,
+              styles.roundedLg,
+              styles.p4,
+              styles.itemsCenter,
+              styles.justifyCenter,
+              styles.flexRow,
+              (!qrImage || paymentCompleted) && styles.opacity50
+            )}
+            onPress={copyQRLink}
+            disabled={!qrImage || paymentCompleted}
+          >
+            <Icon name="content-copy" size={20} color={colors.white} style={clsx(styles.mr2)} />
+            <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
+              Copy Payment Link
+            </Text>
+          </TouchableOpacity>
 
-        {/* Payment Info */}
-        <View style={clsx(styles.mt8, styles.p4, styles.bgGray50, styles.roundedLg)}>
-          <Text style={clsx(styles.textSm, styles.fontBold, styles.textBlack, styles.mb2)}>
-            Payment Information:
-          </Text>
-          <Text style={clsx(styles.textXs, styles.textMuted)}>
-            • Secure payment via Razorpay{"\n"}
-            • All transactions are encrypted{"\n"}
-            • You'll receive payment confirmation{"\n"}
-            • For issues, contact: support@yourcompany.com
-          </Text>
+          {/* Open in Browser Button */}
+          <TouchableOpacity
+            style={clsx(
+              styles.bgSecondary,
+              styles.roundedLg,
+              styles.p4,
+              styles.itemsCenter,
+              styles.justifyCenter,
+              styles.flexRow,
+              (!qrImage || paymentCompleted) && styles.opacity50
+            )}
+            onPress={openInBrowser}
+            disabled={!qrImage || paymentCompleted}
+          >
+            <Icon name="open-in-browser" size={20} color={colors.white} style={clsx(styles.mr2)} />
+            <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
+              Open in Browser
+            </Text>
+          </TouchableOpacity>
+
+          {/* Stop Polling Button (if polling and not completed) */}
+          {polling && !paymentCompleted && (
+            <TouchableOpacity
+              style={clsx(
+                styles.bgError,
+                styles.roundedLg,
+                styles.p4,
+                styles.itemsCenter,
+                styles.justifyCenter,
+                styles.flexRow
+              )}
+              onPress={stopPolling}
+            >
+              <Icon name="stop" size={20} color={colors.white} style={clsx(styles.mr2)} />
+              <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
+                Stop Checking
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Back Button - shows different text based on payment status */}
+          <TouchableOpacity
+            style={clsx(
+              styles.border,
+              paymentCompleted ? styles.borderSuccess : styles.borderGray,
+              styles.roundedLg,
+              styles.p4,
+              styles.itemsCenter,
+              styles.justifyCenter
+            )}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={clsx(
+              styles.fontBold,
+              styles.textLg,
+              paymentCompleted ? styles.textSuccess : styles.textBlack
+            )}>
+              {paymentCompleted ? 'Payment Done ✓ Go Back' : 'Cancel Payment'}
+            </Text>
+          </TouchableOpacity>
         </View>
+
+        {/* Transaction Details */}
+        {transaction && (
+          <View style={clsx(styles.mt6, styles.p4, styles.bgGrayLight, styles.roundedLg)}>
+            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
+              Transaction Details
+            </Text>
+            <View style={clsx(styles.gap2)}>
+              <View style={clsx(styles.flexRow, styles.justifyBetween)}>
+                <Text style={clsx(styles.textBase, styles.textMuted)}>Transaction ID:</Text>
+                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+                  {transaction?.transactionId || 'Pending'}
+                </Text>
+              </View>
+              <View style={clsx(styles.flexRow, styles.justifyBetween)}>
+                <Text style={clsx(styles.textBase, styles.textMuted)}>Order ID:</Text>
+                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+                  {transaction?.razorpayOrderId || transaction?.orderId || 'N/A'}
+                </Text>
+              </View>
+              <View style={clsx(styles.flexRow, styles.justifyBetween)}>
+                <Text style={clsx(styles.textBase, styles.textMuted)}>QR ID:</Text>
+                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+                  {transaction?.qrId || 'N/A'}
+                </Text>
+              </View>
+              <View style={clsx(styles.flexRow, styles.justifyBetween)}>
+                <Text style={clsx(styles.textBase, styles.textMuted)}>Status:</Text>
+                <View style={clsx(
+                  styles.px3,
+                  styles.py1,
+                  styles.roundedFull,
+                  paymentStatus === 'success' ? styles.bgSuccessLight : 
+                  paymentStatus === 'failed' ? styles.bgErrorLight : 
+                  styles.bgWarningLight
+                )}>
+                  <Text style={clsx(
+                    styles.textXs,
+                    styles.fontBold,
+                    paymentStatus === 'success' ? styles.textSuccess : 
+                    paymentStatus === 'failed' ? styles.textError : 
+                    styles.textWarning
+                  )}>
+                    {paymentStatus.toUpperCase()}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Polling Status Info */}
+        {polling && !paymentCompleted && (
+          <View style={clsx(styles.mt4, styles.p4, styles.bgInfoLight, styles.roundedLg, styles.border, styles.borderInfo)}>
+            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
+              <Icon name="info" size={20} color={colors.info} style={clsx(styles.mr2)} />
+              <Text style={clsx(styles.textBase, styles.fontBold, styles.textInfo)}>
+                Auto-checking enabled
+              </Text>
+            </View>
+            <Text style={clsx(styles.textSm, styles.textInfo)}>
+              We're checking payment status every 3 seconds. You'll be notified automatically when payment is confirmed.
+            </Text>
+          </View>
+        )}
+
+        {/* Payment Completed Info */}
+        {paymentCompleted && (
+          <View style={clsx(styles.mt4, styles.p4, styles.bgSuccessLight, styles.roundedLg, styles.border, styles.borderSuccess)}>
+            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
+              <Icon name="check-circle" size={24} color={colors.success} style={clsx(styles.mr2)} />
+              <Text style={clsx(styles.textBase, styles.fontBold, styles.textSuccess)}>
+                Payment Received Successfully
+              </Text>
+            </View>
+            <Text style={clsx(styles.textSm, styles.textMuted)}>
+              You can now go back to complete the booking. The payment details have been recorded.
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
 };
 
-export default QrPaymentScreen;
+export default QRPaymentScreen;

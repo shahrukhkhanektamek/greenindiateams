@@ -21,7 +21,7 @@ import { AppContext } from '../../../Context/AppContext';
 const QRPaymentScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { Toast, Urls, postData, user } = useContext(AppContext);
+  const { Toast, Urls, postData, user, storage } = useContext(AppContext);
   
   const { 
     bookingData, 
@@ -29,11 +29,12 @@ const QRPaymentScreen = () => {
     onPaymentSuccess 
   } = route.params || {};
 
-  console.log('QRPaymentScreen bookingData:', bookingData);
+  // console.log('QRPaymentScreen bookingData:', bookingData);
   
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
   const [transaction, setTransaction] = useState(null);
+  const [qr, setQr] = useState(null);
   const [qrImage, setQrImage] = useState('');
   const [pollingInterval, setPollingInterval] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState('pending');
@@ -91,38 +92,29 @@ const QRPaymentScreen = () => {
     try {
       setLoading(true);
       setPollingError(null);
-      
-      // Use amount from CompleteBookingScreen or calculate from bookingData
-      const payableAmount = totalAmount;
-      
-      
       const data = {
         bookingId: bookingId,
         type: 'bookingComplete',
-        // amount: payableAmount // CompleteBookingScreen से आया हुआ amount
       };
-      
-      console.log('Creating transaction for amount:', data);
       const response = await postData(
         data,
         Urls.createTransaction,
         'POST'
       );
-
-      console.log('Transaction response:', response);
-
       if (response?.success) {
         setTransaction(response.transactionDetail);
-        setQrImage(response.qrImage);
+    
+        const proxyUrl = `${Urls.qrServe}?imageUrl=${encodeURIComponent(response.qrImage)}`;
+        setQrImage(proxyUrl);
         
         // Start polling for payment status
         startPolling(response.transactionDetail.id);
         
-        Toast.show({
-          type: 'success',
-          text1: 'QR Generated',
-          text2: 'Scan QR to complete payment',
-        });
+        // Toast.show({
+        //   type: 'success',
+        //   text1: 'QR Generated',
+        //   text2: 'Scan QR to complete payment',
+        // });
       } else {
         throw new Error(response?.message || 'Failed to create QR transaction');
       }
@@ -136,7 +128,7 @@ const QRPaymentScreen = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }; 
 
   // 3. Polling Function - हर 3 सेकंड में
   const startPolling = (transactionId) => {
@@ -409,8 +401,8 @@ const QRPaymentScreen = () => {
             {qrImage ? (
               <Image
                 source={{ uri: qrImage }}
-                style={clsx(styles.w64, styles.h64)}
-                resizeMode="contain"
+                style={clsx(styles.w64, styles.h80)}
+                resizeMode="cover"
               />
             ) : (
               <View style={clsx(styles.w64, styles.h64, styles.itemsCenter, styles.justifyCenter)}>

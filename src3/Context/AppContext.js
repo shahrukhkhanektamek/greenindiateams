@@ -77,6 +77,7 @@ export const AppProvider = ({ children }) => {
       timeSlot: `${commUrl}time-slot/available/by-date`, 
       addRemoveCart: `${commUrl}cart/create-cart`,
       createTransaction: `${commUrl}payment/create-order`,
+      qrServe: `${commUrl}payment/qr-serve`,
       verifyTransaction: `${commUrl}payment/verify-payment`,
       login: `${serviceManUrl}auth/login`,
       verifyOtp: `${serviceManUrl}auth/verify-otp`,

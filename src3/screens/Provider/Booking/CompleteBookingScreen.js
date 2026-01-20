@@ -222,12 +222,12 @@ const CompleteBookingScreen = () => {
         return;
       }
       
-      setCompletingBooking(true);
+      setCompletingBooking(true); 
       
       const data = {
         bookingId: bookingData?.bookingId,
         servicemanBookingId: bookingData?._id,
-        paymentMode: paymentMode,
+        paymentMode: paymentMode, 
         cashAmount: paymentMode === 'cash' ? parseFloat(cashAmount) : 0,
         onlineAmount: paymentMode === 'online' ? parseFloat(onlineAmount) : 0,
         razorpayPaymentId: razorpayPaymentId,

@@ -1,5 +1,5 @@
 // screens/QRPaymentScreen.js
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   BackHandler,
   Linking,
   Clipboard,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -21,7 +22,7 @@ import { AppContext } from '../../../Context/AppContext';
 const QRPaymentScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { Toast, Urls, postData, user, storage } = useContext(AppContext);
+  const { Toast, Urls, postData } = useContext(AppContext);
   
   const { 
     bookingData, 
@@ -29,21 +30,20 @@ const QRPaymentScreen = () => {
     onPaymentSuccess 
   } = route.params || {};
 
-  // console.log('QRPaymentScreen bookingData:', bookingData);
-  
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
   const [transaction, setTransaction] = useState(null);
-  const [qr, setQr] = useState(null);
   const [qrImage, setQrImage] = useState('');
-  const [pollingInterval, setPollingInterval] = useState(null);
-  const [paymentStatus, setPaymentStatus] = useState('pending');
   const [pollingError, setPollingError] = useState(null);
-  const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState('pending');
+  const [isPaymentDone, setIsPaymentDone] = useState(false);
+  
+  const pollingIntervalRef = useRef(null);
+  const backHandlerRef = useRef(null);
 
   const bookingId = bookingData?.bookingId;
 
-  // 1. Screen खुलते ही Transaction Create API Call
+  // 1. Initial setup and transaction creation
   useEffect(() => {
     if (!bookingId) {
       Toast.show({
@@ -54,69 +54,75 @@ const QRPaymentScreen = () => {
       navigation.goBack();
       return;
     }
-    
+
     createTransaction();
-    
+
     // Back button handler
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
-    
+    backHandlerRef.current = BackHandler.addEventListener(
+      'hardwareBackPress',
+      handleBackPress
+    );
+
     return () => {
-      backHandler.remove();
+      if (backHandlerRef.current) {
+        backHandlerRef.current.remove();
+      }
       stopPolling();
     };
-  }, [bookingId]);
+  }, []);
 
+  // 2. Handle back press
   const handleBackPress = () => {
-    if (polling && !paymentCompleted) {
-      Alert.alert(
-        'Payment in Progress',
-        'Payment is being processed. Are you sure you want to go back?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Yes', 
-            onPress: () => {
-              stopPolling();
-              navigation.goBack();
-            }
-          }
-        ]
-      );
+    if (polling && !isPaymentDone) {
+      showExitConfirmation();
       return true;
     }
     return false;
   };
 
-  // 2. Transaction Create Function - CompleteBooking से आया हुआ amount use करें
+  const showExitConfirmation = () => {
+    Alert.alert(
+      'Payment in Progress',
+      'Payment is being processed. Are you sure you want to go back?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Exit', 
+          onPress: () => {
+            stopPolling();
+            navigation.goBack();
+          }
+        }
+      ]
+    );
+  };
+
+  // 3. Create transaction
   const createTransaction = async () => {
     try {
       setLoading(true);
       setPollingError(null);
+      
       const data = {
         bookingId: bookingId,
+        pId: bookingId,
         type: 'bookingComplete',
       };
-      const response = await postData(
-        data,
-        Urls.createTransaction,
-        'POST'
-      );
+
+      const response = await postData(data, Urls.createTransaction, 'POST');
+      
       if (response?.success) {
-        setTransaction(response.transactionDetail);
-    
+        setTransaction(response);
+        // console.log(transaction) 
+        
+        // Create proxy URL for QR image
         const proxyUrl = `${Urls.qrServe}?imageUrl=${encodeURIComponent(response.qrImage)}`;
         setQrImage(proxyUrl);
         
-        // Start polling for payment status
-        startPolling(response.transactionDetail.id);
-        
-        // Toast.show({
-        //   type: 'success',
-        //   text1: 'QR Generated',
-        //   text2: 'Scan QR to complete payment',
-        // });
+        // Start polling with transaction ID
+        startPolling(response.transactionDetail._id, response.qrId);
       } else {
-        throw new Error(response?.message || 'Failed to create QR transaction');
+        throw new Error(response?.message || 'Failed to create transaction');
       }
     } catch (error) {
       Toast.show({
@@ -128,93 +134,75 @@ const QRPaymentScreen = () => {
     } finally {
       setLoading(false);
     }
-  }; 
+  };
 
-  // 3. Polling Function - हर 3 सेकंड में
-  const startPolling = (transactionId) => {
-    return true;
+  // 4. Polling function
+  const startPolling = (transactionId, qrId) => {
     setPolling(true);
     setPollingError(null);
     
-    const interval = setInterval(async () => {
+    // Clear any existing interval
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    // Set new interval
+    pollingIntervalRef.current = setInterval(async () => {
       try {
         const data = {
-          transactionTableId:transactionId
+          transactionTableId: transactionId,
+          qrId: qrId,
+          // qrId: 'qr_S6wTbVU885VMVP',
+          type: 'bookingComplete'
         };
+        const response = await postData(data, Urls.verifyTransaction, 'POST', {showErrorMessage:false});
         
-        const response = await postData(
-          data,
-          Urls.verifyTransaction,
-          'POST'
-        );
-
-        console.log('Polling response:', response);
-
         if (response?.success) {
-          if (response.paymentStatus === 'success' || response.transaction?.status === 'success') {
-            handlePaymentSuccess(response);
-          } else if (response.paymentStatus === 'failed' || response.transaction?.status === 'failed') {
-            setPaymentStatus('failed');
-            stopPolling();
-            
-            Toast.show({
-              type: 'error',
-              text1: 'Payment Failed',
-              text2: 'Please try again or use another payment method.',
-            });
-          }
-          // If pending, continue polling
-        } else {
-          setPollingError(response?.message || 'Polling failed');
+          handlePaymentSuccess(response);
         }
       } catch (error) {
         console.error('Polling error:', error);
         setPollingError('Error checking payment status');
       }
-    }, 3000); // 3 seconds
-
-    setPollingInterval(interval);
+    }, 3000);
   };
 
+  // 5. Handle payment success
   const handlePaymentSuccess = (response) => {
-    setPaymentStatus('success');
-    setPaymentCompleted(true);
     stopPolling();
+    setPaymentStatus('success');
+    setIsPaymentDone(true);
     
-    const paymentData = {
-      success: true,
-      amount: totalAmount,
-      paymentId: response.transaction?.transactionId || response.paymentId,
-      orderId: transaction?.razorpayOrderId || response.orderId,
-      transactionId: response.transaction?._id
-    };
-    
+    // Update transaction with new data
+    if (response.transactionDetail) {
+      setTransaction(prev => ({
+        ...prev,
+        ...response.transactionDetail
+      }));
+    }
+
+    // Call the success callback if provided
+    if (onPaymentSuccess && typeof onPaymentSuccess === 'function') {
+      onPaymentSuccess(response);
+    }
+
     Toast.show({
       type: 'success',
       text1: 'Payment Successful!',
-      text2: 'Your payment has been confirmed.',
+      text2: `₹${totalAmount?.toFixed(2) || '0'} has been received.`,
     });
-    
-    // Call onPaymentSuccess callback if provided from CompleteBookingScreen
-    if (onPaymentSuccess && typeof onPaymentSuccess === 'function') {
-      onPaymentSuccess(paymentData);
-    }
-    
-    // Auto navigate back after 2 seconds
-    setTimeout(() => {
-      navigation.goBack();
-    }, 2000);
   };
 
+  // 6. Stop polling
   const stopPolling = () => {
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-      setPollingInterval(null);
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
     }
     setPolling(false);
   };
 
-  // 4. Copy QR Link
+  // 7. Copy QR link
   const copyQRLink = () => {
     if (!qrImage) return;
     
@@ -226,7 +214,7 @@ const QRPaymentScreen = () => {
     });
   };
 
-  // 5. Open in Browser
+  // 8. Open in browser
   const openInBrowser = () => {
     if (!qrImage) return;
     
@@ -239,7 +227,7 @@ const QRPaymentScreen = () => {
     });
   };
 
-  // 6. Retry polling
+  // 9. Retry polling
   const retryPolling = () => {
     if (transaction?._id) {
       setPollingError(null);
@@ -247,7 +235,7 @@ const QRPaymentScreen = () => {
     }
   };
 
-  // 7. Handle cancel payment
+  // 10. Handle cancel
   const handleCancel = () => {
     Alert.alert(
       'Cancel Payment',
@@ -265,68 +253,26 @@ const QRPaymentScreen = () => {
     );
   };
 
-  // 8. Manual Payment Verify Button
-  const handleManualVerify = async () => {
-    return false;
-    try {
-      if (!transaction?._id) {
-        Toast.show({
-          type: 'error',
-          text1: 'No Transaction',
-          text2: 'Transaction not found',
-        });
-        return;
-      }
-      
-      const data = {
-        transactionId: transaction._id
-      };
-      
-      const response = await postData(
-        data,
-        Urls.verifyTransaction,
-        'POST'
-      );
-
-      if (response?.success) {
-        if (response.paymentStatus === 'success') {
-          handlePaymentSuccess(response);
-        } else {
-          Toast.show({
-            type: 'info',
-            text1: 'Payment Pending',
-            text2: 'Payment not yet received',
-          });
-        }
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Verification Failed',
-          text2: response?.message || 'Unable to verify payment',
-        });
-      }
-    } catch (error) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to verify payment',
-      });
-    }
+  // 11. Format date
+  const formatDate = () => {
+    return new Date().toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
   };
 
+  // Loading state
   if (loading) {
     return (
       <View style={clsx(styles.flex1, styles.bgSurface, styles.itemsCenter, styles.justifyCenter)}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={clsx(styles.textLg, styles.textPrimary, styles.mt4, styles.fontMedium)}>
-          Creating QR Code...
+          Generating QR Code...
         </Text>
       </View>
     );
   }
-
-  // Calculate display amount
-  const displayAmount = totalAmount || 0;
 
   return (
     <View style={clsx(styles.flex1, styles.bgSurface)}>
@@ -337,13 +283,7 @@ const QRPaymentScreen = () => {
         type="white"
         rightAction={false}
         showProfile={false}
-        onBackPress={() => {
-          if (paymentCompleted) {
-            navigation.goBack();
-          } else {
-            handleCancel();
-          }
-        }}
+        onBackPress={isPaymentDone ? () => navigation.goBack() : handleCancel}
       />
 
       <ScrollView  
@@ -351,30 +291,24 @@ const QRPaymentScreen = () => {
         contentContainerStyle={clsx(styles.p6)}
         showsVerticalScrollIndicator={false}
       >
-        {/* Booking Info */}
+        {/* Booking Info Card */}
         <View style={clsx(styles.mb6, styles.p4, styles.bgGrayLight, styles.roundedLg)}>
-          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween, styles.mb2)}>
-            <Text style={clsx(styles.textBase, styles.textMuted)}>
-              Booking ID
-            </Text>
+          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween, styles.mb3)}>
+            <Text style={clsx(styles.textBase, styles.textMuted)}>Booking ID</Text>
             <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
-              {bookingData?.bookingNumber || bookingData?.bookingId || 'N/A'}
+              {bookingData?.booking?.bookingId || 'N/A'}
             </Text>
           </View>
-          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween, styles.mb2)}>
-            <Text style={clsx(styles.textBase, styles.textMuted)}>
-              Customer
-            </Text>
+          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween, styles.mb3)}>
+            <Text style={clsx(styles.textBase, styles.textMuted)}>Customer</Text>
             <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
               {bookingData?.customerName || bookingData?.user?.name || 'Customer'}
             </Text>
           </View>
           <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween)}>
-            <Text style={clsx(styles.textBase, styles.textMuted)}>
-              Date
-            </Text>
+            <Text style={clsx(styles.textBase, styles.textMuted)}>Date</Text>
             <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-              {new Date().toLocaleDateString()}
+              {formatDate()}
             </Text>
           </View>
         </View>
@@ -385,7 +319,7 @@ const QRPaymentScreen = () => {
             Total Amount to Pay
           </Text>
           <Text style={clsx(styles.text4xl, styles.fontBold, styles.textPrimary)}>
-            ₹{displayAmount.toFixed(2)}
+            ₹{totalAmount?.toFixed(2) || '0.00'}
           </Text>
           {bookingData?.originalPaymentType === 'cod' && (
             <Text style={clsx(styles.textSm, styles.textMuted, styles.mt2)}>
@@ -394,10 +328,10 @@ const QRPaymentScreen = () => {
           )}
         </View>
 
-        {/* QR Code Container */}
+        {/* QR Code Section */}
         <View style={clsx(styles.mb6, styles.p6, styles.bgWhite, styles.roundedLg, styles.shadowMd, styles.itemsCenter)}>
-          {/* QR Code */}
-          <View style={clsx(styles.p4, styles.bgWhite, styles.roundedLg, styles.border, styles.borderGray, styles.mb4)}>
+          {/* QR Image Container */}
+          <View style={clsx(styles.p4, styles.bgWhite, styles.roundedLg, styles.border, styles.borderGray, styles.mb6)}>
             {qrImage ? (
               <Image
                 source={{ uri: qrImage }}
@@ -413,9 +347,9 @@ const QRPaymentScreen = () => {
               </View>
             )}
           </View>
-          
-          {/* Payment Status Indicator */}
-          {paymentStatus === 'pending' && polling && (
+
+          {/* Status Messages */}
+          {polling && paymentStatus === 'pending' && (
             <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb4)}>
               <ActivityIndicator size="small" color={colors.primary} style={clsx(styles.mr2)} />
               <Text style={clsx(styles.textBase, styles.textPrimary, styles.fontMedium)}>
@@ -433,37 +367,24 @@ const QRPaymentScreen = () => {
                 </Text>
               </View>
               <Text style={clsx(styles.textBase, styles.textSuccess)}>
-                Payment of ₹{displayAmount.toFixed(2)} has been received.
-              </Text>
-              <Text style={clsx(styles.textSm, styles.textMuted, styles.mt1)}>
-                Redirecting back to booking...
+                Payment of ₹{totalAmount?.toFixed(2) || '0'} has been received.
               </Text>
             </View>
           )}
 
-          {paymentStatus === 'failed' && (
-            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb4, styles.p3, styles.bgErrorLight, styles.roundedFull)}>
-              <Icon name="error" size={20} color={colors.error} style={clsx(styles.mr2)} />
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textError)}>
-                Payment Failed
-              </Text>
-            </View>
-          )}
-
-          {/* Polling Error */}
           {pollingError && (
             <View style={clsx(styles.mb4, styles.p4, styles.bgErrorLight, styles.roundedLg, styles.border, styles.borderError)}>
               <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
                 <Icon name="error" size={20} color={colors.error} style={clsx(styles.mr2)} />
                 <Text style={clsx(styles.textBase, styles.fontBold, styles.textError)}>
-                  Polling Error
+                  Connection Error
                 </Text>
               </View>
               <Text style={clsx(styles.textSm, styles.textError, styles.mb3)}>
                 {pollingError}
               </Text>
               <TouchableOpacity
-                style={clsx(styles.bgError, styles.rounded, styles.p3, styles.itemsCenter, styles.mb2)}
+                style={clsx(styles.bgError, styles.rounded, styles.p3, styles.itemsCenter)}
                 onPress={retryPolling}
               >
                 <Text style={clsx(styles.textWhite, styles.fontBold)}>
@@ -473,62 +394,31 @@ const QRPaymentScreen = () => {
             </View>
           )}
 
-          {/* Manual Verify Button */}
-          {!paymentCompleted && (
-            <TouchableOpacity
-              style={clsx(
-                styles.bgInfo,
-                styles.roundedLg,
-                styles.p3,
-                styles.itemsCenter,
-                styles.justifyCenter,
-                styles.mb4
-              )}
-              onPress={handleManualVerify}
-            >
-              <Text style={clsx(styles.textWhite, styles.fontBold)}>
-                <Icon name="refresh" size={16} color={colors.white} /> Check Payment Status
-              </Text>
-            </TouchableOpacity>
-          )}
-
           {/* Instructions */}
           <View style={clsx(styles.mt4, styles.selfStart)}>
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
               How to Pay:
             </Text>
-            <View style={clsx(styles.ml2)}>
-              <View style={clsx(styles.flexRow, styles.itemsStart, styles.mb2)}>
-                <Text style={clsx(styles.textBase, styles.textPrimary, styles.mr2)}>1.</Text>
+            {[
+              'Open any UPI app (GPay, PhonePe, Paytm, etc.)',
+              'Scan the QR code above',
+              `Confirm payment of ₹${totalAmount?.toFixed(2) || '0'} in your UPI app`,
+              'Payment will be confirmed automatically'
+            ].map((step, index) => (
+              <View key={index} style={clsx(styles.flexRow, styles.itemsStart, styles.mb2)}>
+                <Text style={clsx(styles.textBase, styles.textPrimary, styles.mr2, styles.minW6)}>
+                  {index + 1}.
+                </Text>
                 <Text style={clsx(styles.textBase, styles.textBlack)}>
-                  Open any UPI app (GPay, PhonePe, Paytm, etc.)
+                  {step}
                 </Text>
               </View>
-              <View style={clsx(styles.flexRow, styles.itemsStart, styles.mb2)}>
-                <Text style={clsx(styles.textBase, styles.textPrimary, styles.mr2)}>2.</Text>
-                <Text style={clsx(styles.textBase, styles.textBlack)}>
-                  Scan the QR code above
-                </Text>
-              </View>
-              <View style={clsx(styles.flexRow, styles.itemsStart, styles.mb2)}>
-                <Text style={clsx(styles.textBase, styles.textPrimary, styles.mr2)}>3.</Text>
-                <Text style={clsx(styles.textBase, styles.textBlack)}>
-                  Confirm payment of ₹{displayAmount.toFixed(2)} in your UPI app
-                </Text>
-              </View>
-              <View style={clsx(styles.flexRow, styles.itemsStart)}>
-                <Text style={clsx(styles.textBase, styles.textPrimary, styles.mr2)}>4.</Text>
-                <Text style={clsx(styles.textBase, styles.textBlack)}>
-                  Payment will be confirmed automatically
-                </Text>
-              </View>
-            </View>
+            ))}
           </View>
         </View>
 
         {/* Action Buttons */}
-        <View style={clsx(styles.gap3)}>
-          {/* Copy Link Button */}
+        <View style={clsx(styles.gap3, styles.mb6)}>
           <TouchableOpacity
             style={clsx(
               styles.bgPrimary,
@@ -537,18 +427,17 @@ const QRPaymentScreen = () => {
               styles.itemsCenter,
               styles.justifyCenter,
               styles.flexRow,
-              (!qrImage || paymentCompleted) && styles.opacity50
+              (!qrImage || isPaymentDone) && styles.opacity50
             )}
             onPress={copyQRLink}
-            disabled={!qrImage || paymentCompleted}
+            disabled={!qrImage || isPaymentDone}
           >
             <Icon name="content-copy" size={20} color={colors.white} style={clsx(styles.mr2)} />
-            <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
+            <Text style={clsx(styles.textWhite, styles.fontBold)}>
               Copy Payment Link
             </Text>
           </TouchableOpacity>
 
-          {/* Open in Browser Button */}
           <TouchableOpacity
             style={clsx(
               styles.bgSecondary,
@@ -557,62 +446,38 @@ const QRPaymentScreen = () => {
               styles.itemsCenter,
               styles.justifyCenter,
               styles.flexRow,
-              (!qrImage || paymentCompleted) && styles.opacity50
+              (!qrImage || isPaymentDone) && styles.opacity50
             )}
             onPress={openInBrowser}
-            disabled={!qrImage || paymentCompleted}
+            disabled={!qrImage || isPaymentDone}
           >
             <Icon name="open-in-browser" size={20} color={colors.white} style={clsx(styles.mr2)} />
-            <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
+            <Text style={clsx(styles.textWhite, styles.fontBold)}>
               Open in Browser
             </Text>
           </TouchableOpacity>
 
-          {/* Stop Polling Button (if polling and not completed) */}
-          {polling && !paymentCompleted && (
+          {!isPaymentDone && (
             <TouchableOpacity
               style={clsx(
-                styles.bgError,
+                styles.border,
+                styles.borderGray,
                 styles.roundedLg,
                 styles.p4,
-                styles.itemsCenter,
-                styles.justifyCenter,
-                styles.flexRow
+                styles.itemsCenter
               )}
-              onPress={stopPolling}
+              onPress={handleCancel}
             >
-              <Icon name="stop" size={20} color={colors.white} style={clsx(styles.mr2)} />
-              <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
-                Stop Checking
+              <Text style={clsx(styles.fontBold, styles.textBlack)}>
+                Cancel Payment
               </Text>
             </TouchableOpacity>
           )}
-
-          {/* Back Button - shows different text based on payment status */}
-          <TouchableOpacity
-            style={clsx(
-              styles.border,
-              paymentCompleted ? styles.borderSuccess : styles.borderGray,
-              styles.roundedLg,
-              styles.p4,
-              styles.itemsCenter,
-              styles.justifyCenter
-            )}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={clsx(
-              styles.fontBold,
-              styles.textLg,
-              paymentCompleted ? styles.textSuccess : styles.textBlack
-            )}>
-              {paymentCompleted ? 'Payment Done ✓ Go Back' : 'Cancel Payment'}
-            </Text>
-          </TouchableOpacity>
         </View>
 
         {/* Transaction Details */}
         {transaction && (
-          <View style={clsx(styles.mt6, styles.p4, styles.bgGrayLight, styles.roundedLg)}>
+          <View style={clsx(styles.mb6, styles.p4, styles.bgGrayLight, styles.roundedLg)}>
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
               Transaction Details
             </Text>
@@ -627,12 +492,6 @@ const QRPaymentScreen = () => {
                 <Text style={clsx(styles.textBase, styles.textMuted)}>Order ID:</Text>
                 <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
                   {transaction?.razorpayOrderId || transaction?.orderId || 'N/A'}
-                </Text>
-              </View>
-              <View style={clsx(styles.flexRow, styles.justifyBetween)}>
-                <Text style={clsx(styles.textBase, styles.textMuted)}>QR ID:</Text>
-                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-                  {transaction?.qrId || 'N/A'}
                 </Text>
               </View>
               <View style={clsx(styles.flexRow, styles.justifyBetween)}>
@@ -660,9 +519,9 @@ const QRPaymentScreen = () => {
           </View>
         )}
 
-        {/* Polling Status Info */}
-        {polling && !paymentCompleted && (
-          <View style={clsx(styles.mt4, styles.p4, styles.bgInfoLight, styles.roundedLg, styles.border, styles.borderInfo)}>
+        {/* Polling Info */}
+        {polling && !isPaymentDone && (
+          <View style={clsx(styles.p4, styles.bgInfoLight, styles.roundedLg, styles.border, styles.borderInfo)}>
             <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
               <Icon name="info" size={20} color={colors.info} style={clsx(styles.mr2)} />
               <Text style={clsx(styles.textBase, styles.fontBold, styles.textInfo)}>
@@ -670,28 +529,13 @@ const QRPaymentScreen = () => {
               </Text>
             </View>
             <Text style={clsx(styles.textSm, styles.textInfo)}>
-              We're checking payment status every 3 seconds. You'll be notified automatically when payment is confirmed.
-            </Text>
-          </View>
-        )}
-
-        {/* Payment Completed Info */}
-        {paymentCompleted && (
-          <View style={clsx(styles.mt4, styles.p4, styles.bgSuccessLight, styles.roundedLg, styles.border, styles.borderSuccess)}>
-            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
-              <Icon name="check-circle" size={24} color={colors.success} style={clsx(styles.mr2)} />
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textSuccess)}>
-                Payment Received Successfully
-              </Text>
-            </View>
-            <Text style={clsx(styles.textSm, styles.textMuted)}>
-              You can now go back to complete the booking. The payment details have been recorded.
+              Payment status is being checked automatically every 3 seconds.
             </Text>
           </View>
         )}
       </ScrollView>
     </View>
   );
-};
+}; 
 
 export default QRPaymentScreen;

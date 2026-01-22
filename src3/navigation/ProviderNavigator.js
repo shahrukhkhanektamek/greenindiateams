@@ -255,7 +255,6 @@ function ProviderNavigator() {
           <Stack.Screen 
             name="QrPaymentScreen" 
             component={QrPaymentScreen}
-            options={modalOptions}
           /> 
 
           {/* =========== PROFILE SCREENS =========== */}

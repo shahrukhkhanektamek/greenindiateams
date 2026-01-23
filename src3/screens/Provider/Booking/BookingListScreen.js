@@ -17,6 +17,7 @@ import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import { AppContext } from '../../../Context/AppContext';
 import Header from '../../../components/Common/Header';
+import { Picker } from '@react-native-picker/picker';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -32,6 +33,7 @@ const BookingListScreen = ({ navigation }) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [actionLoading, setActionLoading] = useState({}); // Track individual booking actions
   const [activeTab, setActiveTab] = useState('all');
+  const [statusDropdownVisible, setStatusDropdownVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [bookings, setBookings] = useState([]);
@@ -64,6 +66,8 @@ const BookingListScreen = ({ navigation }) => {
     { id: 'cancel', label: 'Cancelled', status: 'cancel' },
     { id: 'reject', label: 'Rejected', status: 'reject' },
   ];
+  // Refs for tab scroll
+  const tabScrollViewRef = React.useRef(null);
 
   const serviceTypes = [
     { id: '', label: 'All Services', category: '' },
@@ -442,7 +446,7 @@ const BookingListScreen = ({ navigation }) => {
       return (
         <View style={clsx(styles.flexRow, styles.gap2)}>
           {/* Reject Button */}
-          <TouchableOpacity 
+          {/* <TouchableOpacity 
             style={clsx(
               styles.flexRow,
               styles.itemsCenter,
@@ -471,7 +475,7 @@ const BookingListScreen = ({ navigation }) => {
                 </Text>
               </>
             )}
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           {/* Accept Button */}
           <TouchableOpacity 
@@ -652,7 +656,7 @@ const BookingListScreen = ({ navigation }) => {
         styles.textCenter,
         activeTab === tab.id ? styles.textWhite : styles.textBlack
       )} numberOfLines={1}>
-        {tab.label}
+        {tab.label} 
       </Text>
     </TouchableOpacity>
   );
@@ -761,15 +765,79 @@ const BookingListScreen = ({ navigation }) => {
       </View>
 
       {/* Tab Navigation - Fixed Horizontal Scroll */}
-      <View style={clsx(styles.bgWhite, styles.py3, styles.shadowSm)}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={clsx(styles.px4)}
-          style={clsx(styles.flexGrow0)}
+      <View style={clsx(styles.bgWhite, styles.px4, styles.py3, styles.shadowSm)}>
+        <TouchableOpacity
+          style={clsx(
+            styles.flexRow,
+            styles.itemsCenter,
+            styles.justifyBetween,
+            styles.p3,
+            styles.border,
+            styles.borderGray,
+            styles.roundedLg,
+            styles.bgWhite
+          )}
+          onPress={() => setStatusDropdownVisible(!statusDropdownVisible)}
+          activeOpacity={0.7}
         >
-          {tabs.map(renderTabItem)}
-        </ScrollView>
+          <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+            <Icon name="filter-list" size={20} color={colors.primary} style={clsx(styles.mr2)} />
+            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+              {tabs.find(t => t.id === activeTab)?.label || 'Select Status'}
+            </Text>
+          </View>
+          <Icon 
+            name={statusDropdownVisible ? 'expand-less' : 'expand-more'} 
+            size={24} 
+            color={colors.textMuted} 
+          />
+        </TouchableOpacity>
+
+        {/* Status Dropdown */}
+        {statusDropdownVisible && (
+          <View style={clsx(
+            styles.bgWhite,
+            styles.mt1,
+            styles.border,
+            styles.borderGray,
+            styles.roundedLg,
+            styles.shadowMd,
+            { maxHeight: 300 }
+          )}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {tabs.map((tab) => (
+                <TouchableOpacity
+                  key={tab.id}
+                  style={clsx(
+                    styles.px3,
+                    styles.py3,
+                    styles.borderBottom,
+                    styles.borderGray,
+                    activeTab === tab.id && styles.bgPrimaryLight,
+                    tab.id === tabs[tabs.length - 1].id && styles.borderBottom0
+                  )}
+                  onPress={() => {
+                    handleTabChange(tab.id);
+                    setStatusDropdownVisible(false);
+                  }}
+                  activeOpacity={0.6}
+                >
+                  <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween)}>
+                    <Text style={clsx(
+                      styles.textBase,
+                      activeTab === tab.id ? styles.textWhite : styles.textBlack
+                    )}>
+                      {tab.label}
+                    </Text>
+                    {activeTab === tab.id && (
+                      <Icon name="check" size={20} color={colors.primary} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
       </View>
 
       {/* Bookings List */}

@@ -394,68 +394,10 @@ const QRPaymentScreen = () => {
             </View>
           )}
 
-          {/* Instructions */}
-          <View style={clsx(styles.mt4, styles.selfStart)}>
-            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
-              How to Pay:
-            </Text>
-            {[
-              'Open any UPI app (GPay, PhonePe, Paytm, etc.)',
-              'Scan the QR code above',
-              `Confirm payment of ₹${totalAmount?.toFixed(2) || '0'} in your UPI app`,
-              'Payment will be confirmed automatically'
-            ].map((step, index) => (
-              <View key={index} style={clsx(styles.flexRow, styles.itemsStart, styles.mb2)}>
-                <Text style={clsx(styles.textBase, styles.textPrimary, styles.mr2, styles.minW6)}>
-                  {index + 1}.
-                </Text>
-                <Text style={clsx(styles.textBase, styles.textBlack)}>
-                  {step}
-                </Text>
-              </View>
-            ))}
-          </View>
         </View>
 
         {/* Action Buttons */}
         <View style={clsx(styles.gap3, styles.mb6)}>
-          <TouchableOpacity
-            style={clsx(
-              styles.bgPrimary,
-              styles.roundedLg,
-              styles.p4,
-              styles.itemsCenter,
-              styles.justifyCenter,
-              styles.flexRow,
-              (!qrImage || isPaymentDone) && styles.opacity50
-            )}
-            onPress={copyQRLink}
-            disabled={!qrImage || isPaymentDone}
-          >
-            <Icon name="content-copy" size={20} color={colors.white} style={clsx(styles.mr2)} />
-            <Text style={clsx(styles.textWhite, styles.fontBold)}>
-              Copy Payment Link
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={clsx(
-              styles.bgSecondary,
-              styles.roundedLg,
-              styles.p4,
-              styles.itemsCenter,
-              styles.justifyCenter,
-              styles.flexRow,
-              (!qrImage || isPaymentDone) && styles.opacity50
-            )}
-            onPress={openInBrowser}
-            disabled={!qrImage || isPaymentDone}
-          >
-            <Icon name="open-in-browser" size={20} color={colors.white} style={clsx(styles.mr2)} />
-            <Text style={clsx(styles.textWhite, styles.fontBold)}>
-              Open in Browser
-            </Text>
-          </TouchableOpacity>
 
           {!isPaymentDone && (
             <TouchableOpacity
@@ -463,7 +405,7 @@ const QRPaymentScreen = () => {
                 styles.border,
                 styles.borderGray,
                 styles.roundedLg,
-                styles.p4,
+                styles.p4, 
                 styles.itemsCenter
               )}
               onPress={handleCancel}

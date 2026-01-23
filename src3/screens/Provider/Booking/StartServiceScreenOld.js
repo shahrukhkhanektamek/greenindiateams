@@ -75,9 +75,9 @@ const StartServiceScreen = ({ navigation, route }) => {
     return () => clearInterval(interval);
   }, [otpTimer]);
 
-  const checkCameraPermission = async () => {
+  const checkCameraPermission = async () => { 
     setCameraPermission(true);
-    return false;
+    // return false;
     
     try {
       const cameraPermissionStatus = await Camera.getCameraPermissionStatus();
@@ -140,6 +140,8 @@ const StartServiceScreen = ({ navigation, route }) => {
       setCheckingLocation(true);
       setLocationStatus('checking');
       setLocationError('');
+ 
+      
       
       const booking = bookingData?.booking;
       const address = booking?.addressId;

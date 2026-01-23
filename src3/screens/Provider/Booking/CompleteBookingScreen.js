@@ -122,10 +122,16 @@ const CompleteBookingScreen = () => {
   };
 
   const handleOnlinePaymentSuccess = (paymentData) => {
-    console.log('Online payment success:', paymentData);
-    setOnlinePaymentSuccess(true);
-    setOnlinePaymentData(paymentData);
-    setOnlineAmount(paymentData.amount.toString());
+    // console.log('Online payment success:', paymentData);
+    // setOnlinePaymentSuccess(true);
+    // setOnlinePaymentData(paymentData);
+    // setOnlineAmount(paymentData.amount.toString());
+
+    navigation.navigate('BookingDone', {
+      bookingData: bookingData,
+      formattedData: formattedData,
+      loadBookingDetails: loadBookingDetails,
+    });
     
     Toast.show({
       type: 'success',

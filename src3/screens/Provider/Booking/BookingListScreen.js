@@ -65,6 +65,10 @@ const BookingListScreen = ({ navigation }) => {
     { id: 'complete', label: 'Completed', status: 'complete' },
     { id: 'cancel', label: 'Cancelled', status: 'cancel' },
     { id: 'reject', label: 'Rejected', status: 'reject' },
+    { id: 'partstatusnew', label: 'Parts Submitted', status: 'partstatusnew' },
+    { id: 'partstatusconfirm', label: 'Parts Confirmed', status: 'partstatusconfirm' },
+    { id: 'partstatusapprove', label: 'Parts Approved', status: 'partstatusapprove' },
+    { id: 'partstatusreject', label: 'Parts Rejected', status: 'partstatusreject' },
   ];
   // Refs for tab scroll
   const tabScrollViewRef = React.useRef(null);
@@ -932,7 +936,7 @@ const BookingListScreen = ({ navigation }) => {
         onRequestClose={() => setFilterModalVisible(false)}
       >
         <View style={clsx(styles.flex1, styles.justifyEnd, styles.bgBlack50)}>
-          <View style={clsx(styles.bgWhite, styles.roundedT3xl, styles.p6, { maxHeight: SCREEN_WIDTH * 1.2 })}>
+          <View style={clsx(styles.bgWhite, styles.p6, { height: 600 })}>
             <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb6)}>
               <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)}>
                 Filter Bookings
@@ -943,8 +947,7 @@ const BookingListScreen = ({ navigation }) => {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={clsx(styles.flex1)}>
-              {/* Service Type Filter */}
-              {renderFilterOption('serviceType', serviceTypes)}
+              
 
               {/* Price Range Filter */}
               {renderFilterOption('priceRange', priceRanges)}

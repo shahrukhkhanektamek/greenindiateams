@@ -51,6 +51,7 @@ const StartServiceScreen = ({ navigation, route }) => {
   const [selfieTaken, setSelfieTaken] = useState(false);
   
   // OTP States
+  const otpInputRefs = useRef([]);
   const [otpInputs, setOtpInputs] = useState(['', '', '', '']);
   const [verifyingOTP, setVerifyingOTP] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
@@ -65,9 +66,15 @@ const StartServiceScreen = ({ navigation, route }) => {
   const cameraRef = useRef(null);
 
   useEffect(() => {
+
+    // GetCurrentLocation2();
+    // return false;
+
     // Start automatic process when screen loads
     startAutomaticProcess();
     checkCameraPermission();
+    // OTP refs initialize करें
+    otpInputRefs.current = otpInputRefs.current.slice(0, 4);
   }, []);
 
   useEffect(() => {
@@ -170,8 +177,75 @@ const StartServiceScreen = ({ navigation, route }) => {
     }
   };
 
+
+
+  const GetCurrentLocation2 = async () => {
+    const deviceId = '';
+    try {   
+  
+      // Get Current Position
+      Geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+
+          console.log(`Latitude: ${latitude}, Longitude: ${longitude}`);
+        },
+        (error) => {
+          // See error codes below.
+          console.log(error.code, error.message);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      );
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+
   // Location Functions
   const getCurrentLocation = async () => {
+    let positions = {};
+
+    // try { 
+      // if (Platform.OS === 'android') {
+      //   const granted = await PermissionsAndroid.request(
+      //     PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+      //   );
+        
+      //   if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+      //     console.log('Location permission denied');
+      //     return null;
+      //   }
+      // }
+  
+    //   // Get Current Position
+    //   Geolocation.getCurrentPosition(
+    //     (position) => {
+    //       const { latitude, longitude } = position.coords;
+    //       positions = {
+    //         latitude: position.coords.latitude,
+    //         longitude: position.coords.longitude,
+    //         accuracy: position.coords.accuracy
+    //       };
+          
+    //       console.log(`Latitude: ${positions}`);
+    //       return positions;
+
+    //     },
+    //     (error) => {
+    //       // See error codes below.
+    //       console.log(error.code, error.message);
+    //       return null;
+    //     },
+    //     { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+    //   );
+    // } catch (error) {
+    //   console.error(error);
+    //   return null;
+    // }
+
+    
+
     try {
       let positions = {};
       
@@ -214,8 +288,8 @@ const StartServiceScreen = ({ navigation, route }) => {
   };
 
   const verifyLocation = async () => {
-     setLocationStatus('success');
-     return true;
+    //  setLocationStatus('success');
+    //  return true;
     try {
       setCheckingLocation(true);
       setLocationStatus('checking');
@@ -235,6 +309,7 @@ const StartServiceScreen = ({ navigation, route }) => {
       const bookingLng = parseFloat(address.long);
       
       const location = await getCurrentLocation();
+      console.log(location);
       setCurrentLocation(location);
       
       if (!location) {
@@ -498,6 +573,8 @@ const StartServiceScreen = ({ navigation, route }) => {
           text1: 'Service Started',
           text2: 'Service has been started successfully.',
         });
+
+        clearOtpInputs(); // OTP inputs clear करें
         
         // Navigate back and refresh
         setTimeout(() => {
@@ -522,13 +599,60 @@ const StartServiceScreen = ({ navigation, route }) => {
 
   const handleOtpChange = (text, index) => {
     const newOtp = [...otpInputs];
-    newOtp[index] = text.replace(/[^0-9]/g, '');
-    setOtpInputs(newOtp);
+    
+    // Only allow numbers
+    const numericText = text.replace(/[^0-9]/g, '');
+    
+    // If text is being deleted
+    if (text === '' && index > 0) {
+      newOtp[index] = '';
+      setOtpInputs(newOtp);
+      
+      // Move focus to previous input
+      if (otpInputRefs.current[index - 1]) {
+        otpInputRefs.current[index - 1].focus();
+      }
+      return;
+    }
+    
+    // If text is being entered
+    if (numericText) {
+      newOtp[index] = numericText;
+      setOtpInputs(newOtp);
+      
+      // Move focus to next input if available
+      if (index < 3 && otpInputRefs.current[index + 1]) {
+        otpInputRefs.current[index + 1].focus();
+      }
+    }
+    
     setOtpError('');
+  };
+  
+  const handleOtpKeyPress = (event, index) => {
+    // Handle backspace key
+    if (event.nativeEvent.key === 'Backspace') {
+      if (otpInputs[index] === '' && index > 0) {
+        // Move focus to previous input
+        if (otpInputRefs.current[index - 1]) {
+          otpInputRefs.current[index - 1].focus();
+        }
+      }
+    }
+  };
+
+  // OTP verify करने के बाद inputs clear करें
+  const clearOtpInputs = () => {
+    setOtpInputs(['', '', '', '']);
+    // Focus को first input पर वापस ले जाएं
+    if (otpInputRefs.current[0]) {
+      otpInputRefs.current[0].focus();
+    }
   };
 
   const manualSendOTP = async () => {
     setAutomaticMode(true);
+    clearOtpInputs();
     await sendOTPAutomatically();
   };
 
@@ -726,7 +850,7 @@ const StartServiceScreen = ({ navigation, route }) => {
       )}
 
       {/* Action Buttons */}
-      <View style={clsx(styles.flexRow, styles.gap4)}>
+      <View style={clsx(styles.flexRow, styles.gap4, styles.mt2)}>
         {locationStatus === 'far' && (
           <>
             <TouchableOpacity
@@ -1084,10 +1208,12 @@ const StartServiceScreen = ({ navigation, route }) => {
                 { 
                   width: 60, 
                   height: 60,
-                  backgroundColor: otpInputs[index] ? colors.primaryLight : colors.white
+                  backgroundColor: otpInputs[index] ? colors.primaryLight : colors.white,
+                  borderColor: otpInputs[index] ? colors.primary : colors.primary
                 }
               ]}>
                 <TextInput
+                  ref={ref => otpInputRefs.current[index] = ref}
                   style={[
                     clsx(styles.text2xl, styles.fontBold, styles.textCenter),
                     { 
@@ -1100,22 +1226,24 @@ const StartServiceScreen = ({ navigation, route }) => {
                   maxLength={1}
                   value={otpInputs[index]}
                   onChangeText={(text) => handleOtpChange(text, index)}
+                  onKeyPress={(event) => handleOtpKeyPress(event, index)}
                   autoFocus={index === 0 && !autoVerifyingOTP}
                   editable={!verifyingOTP && !autoVerifyingOTP}
+                  selectTextOnFocus={true}
                 />
               </View>
             ))}
           </View>
-
-          {/* OTP Timer 
+          
+          {/* OTP Timer */}
           {otpTimer > 0 && (
             <View style={clsx(styles.itemsCenter, styles.mb4)}>
               <Text style={clsx(styles.textBase, styles.textMuted)}>
                 Resend OTP in {formatTime(otpTimer)}
               </Text>
             </View>
-          )} */}
-
+          )}
+          
           {/* Auto Verification Status */}
           {autoVerifyingOTP && (
             <View style={clsx(styles.itemsCenter, styles.mb4)}>

@@ -12,6 +12,7 @@ import {
   Dimensions,
   TextInput,
   StyleSheet,
+  RefreshControl,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../../styles/globalStyles';
@@ -25,6 +26,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
   
   const { Toast, Urls, postData, user, token, UploadUrl, imageCheck } = useContext(AppContext);
 
+  const [refreshing, setRefreshing] = useState(false);
   const [bookingData, setBookingData] = useState(null);
   const [loading, setLoading] = useState(true);
   
@@ -47,9 +49,19 @@ const BookingDetailScreen = ({ navigation, route }) => {
   const [partsAmount, setPartsAmount] = useState(0);
   const [originalAmount, setOriginalAmount] = useState(0);
   const [additionalParts, setAdditionalParts] = useState([]);
+  
+  // New State for tracking current step
+  const [currentStep, setCurrentStep] = useState(1); // 1: Before media, 2: Parts, 3: After media, 4: Complete
 
   useEffect(() => {
     loadBookingDetails();
+  }, []);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    loadBookingDetails().finally(() => {
+      setRefreshing(false);
+    });
   }, []);
 
   const loadBookingDetails = async () => {
@@ -94,6 +106,9 @@ const BookingDetailScreen = ({ navigation, route }) => {
           setPartsAmount(partsTotal);
         }
         
+        // Determine current step based on data
+        determineCurrentStep(data);
+        
       } else {
         Toast.show({
           type: 'error',
@@ -110,6 +125,26 @@ const BookingDetailScreen = ({ navigation, route }) => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const determineCurrentStep = (data) => {
+    const hasBeforeMedia = (data.beforeStartImages && data.beforeStartImages.length > 0) || 
+                          (data.beforeStartVideos && data.beforeStartVideos.length > 0);
+    const hasAfterMedia = (data.afterCompleteImages && data.afterCompleteImages.length > 0) || 
+                         (data.afterCompleteVideos && data.afterCompleteVideos.length > 0);
+    const status = data.status;
+    
+    if (!hasBeforeMedia) {
+      setCurrentStep(1); // Step 1: Before media upload
+    } else if (hasBeforeMedia && !isPartsApprovalInProgress() && additionalParts.length === 0 && !hasAfterMedia) {
+      setCurrentStep(2); // Step 2: Parts selection (user can skip)
+    } else if (isPartsApprovalInProgress() && isPartsPending()) {
+      setCurrentStep(3); // Step 3: Waiting for parts approval
+    } else if ((isPartsApproved() || isPartsRejected() || additionalParts.length === 0) && !hasAfterMedia) {
+      setCurrentStep(4); // Step 4: After media upload
+    } else if (hasAfterMedia) {
+      setCurrentStep(5); // Step 5: Ready to complete
     }
   };
 
@@ -333,6 +368,34 @@ const BookingDetailScreen = ({ navigation, route }) => {
     });
   };
 
+  // Function to skip parts
+  const skipParts = async () => {
+    Alert.alert(
+      'Skip Parts',
+      'Are you sure you want to skip parts selection? You can proceed directly to after service media upload.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes, Skip',
+          onPress: async () => {
+            try {
+              // Mark that user has skipped parts
+              // You might want to add an API call here if needed
+              setCurrentStep(4); // Move to after media step
+              Toast.show({
+                type: 'info',
+                text1: 'Parts Skipped',
+                text2: 'You can now upload after service media',
+              });
+            } catch (error) {
+              console.error('Error skipping parts:', error);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   // Function to cancel parts request
   const cancelPartsRequest = async () => {
     Alert.alert(
@@ -357,6 +420,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
                   text1: 'Cancelled',
                   text2: 'Parts request cancelled successfully',
                 });
+                setCurrentStep(4); // Move to after media step
                 loadBookingDetails();
               }
             } catch (error) {
@@ -446,8 +510,20 @@ const BookingDetailScreen = ({ navigation, route }) => {
         text2: 'All media uploaded successfully',
       });
       
-      // Refresh booking data
+      // Refresh booking data and determine next step
       loadBookingDetails();
+      
+      // If before media was just uploaded and no parts yet, move to step 2
+      if (capturedBeforeImages.length > 0 || capturedBeforeVideos.length > 0) {
+        if (additionalParts.length === 0 && !isPartsApprovalInProgress()) {
+          setCurrentStep(2);
+        }
+      }
+      
+      // If after media was just uploaded, move to step 5
+      if (capturedAfterImages.length > 0 || capturedAfterVideos.length > 0) {
+        setCurrentStep(5);
+      }
       
     } catch (error) {
       console.error('Error uploading all media:', error);
@@ -620,6 +696,16 @@ const BookingDetailScreen = ({ navigation, route }) => {
 
   // COMPLETE BOOKING FUNCTIONS
   const openCompleteModal = () => {
+    // Check if after media is uploaded
+    if (afterImages.length === 0 && afterVideos.length === 0) {
+      Toast.show({
+        type: 'info',
+        text1: 'After Media Required',
+        text2: 'Please upload after service media before completing',
+      });
+      return;
+    }
+    
     // Check if parts approval is pending
     if (isPartsPending()) {
       Toast.show({
@@ -857,9 +943,9 @@ const BookingDetailScreen = ({ navigation, route }) => {
           {/* Status Message */}
           <Text style={clsx(styles.textSm, styles.textMuted, styles.mt4)}>
             {isPartsPending() 
-              ? 'Parts are pending approval. You cannot upload media or complete service until parts are approved.' 
+              ? 'Parts are pending approval. You cannot upload after service media until parts are approved.' 
               : isPartsApproved()
-              ? 'Parts have been approved. You can now continue with service.'
+              ? 'Parts have been approved. You can now upload after service media.'
               : 'Parts have been rejected. Please proceed with original service only.'}
           </Text>
         </View>
@@ -894,437 +980,520 @@ const BookingDetailScreen = ({ navigation, route }) => {
     );
   };
 
-  // MEDIA DISPLAY COMPONENTS - Updated UI
-const MediaSection = ({ title, uploadedImages, uploadedVideos, capturedImages, capturedVideos, type, showSection = true }) => (
-  showSection ? (
-    <View style={clsx(styles.mb6, styles.p4, styles.bgWhite, styles.roundedLg, styles.shadowSm)}>
-      {/* Header with Progress Indicator */}
-      <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4)}>
-        <View>
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
-            {title}
-          </Text>
-          <Text style={clsx(styles.textSm, styles.textMuted, styles.mt1)}>
-            Total uploaded: {uploadedImages.length} images, {uploadedVideos.length} videos
-          </Text>
-        </View>
-        
-        {/* Progress Circle */}
-        <View style={clsx(styles.itemsCenter)}>
-          <View style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: colors.primary + '20',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-            <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
-              {uploadedImages.length + uploadedVideos.length}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Media Action Buttons - Improved UI */}
-      <View style={clsx(styles.mb4)}>
-        <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
-          Add Media Proof
+  // Render Step Progress
+  const renderStepProgress = () => {
+    if (formattedData?.status !== 'ongoing' && !isPartsApprovalInProgress()) return null;
+    
+    const steps = [
+      { number: 1, title: 'Before Media', completed: beforeImages.length > 0 || beforeVideos.length > 0 },
+      { number: 2, title: 'Parts', completed: additionalParts.length > 0 || isPartsApprovalInProgress() },
+      { number: 3, title: 'After Media', completed: afterImages.length > 0 || afterVideos.length > 0 },
+      { number: 4, title: 'Complete', completed: false }
+    ];
+    
+    return (
+      <View style={clsx(styles.px4, styles.mt4)}>
+        <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
+          Service Progress
         </Text>
         
-        <View style={clsx(styles.flexRow, styles.gap3)}>
-          {/* Add Image Button */}
-          <TouchableOpacity
-            style={clsx(
-              styles.flex1,
-              styles.flexRow,
-              styles.itemsCenter,
-              styles.justifyCenter,
-              styles.p3,
-              styles.bgPrimaryLight,
-              styles.roundedLg,
-              styles.border,
-              styles.borderPrimary,
-              isPartsPending() && styles.opacity50
-            )}
-            onPress={() => openMediaModal(`${type}-image`)}
-            disabled={isPartsPending()}
-          >
-            <View style={clsx(styles.mr2)}>
-              <Icon name="add-a-photo" size={20} color={isPartsPending() ? colors.gray500 : colors.primary} />
-            </View>
-            <View style={clsx(styles.flex1)}>
-              <Text style={clsx(
-                styles.textBase,
-                styles.fontMedium,
-                isPartsPending() ? styles.textGray500 : styles.textPrimary
-              )}>
-                Add Image
-              </Text>
-              <Text style={clsx(styles.textXs, styles.textMuted)}>
-                JPG, PNG
-              </Text>
-            </View>
-          </TouchableOpacity>
-          
-          {/* Add Video Button */}
-          <TouchableOpacity
-            style={clsx(
-              styles.flex1,
-              styles.flexRow,
-              styles.itemsCenter,
-              styles.justifyCenter,
-              styles.p3,
-              styles.bgSecondaryLight,
-              styles.roundedLg,
-              styles.border,
-              styles.borderSecondary,
-              isPartsPending() && styles.opacity50
-            )}
-            onPress={() => openMediaModal(`${type}-video`)}
-            disabled={isPartsPending()}
-          >
-            <View style={clsx(styles.mr2)}>
-              <Icon name="videocam" size={20} color={isPartsPending() ? colors.gray500 : colors.secondary} />
-            </View>
-            <View style={clsx(styles.flex1)}>
-              <Text style={clsx(
-                styles.textBase,
-                styles.fontMedium,
-                isPartsPending() ? styles.textGray500 : styles.textSecondary
-              )}>
-                Add Video
-              </Text>
-              <Text style={clsx(styles.textXs, styles.textMuted)}>
-                MP4, MOV
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-        
-      </View>
-
-      
-
-      {/* Captured Media Section (Not Uploaded Yet) */}
-      {(capturedImages.length > 0 || capturedVideos.length > 0) && (
         <View style={clsx(
-          styles.mb4, 
-          styles.p3, 
-          styles.bgWarningLight, 
-          styles.roundedLg, 
-          styles.border, 
-          styles.borderWarning
+          styles.bgWhite,
+          styles.roundedLg,
+          styles.p4,
+          styles.shadowSm
         )}>
-          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
-            <Icon name="hourglass-empty" size={18} color={colors.warning} style={clsx(styles.mr2)} />
-            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-              Captured Media (Not Uploaded)
+          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4)}>
+            {steps.map((step, index) => (
+              <React.Fragment key={step.number}>
+                <View style={clsx(styles.itemsCenter)}>
+                  <View style={[clsx(
+                    styles.w10,
+                    styles.h10,
+                    styles.roundedFull,
+                    styles.itemsCenter,
+                    styles.justifyCenter,
+                    styles.mb2
+                  ), {
+                    backgroundColor: step.completed ? colors.success : 
+                                    currentStep === step.number ? colors.primary : colors.gray200,
+                    borderWidth: currentStep === step.number ? 2 : 0,
+                    borderColor: colors.primary
+                  }]}>
+                    <Text style={clsx(
+                      styles.fontBold,
+                      { color: step.completed || currentStep === step.number ? colors.white : colors.gray500 }
+                    )}>
+                      {step.number}
+                    </Text>
+                  </View>
+                  <Text style={clsx(
+                    styles.textSm,
+                    styles.fontMedium,
+                    { color: step.completed || currentStep === step.number ? colors.primary : colors.gray500 }
+                  )}>
+                    {step.title}
+                  </Text>
+                </View>
+                
+                {index < steps.length - 1 && (
+                  <View style={clsx(styles.flex1, styles.mx2)}>
+                    <View style={[clsx(styles.h1, styles.roundedFull), {
+                      backgroundColor: steps[index + 1].completed ? colors.success : colors.gray300
+                    }]} />
+                  </View>
+                )}
+              </React.Fragment>
+            ))}
+          </View>
+          
+          {/* Current Step Message */}
+          <View style={clsx(
+            styles.p3,
+            styles.roundedLg,
+            styles.bgPrimaryLight
+          )}>
+            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.textCenter)}>
+              {currentStep === 1 ? '📸 Step 1: Upload before service images/videos' :
+               currentStep === 2 ? '🔧 Step 2: Add parts if needed (or skip)' :
+               currentStep === 3 ? '⏳ Step 3: Waiting for parts approval' :
+               currentStep === 4 ? '📸 Step 4: Upload after service images/videos' :
+               '✅ Ready to complete service'}
             </Text>
-            <View style={clsx(styles.mlAuto, styles.flexRow, styles.itemsCenter)}>
-              <View style={[clsx(styles.w2, styles.h2, styles.roundedFull, styles.mr1), 
-                { backgroundColor: colors.warning }
-              ]} />
-              <Text style={clsx(styles.textSm, styles.fontBold, styles.textBlack)}>
-                {capturedImages.length + capturedVideos.length}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  // MEDIA DISPLAY COMPONENTS
+  const MediaSection = ({ title, uploadedImages, uploadedVideos, capturedImages, capturedVideos, type, showSection = true }) => (
+    showSection ? (
+      <View style={clsx(styles.mb6, styles.p4, styles.bgWhite, styles.roundedLg, styles.shadowSm)}>
+        {/* Header with Progress Indicator */}
+        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4)}>
+          <View>
+            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
+              {title}
+            </Text>
+            <Text style={clsx(styles.textSm, styles.textMuted, styles.mt1)}>
+              Total uploaded: {uploadedImages.length} images, {uploadedVideos.length} videos
+            </Text>
+          </View>
+          
+          {/* Progress Circle */}
+          <View style={clsx(styles.itemsCenter)}>
+            <View style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: colors.primary + '20',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
+                {uploadedImages.length + uploadedVideos.length}
               </Text>
             </View>
           </View>
+        </View>
+
+        {/* Media Action Buttons - Improved UI */}
+        <View style={clsx(styles.mb4)}>
+          <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
+            Add Media Proof
+          </Text>
           
-          {/* Captured Images */}
-          {capturedImages.length > 0 && (
-            <View style={clsx(styles.mb3)}>
-              <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack, styles.mb2)}>
-                📸 Images ({capturedImages.length})
+          <View style={clsx(styles.flexRow, styles.gap3)}>
+            {/* Add Image Button */}
+            <TouchableOpacity
+              style={clsx(
+                styles.flex1,
+                styles.flexRow,
+                styles.itemsCenter,
+                styles.justifyCenter,
+                styles.p3,
+                styles.bgPrimaryLight,
+                styles.roundedLg,
+                styles.border,
+                styles.borderPrimary,
+                isPartsPending() && styles.opacity50
+              )}
+              onPress={() => openMediaModal(`${type}-image`)}
+              disabled={isPartsPending() || (type === 'after' && isPartsPending())}
+            >
+              <View style={clsx(styles.mr2)}>
+                <Icon name="add-a-photo" size={20} color={isPartsPending() ? colors.gray500 : colors.primary} />
+              </View>
+              <View style={clsx(styles.flex1)}>
+                <Text style={clsx(
+                  styles.textBase,
+                  styles.fontMedium,
+                  isPartsPending() ? styles.textGray500 : styles.textPrimary
+                )}>
+                  Add Image
+                </Text>
+                <Text style={clsx(styles.textXs, styles.textMuted)}>
+                  JPG, PNG
+                </Text>
+              </View>
+            </TouchableOpacity>
+            
+            {/* Add Video Button */}
+            <TouchableOpacity
+              style={clsx(
+                styles.flex1,
+                styles.flexRow,
+                styles.itemsCenter,
+                styles.justifyCenter,
+                styles.p3,
+                styles.bgSecondaryLight,
+                styles.roundedLg,
+                styles.border,
+                styles.borderSecondary,
+                isPartsPending() && styles.opacity50
+              )}
+              onPress={() => openMediaModal(`${type}-video`)}
+              disabled={isPartsPending() || (type === 'after' && isPartsPending())}
+            >
+              <View style={clsx(styles.mr2)}>
+                <Icon name="videocam" size={20} color={isPartsPending() ? colors.gray500 : colors.secondary} />
+              </View>
+              <View style={clsx(styles.flex1)}>
+                <Text style={clsx(
+                  styles.textBase,
+                  styles.fontMedium,
+                  isPartsPending() ? styles.textGray500 : styles.textSecondary
+                )}>
+                  Add Video
+                </Text>
+                <Text style={clsx(styles.textXs, styles.textMuted)}>
+                  MP4, MOV
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+          
+        </View>
+
+        {/* Captured Media Section (Not Uploaded Yet) */}
+        {(capturedImages.length > 0 || capturedVideos.length > 0) && (
+          <View style={clsx(
+            styles.mb4, 
+            styles.p3, 
+            styles.bgWarningLight, 
+            styles.roundedLg, 
+            styles.border, 
+            styles.borderWarning
+          )}>
+            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
+              <Icon name="hourglass-empty" size={18} color={colors.warning} style={clsx(styles.mr2)} />
+              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+                Captured Media (Not Uploaded)
               </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {capturedImages.map((media, index) => (
-                  <View key={index} style={clsx(styles.mr3, styles.positionRelative)}>
-                    <Image
-                      source={{ uri: media.uri }}
-                      style={{
+              <View style={clsx(styles.mlAuto, styles.flexRow, styles.itemsCenter)}>
+                <View style={[clsx(styles.w2, styles.h2, styles.roundedFull, styles.mr1), 
+                  { backgroundColor: colors.warning }
+                ]} />
+                <Text style={clsx(styles.textSm, styles.fontBold, styles.textBlack)}>
+                  {capturedImages.length + capturedVideos.length}
+                </Text>
+              </View>
+            </View>
+            
+            {/* Captured Images */}
+            {capturedImages.length > 0 && (
+              <View style={clsx(styles.mb3)}>
+                <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack, styles.mb2)}>
+                  📸 Images ({capturedImages.length})
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {capturedImages.map((media, index) => (
+                    <View key={index} style={clsx(styles.mr3, styles.positionRelative)}>
+                      <Image
+                        source={{ uri: media.uri }}
+                        style={{
+                          width: 90,
+                          height: 90,
+                          borderRadius: 8,
+                          borderWidth: 2,
+                          borderColor: colors.warning,
+                        }}
+                      />
+                      <TouchableOpacity
+                        style={clsx(
+                          styles.absolute,
+                          styles.topNegative1,
+                          styles.rightNegative1,
+                          styles.bgError,
+                          styles.roundedFull,
+                          styles.p1,
+                          styles.shadowSm
+                        )}
+                        onPress={() => deleteCapturedMedia(index, `${type}-image`)}
+                      >
+                        <Icon name="close" size={14} color={colors.white} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+            
+            {/* Captured Videos */}
+            {capturedVideos.length > 0 && (
+              <View>
+                <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack, styles.mb2)}>
+                  🎥 Videos ({capturedVideos.length})
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {capturedVideos.map((media, index) => (
+                    <View key={index} style={clsx(styles.mr3, styles.positionRelative)}>
+                      <View style={{
                         width: 90,
                         height: 90,
                         borderRadius: 8,
-                        borderWidth: 2,
-                        borderColor: colors.warning,
-                      }}
-                    />
-                    <TouchableOpacity
-                      style={clsx(
-                        styles.absolute,
-                        styles.topNegative1,
-                        styles.rightNegative1,
-                        styles.bgError,
-                        styles.roundedFull,
-                        styles.p1,
-                        styles.shadowSm
-                      )}
-                      onPress={() => deleteCapturedMedia(index, `${type}-image`)}
-                    >
-                      <Icon name="close" size={14} color={colors.white} />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-          
-          {/* Captured Videos */}
-          {capturedVideos.length > 0 && (
-            <View>
-              <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack, styles.mb2)}>
-                🎥 Videos ({capturedVideos.length})
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {capturedVideos.map((media, index) => (
-                  <View key={index} style={clsx(styles.mr3, styles.positionRelative)}>
-                    <View style={{
-                      width: 90,
-                      height: 90,
-                      borderRadius: 8,
-                      backgroundColor: colors.gray800,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderWidth: 2,
-                      borderColor: colors.warning,
-                      overflow: 'hidden',
-                    }}>
-                      <Icon name="play-circle-filled" size={36} color={colors.white} />
-                      <View style={{
-                        position: 'absolute',
-                        bottom: 4,
-                        left: 4,
-                        backgroundColor: 'rgba(0,0,0,0.7)',
-                        paddingHorizontal: 6,
-                        paddingVertical: 2,
-                        borderRadius: 4,
-                      }}>
-                        <Text style={clsx(styles.textXs, styles.textWhite)}>
-                          Video
-                        </Text>
-                      </View>
-                    </View>
-                    <TouchableOpacity
-                      style={clsx(
-                        styles.absolute,
-                        styles.topNegative1,
-                        styles.rightNegative1,
-                        styles.bgError,
-                        styles.roundedFull,
-                        styles.p1,
-                        styles.shadowSm
-                      )}
-                      onPress={() => deleteCapturedMedia(index, `${type}-video`)}
-                    >
-                      <Icon name="close" size={14} color={colors.white} />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-        </View>
-      )}
-      
-      {/* Uploaded Media Section */}
-      {uploadedImages.length > 0 && (
-        <View style={clsx(styles.mb4)}>
-          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
-            <Icon name="check-circle" size={18} color={colors.success} style={clsx(styles.mr2)} />
-            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-              Uploaded Images ({uploadedImages.length})
-            </Text>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {uploadedImages.map((uri, index) => {
-              const imageUri = `${UploadUrl}${uri}`;
-              return (
-                <View key={index} style={clsx(styles.mr3, styles.positionRelative)}>
-                  <Image
-                    source={{ uri: imageUri }}
-                    style={{
-                      width: 100,
-                      height: 100,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: colors.gray300,
-                    }}
-                    resizeMode="cover"
-                  />
-                  <View style={{
-                    position: 'absolute',
-                    top: 4,
-                    left: 4,
-                    backgroundColor: 'rgba(0,0,0,0.6)',
-                    paddingHorizontal: 6,
-                    paddingVertical: 2,
-                    borderRadius: 4,
-                  }}>
-                    <Text style={clsx(styles.textXs, styles.textWhite)}>
-                      #{index + 1}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    style={clsx(
-                      styles.absolute,
-                      styles.top1,
-                      styles.right1,
-                      styles.bgError,
-                      styles.roundedFull,
-                      styles.p1,
-                      styles.shadowSm
-                    )}
-                    onPress={() => deleteMedia(uri, `${type}-image`)}
-                  >
-                    <Icon name="close" size={14} color={colors.white} />
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
-          </ScrollView>
-        </View>
-      )}
-      
-      {uploadedVideos.length > 0 && (
-        <View>
-          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
-            <Icon name="check-circle" size={18} color={colors.success} style={clsx(styles.mr2)} />
-            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-              Uploaded Videos ({uploadedVideos.length})
-            </Text>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {uploadedVideos.map((uri, index) => {
-              const videoUri = `${UploadUrl}${uri}`;
-              
-              return (
-                <View key={index} style={clsx(styles.mr3, styles.positionRelative)}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (videoUri) {
-                        Linking.openURL(videoUri).catch(err => 
-                          console.log('Failed to open video:', err)
-                        );
-                      }
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <View style={{
-                      width: 100,
-                      height: 100,
-                      borderRadius: 8,
-                      backgroundColor: colors.gray900,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      overflow: 'hidden',
-                      borderWidth: 1,
-                      borderColor: colors.gray300,
-                    }}>
-                      <View style={{
-                        width: '100%',
-                        height: '100%',
-                        backgroundColor: 'rgba(0,0,0,0.3)',
+                        backgroundColor: colors.gray800,
                         alignItems: 'center',
                         justifyContent: 'center',
+                        borderWidth: 2,
+                        borderColor: colors.warning,
+                        overflow: 'hidden',
                       }}>
-                        <Icon name="play-circle-filled" size={40} color={colors.white} style={clsx(styles.shadowSm)} />
+                        <Icon name="play-circle-filled" size={36} color={colors.white} />
+                        <View style={{
+                          position: 'absolute',
+                          bottom: 4,
+                          left: 4,
+                          backgroundColor: 'rgba(0,0,0,0.7)',
+                          paddingHorizontal: 6,
+                          paddingVertical: 2,
+                          borderRadius: 4,
+                        }}>
+                          <Text style={clsx(styles.textXs, styles.textWhite)}>
+                            Video
+                          </Text>
+                        </View>
                       </View>
-                      <View style={{
-                        position: 'absolute',
-                        top: 4,
-                        left: 4,
-                        backgroundColor: 'rgba(0,0,0,0.6)',
-                        paddingHorizontal: 6,
-                        paddingVertical: 2,
-                        borderRadius: 4,
-                      }}>
-                        <Text style={clsx(styles.textXs, styles.textWhite)}>
-                          #{index + 1}
-                        </Text>
-                      </View>
-                      <View style={{
-                        position: 'absolute',
-                        bottom: 4,
-                        right: 4,
-                      }}>
-                        <Icon name="videocam" size={16} color={colors.white} />
-                      </View>
+                      <TouchableOpacity
+                        style={clsx(
+                          styles.absolute,
+                          styles.topNegative1,
+                          styles.rightNegative1,
+                          styles.bgError,
+                          styles.roundedFull,
+                          styles.p1,
+                          styles.shadowSm
+                        )}
+                        onPress={() => deleteCapturedMedia(index, `${type}-video`)}
+                      >
+                        <Icon name="close" size={14} color={colors.white} />
+                      </TouchableOpacity>
                     </View>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={clsx(
-                      styles.absolute,
-                      styles.top1,
-                      styles.right1,
-                      styles.bgError,
-                      styles.roundedFull,
-                      styles.p1,
-                      styles.shadowSm
-                    )}
-                    onPress={() => deleteMedia(uri, `${type}-video`)}
-                  >
-                    <Icon name="close" size={14} color={colors.white} />
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
-          </ScrollView>
-        </View>
-      )}
-      
-      {/* Empty State */}
-      {uploadedImages.length === 0 && uploadedVideos.length === 0 && 
-      capturedImages.length === 0 && capturedVideos.length === 0 && (
-        <View style={clsx(
-          styles.p6, 
-          styles.bgGray50, 
-          styles.roundedLg, 
-          styles.itemsCenter,
-          styles.justifyCenter
-        )}>
-          <View style={[clsx(styles.roundedFull, styles.p4, styles.mb3), 
-            { backgroundColor: colors.primary + '20' }
-          ]}>
-            <Icon name="photo-library" size={40} color={colors.primary} />
+                  ))}
+                </ScrollView>
+              </View>
+            )}
           </View>
-          <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb1)}>
-            No {title.toLowerCase()} uploaded yet
-          </Text>
-          <Text style={clsx(styles.textSm, styles.textMuted, styles.textCenter)}>
-            Capture images or videos to provide service proof
-          </Text>
+        )}
+        
+        {/* Uploaded Media Section */}
+        {uploadedImages.length > 0 && (
+          <View style={clsx(styles.mb4)}>
+            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
+              <Icon name="check-circle" size={18} color={colors.success} style={clsx(styles.mr2)} />
+              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+                Uploaded Images ({uploadedImages.length})
+              </Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {uploadedImages.map((uri, index) => {
+                const imageUri = `${UploadUrl}${uri}`;
+                return (
+                  <View key={index} style={clsx(styles.mr3, styles.positionRelative)}>
+                    <Image
+                      source={{ uri: imageUri }}
+                      style={{
+                        width: 100,
+                        height: 100,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: colors.gray300,
+                      }}
+                      resizeMode="cover"
+                    />
+                    <View style={{
+                      position: 'absolute',
+                      top: 4,
+                      left: 4,
+                      backgroundColor: 'rgba(0,0,0,0.6)',
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                      borderRadius: 4,
+                    }}>
+                      <Text style={clsx(styles.textXs, styles.textWhite)}>
+                        #{index + 1}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={clsx(
+                        styles.absolute,
+                        styles.top1,
+                        styles.right1,
+                        styles.bgError,
+                        styles.roundedFull,
+                        styles.p1,
+                        styles.shadowSm
+                      )}
+                      onPress={() => deleteMedia(uri, `${type}-image`)}
+                    >
+                      <Icon name="close" size={14} color={colors.white} />
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+        
+        {uploadedVideos.length > 0 && (
+          <View>
+            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
+              <Icon name="check-circle" size={18} color={colors.success} style={clsx(styles.mr2)} />
+              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+                Uploaded Videos ({uploadedVideos.length})
+              </Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {uploadedVideos.map((uri, index) => {
+                const videoUri = `${UploadUrl}${uri}`;
+                
+                return (
+                  <View key={index} style={clsx(styles.mr3, styles.positionRelative)}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (videoUri) {
+                          Linking.openURL(videoUri).catch(err => 
+                            console.log('Failed to open video:', err)
+                          );
+                        }
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{
+                        width: 100,
+                        height: 100,
+                        borderRadius: 8,
+                        backgroundColor: colors.gray900,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden',
+                        borderWidth: 1,
+                        borderColor: colors.gray300,
+                      }}>
+                        <View style={{
+                          width: '100%',
+                          height: '100%',
+                          backgroundColor: 'rgba(0,0,0,0.3)',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}>
+                          <Icon name="play-circle-filled" size={40} color={colors.white} style={clsx(styles.shadowSm)} />
+                        </View>
+                        <View style={{
+                          position: 'absolute',
+                          top: 4,
+                          left: 4,
+                          backgroundColor: 'rgba(0,0,0,0.6)',
+                          paddingHorizontal: 6,
+                          paddingVertical: 2,
+                          borderRadius: 4,
+                        }}>
+                          <Text style={clsx(styles.textXs, styles.textWhite)}>
+                            #{index + 1}
+                          </Text>
+                        </View>
+                        <View style={{
+                          position: 'absolute',
+                          bottom: 4,
+                          right: 4,
+                        }}>
+                          <Icon name="videocam" size={16} color={colors.white} />
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={clsx(
+                        styles.absolute,
+                        styles.top1,
+                        styles.right1,
+                        styles.bgError,
+                        styles.roundedFull,
+                        styles.p1,
+                        styles.shadowSm
+                      )}
+                      onPress={() => deleteMedia(uri, `${type}-video`)}
+                    >
+                      <Icon name="close" size={14} color={colors.white} />
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+        
+        {/* Empty State */}
+        {uploadedImages.length === 0 && uploadedVideos.length === 0 && 
+        capturedImages.length === 0 && capturedVideos.length === 0 && (
+          <View style={clsx(
+            styles.p6, 
+            styles.bgGray50, 
+            styles.roundedLg, 
+            styles.itemsCenter,
+            styles.justifyCenter
+          )}>
+            <View style={[clsx(styles.roundedFull, styles.p4, styles.mb3), 
+              { backgroundColor: colors.primary + '20' }
+            ]}>
+              <Icon name="photo-library" size={40} color={colors.primary} />
+            </View>
+            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb1)}>
+              No {title.toLowerCase()} uploaded yet
+            </Text>
+            <Text style={clsx(styles.textSm, styles.textMuted, styles.textCenter)}>
+              Capture images or videos to provide service proof
+            </Text>
+          </View>
+        )}
+      </View>
+    ) : (
+      // Locked State - Before media not uploaded yet
+      <View style={clsx(styles.mb6, styles.p4, styles.bgGray50, styles.roundedLg, styles.border, styles.borderGray300)}>
+        <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
+          <View style={[clsx(styles.roundedFull, styles.p2, styles.mr3), 
+            { backgroundColor: colors.gray300 }
+          ]}>
+            <Icon name="lock" size={24} color={colors.gray500} />
+          </View>
+          <View style={clsx(styles.flex1)}>
+            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
+              {title}
+            </Text>
+            <Text style={clsx(styles.textSm, styles.textMuted, styles.mt1)}>
+              Upload before service media first to unlock this section
+            </Text>
+          </View>
         </View>
-      )}
-    </View>
-  ) : (
-    // Locked State - Before media not uploaded yet
-    <View style={clsx(styles.mb6, styles.p4, styles.bgGray50, styles.roundedLg, styles.border, styles.borderGray300)}>
-      <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
-        <View style={[clsx(styles.roundedFull, styles.p2, styles.mr3), 
-          { backgroundColor: colors.gray300 }
-        ]}>
-          <Icon name="lock" size={24} color={colors.gray500} />
-        </View>
-        <View style={clsx(styles.flex1)}>
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
-            {title}
-          </Text>
-          <Text style={clsx(styles.textSm, styles.textMuted, styles.mt1)}>
-            Upload before service media first to unlock this section
+        
+        <View style={clsx(styles.p3, styles.bgGray100, styles.roundedLg)}>
+          <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack, styles.textCenter)}>
+            🔒 Locked - Complete before service media upload first
           </Text>
         </View>
       </View>
-      
-      <View style={clsx(styles.p3, styles.bgGray100, styles.roundedLg)}>
-        <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack, styles.textCenter)}>
-          🔒 Locked - Complete before service media upload first
-        </Text>
-      </View>
-    </View>
-  )
-);
-
+    )
+  );
 
   if (loading) {
     return (
@@ -1421,10 +1590,20 @@ const MediaSection = ({ title, uploadedImages, uploadedVideos, capturedImages, c
           </View>
         </View>
       </View>
-
+ 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={clsx(styles.pb24)}
+        contentContainerStyle={clsx(styles.pb8)}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+            title="Pull to refresh"
+            titleColor={colors.primary}
+          />
+        }
       >
         {/* Service Card */}
         <View style={clsx(styles.px4, styles.pt4, styles.mt4)}>
@@ -1513,6 +1692,9 @@ const MediaSection = ({ title, uploadedImages, uploadedVideos, capturedImages, c
             </View>
           </View>
         </View>
+
+        {/* Step Progress */}
+        {renderStepProgress()}
 
         {/* Parts Approval Section */}
         {renderPartsApprovalSection()}
@@ -1604,101 +1786,141 @@ const MediaSection = ({ title, uploadedImages, uploadedVideos, capturedImages, c
           />
         </View>
         
-       
-          <> 
-            {formattedData.status === 'ongoing' || isPartsApprovalInProgress() ? (
-              <View style={clsx(styles.px3, styles.mt4)}>       
-                
-                {formattedData.status === 'ongoing' || isPartsApprovalInProgress() ? (
-                  <View style={clsx(styles.px1, styles.mt4)}>
-                                
-                    {additionalParts.length==0 ?(
-                      <MediaSection
-                        title="Before Service"
-                        uploadedImages={beforeImages}
-                        uploadedVideos={beforeVideos}
-                        capturedImages={capturedBeforeImages}
-                        capturedVideos={capturedBeforeVideos}
-                        type="before"
-                        showSection={true}
-                      />
-                    ):(null)}
-
-                      {/* After Service Section - Only show if before media is uploaded */}
-                    {afterImages.length==0 && afterVideos.length==0 && additionalParts.length!=0 ? (
-                      <MediaSection
-                        title="After Service"
-                        uploadedImages={afterImages}
-                        uploadedVideos={afterVideos}
-                        capturedImages={capturedAfterImages}
-                        capturedVideos={capturedAfterVideos}
-                        type="after"
-                        showSection={beforeImages.length > 0 || beforeVideos.length > 0}
-                      />
-                    ) : (null)}
-                    
-                    {/* Upload All Button - Only show when there are captured media */}
-                    {showUploadButton && !isPartsPending() && (
-                      <TouchableOpacity
-                        style={clsx(
-                          styles.bgSuccess,
-                          styles.roundedLg,
-                          styles.p4,
-                          styles.itemsCenter,
-                          styles.justifyCenter,
-                          styles.mt4,
-                          uploadingMedia && styles.opacity50
-                        )}
-                        onPress={uploadAllCapturedMedia}
-                        disabled={uploadingMedia || isPartsPending()}
-                      >
-                        {uploadingMedia ? (
-                          <ActivityIndicator size="small" color={colors.white} />
-                        ) : (
-                          <>
-                            <Icon name="cloud-upload" size={24} color={colors.white} style={clsx(styles.mr2)} />
-                            <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
-                              Upload All Captured Media
-                            </Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                    )}
-
-                    {!isPartsApprovalInProgress() && !isPartsPending() && (beforeImages.length>0 || beforeVideos.length>0) && (
-                      <TouchableOpacity
-                        style={clsx(
-                          styles.bgSuccess,
-                          styles.roundedLg,
-                          styles.p4,
-                          styles.itemsCenter,
-                          styles.justifyCenter,
-                          styles.mt4,
-                          uploadingMedia && styles.opacity50
-                        )}
-                        onPress={openPartsSelection}
-                      >
-                        {uploadingMedia ? (
-                          <ActivityIndicator size="small" color={colors.white} />
-                        ) : (
-                          <>
-                            <Icon name="build" size={24} color={colors.white} style={clsx(styles.mr2)} />
-                            <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
-                              Add Parts
-                            </Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                    )}
-
+        {/* Media Upload Sections - Step by Step */}
+        {(formattedData.status === 'ongoing' || isPartsApprovalInProgress()) && (
+          <View style={clsx(styles.px4, styles.mt4)}>
+            
+            {/* STEP 1: Before Service Media (Always show if not uploaded yet) */}
+            {(beforeImages.length === 0 && beforeVideos.length === 0) && (
+              <MediaSection
+                title="Step 1: Before Service"
+                uploadedImages={beforeImages}
+                uploadedVideos={beforeVideos}
+                capturedImages={capturedBeforeImages}
+                capturedVideos={capturedBeforeVideos}
+                type="before"
+                showSection={true}
+              />
+            )}
+            
+            {/* STEP 2: Parts Selection (Only show if before media is uploaded AND no parts yet AND not in parts approval) */}
+            {(beforeImages.length > 0 || beforeVideos.length > 0) && 
+             additionalParts.length === 0 && 
+             !isPartsApprovalInProgress() && (
+              <View style={clsx(styles.mb6, styles.p4, styles.bgWhite, styles.roundedLg, styles.shadowSm)}>
+                <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb4)}>
+                  <View style={[clsx(styles.roundedFull, styles.p3, styles.mr3), 
+                    { backgroundColor: colors.info + '20' }
+                  ]}>
+                    <Icon name="build" size={28} color={colors.info} />
                   </View>
-                ) : null}
+                  <View style={clsx(styles.flex1)}>
+                    <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
+                      Step 2: Parts Selection
+                    </Text>
+                    <Text style={clsx(styles.textSm, styles.textMuted)}>
+                      Add additional parts if needed (Optional)
+                    </Text>
+                  </View>
+                  <View style={[clsx(styles.px3, styles.py1, styles.roundedFull), 
+                    { backgroundColor: colors.info + '20' }
+                  ]}>
+                    <Text style={clsx(styles.textSm, styles.fontBold, styles.textInfo)}>
+                      Optional
+                    </Text>
+                  </View>
+                </View>
                 
+                <Text style={clsx(styles.textBase, styles.textMuted, styles.mb4)}>
+                  Do you need to add any additional parts for this service? 
+                  You can add parts now or skip to proceed directly to after service media.
+                </Text>
                 
+                <View style={clsx(styles.flexRow, styles.gap3)}>
+                  <TouchableOpacity
+                    style={clsx(
+                      styles.flex1,
+                      styles.flexRow,
+                      styles.itemsCenter,
+                      styles.justifyCenter,
+                      styles.p4,
+                      styles.bgInfo,
+                      styles.roundedLg
+                    )}
+                    onPress={openPartsSelection}
+                  >
+                    <Icon name="add" size={20} color={colors.white} style={clsx(styles.mr2)} />
+                    <Text style={clsx(styles.textWhite, styles.fontBold, styles.textBase)}>
+                      Add Parts
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={clsx(
+                      styles.flex1,
+                      styles.flexRow,
+                      styles.itemsCenter,
+                      styles.justifyCenter,
+                      styles.p4,
+                      styles.bgGray200,
+                      styles.roundedLg
+                    )}
+                    onPress={skipParts}
+                  >
+                    <Icon name="skip-next" size={20} color={colors.gray700} style={clsx(styles.mr2)} />
+                    <Text style={clsx(styles.textGray700, styles.fontBold, styles.textBase)}>
+                      Skip Parts
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            ) : null}
-          </>
-      
+            )}
+            
+            {/* STEP 3/4: After Service Media (Only show if before media is uploaded AND (parts approved/rejected OR parts skipped)) */}
+            {((beforeImages.length > 0 || beforeVideos.length > 0) && 
+              (isPartsApproved() || isPartsRejected() || 
+               (additionalParts.length === 0 && !isPartsApprovalInProgress()))) && (
+              <MediaSection
+                title="Step 3: After Service"
+                uploadedImages={afterImages}
+                uploadedVideos={afterVideos}
+                capturedImages={capturedAfterImages}
+                capturedVideos={capturedAfterVideos}
+                type="after"
+                showSection={true}
+              />
+            )}
+            
+            {/* Upload All Button - Only show when there are captured media */}
+            {showUploadButton && !isPartsPending() && (
+              <TouchableOpacity
+                style={clsx(
+                  styles.bgSuccess,
+                  styles.roundedLg,
+                  styles.p4,
+                  styles.itemsCenter,
+                  styles.justifyCenter,
+                  styles.mt4,
+                  uploadingMedia && styles.opacity50
+                )}
+                onPress={uploadAllCapturedMedia}
+                disabled={uploadingMedia || isPartsPending()}
+              >
+                {uploadingMedia ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <>
+                    <Icon name="cloud-upload" size={24} color={colors.white} style={clsx(styles.mr2)} />
+                    <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
+                      Upload All Captured Media
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+            
+          </View>
+        )}
 
         {/* Spacer for bottom buttons */}
         <View style={clsx(styles.h24)} />
@@ -1771,7 +1993,7 @@ const MediaSection = ({ title, uploadedImages, uploadedVideos, capturedImages, c
           </>
         ) : formattedData.status === 'ongoing' ? (
           <>
-            {(afterImages.length>0 || afterVideos.length>0) ? (
+            {(afterImages.length > 0 || afterVideos.length > 0) ? (
               <ActionButton
                 icon="check-circle"
                 label="Complete"
@@ -1779,7 +2001,15 @@ const MediaSection = ({ title, uploadedImages, uploadedVideos, capturedImages, c
                 onPress={openCompleteModal}
                 disabled={isPartsPending()}
               />
-            ) : (null)}
+            ) : (
+              <ActionButton
+                icon="schedule"
+                label="In Progress"
+                color={colors.warning}
+                outlined={true}
+                disabled={true}
+              />
+            )}
           </>
         ) : isPartsApprovalInProgress() ? (
           <>
@@ -1792,8 +2022,8 @@ const MediaSection = ({ title, uploadedImages, uploadedVideos, capturedImages, c
                 disabled={true}
               />
             )}
-                        
-            {/* {(afterImages.length>0 || afterVideos.length>0) ? ( */}
+            
+            {(afterImages.length > 0 || afterVideos.length > 0) && !isPartsPending() ? (
               <ActionButton
                 icon="check-circle"
                 label="Complete"
@@ -1801,7 +2031,14 @@ const MediaSection = ({ title, uploadedImages, uploadedVideos, capturedImages, c
                 onPress={openCompleteModal}
                 disabled={isPartsPending()}
               />
-            {/* ) : (null)} */}
+            ) : isPartsApproved() || isPartsRejected() ? (
+              <ActionButton
+                icon="arrow-forward"
+                label="Continue Service"
+                color={colors.primary}
+                onPress={() => setCurrentStep(4)}
+              />
+            ) : null}
           </>
         ) : null}
       </View>

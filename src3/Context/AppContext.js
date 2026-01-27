@@ -9,7 +9,7 @@ import CustomSidebar from '../components/Provider/CustomSidebar';
 import { reset } from "../navigation/navigationService"; 
 
 export const AppContext = createContext();
-const ENVIRONMENT = "production"; // production or development
+const ENVIRONMENT = "development"; // production or development
 
 
 
@@ -24,12 +24,12 @@ const RAZORPAY_WEBHOOK_SECRET='QUQ4d5ICOpQB4aD9WpF0BLlW'
  
 // API URLs configuration - Consider moving to environment variables
 const BASE_URLS = {
-  // development: "http://192.168.1.25:8080/",
+  development: "http://192.168.1.25:8080/",
   production: "https://oyekabadwale.com/",
   // production: "http://145.223.18.56:3001/",
   
   // development: "http://192.168.1.10:8080/",
-  development: "http://192.168.1.61:8080/", 
+  // development: "http://192.168.1.61:8080/", 
   // production: "https://api.example.com/" 
 };
 const UploadUrl = BASE_URLS[ENVIRONMENT];

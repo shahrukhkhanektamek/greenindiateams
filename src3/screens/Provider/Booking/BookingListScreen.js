@@ -846,7 +846,7 @@ const BookingListScreen = ({ navigation }) => {
                 styles.mr2,
                 styles.roundedFull,
                 activeTab === tab.id ? styles.bgPrimary : styles.bgGray100,
-                { minWidth: 80 }
+                { width: 40 }
               )}
               onPress={() => handleTabChange(tab.id)}
               activeOpacity={0.7}
@@ -862,6 +862,109 @@ const BookingListScreen = ({ navigation }) => {
             </TouchableOpacity>
           ))}
         </ScrollView>
+      </View>
+
+      <View style={clsx(styles.bgWhite, styles.px4, styles.py3, styles.shadowSm)}>
+        <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween)}>
+          {/* Selected Tab Display */}
+          <TouchableOpacity
+            style={clsx(
+              styles.flexRow,
+              styles.itemsCenter,
+              styles.justifyBetween,
+              styles.px4,
+              styles.py3,
+              styles.bgGray100,
+              styles.roundedLg,
+              styles.flex1,
+              styles.mr2
+            )}
+            onPress={() => setStatusDropdownVisible(!statusDropdownVisible)}
+            activeOpacity={0.7}
+          >
+            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+              {tabs.find(t => t.id === activeTab)?.label || 'All'}
+            </Text>
+            <Icon 
+              name={statusDropdownVisible ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
+              size={24} 
+              color={colors.textMuted} 
+            />
+          </TouchableOpacity>
+
+        
+        </View>
+
+        {/* Dropdown Modal */}
+        <Modal
+          transparent={true}
+          visible={statusDropdownVisible}
+          animationType="fade"
+          onRequestClose={() => setStatusDropdownVisible(false)}
+        >
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              justifyContent: 'flex-start',
+              paddingTop: 100, // Adjust based on your header height
+            }}
+            activeOpacity={1}
+            onPress={() => setStatusDropdownVisible(false)}
+          >
+            <View
+              style={{
+                backgroundColor: colors.white,
+                marginHorizontal: 16,
+                borderRadius: 12,
+                maxHeight: 400,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 3.84,
+                elevation: 5,
+              }}
+            >
+              <FlatList
+                data={tabs}
+                keyExtractor={(item) => item.id}
+                showsVerticalScrollIndicator={true}
+                style={{ maxHeight: 350 }}
+                renderItem={({ item: tab }) => (
+                  <TouchableOpacity
+                    style={clsx(
+                      styles.px4,
+                      styles.py3,
+                      styles.borderB,
+                      styles.borderGray200,
+                      activeTab === tab.id && styles.bgGray50
+                    )}
+                    onPress={() => {
+                      handleTabChange(tab.id);
+                      setStatusDropdownVisible(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={clsx(
+                      styles.textBase,
+                      activeTab === tab.id ? styles.fontBold : styles.fontMedium,
+                      activeTab === tab.id ? styles.textPrimary : styles.textBlack
+                    )}>
+                      {tab.label}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                ListHeaderComponent={
+                  <View style={clsx(styles.px4, styles.py3, styles.borderB, styles.borderGray200)}>
+                    <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
+                      Filter by Status
+                    </Text>
+                  </View>
+                }
+              />
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </View>
 
       {/* Bookings List */}

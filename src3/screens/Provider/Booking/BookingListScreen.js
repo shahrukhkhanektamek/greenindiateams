@@ -59,16 +59,17 @@ const BookingListScreen = ({ navigation }) => {
   const tabs = [
     { id: 'all', label: 'All', status: '' },
     { id: 'new', label: 'New', status: 'new' },
-    { id: 'assign', label: 'Assigned', status: 'assign' },
-    { id: 'accept', label: 'Accepted', status: 'accept' },
+    // { id: 'assign', label: 'Assigned', status: 'assign' },
+    // { id: 'accept', label: 'Accepted', status: 'accept' },
     { id: 'ongoing', label: 'Ongoing', status: 'ongoing' },
     { id: 'complete', label: 'Completed', status: 'complete' },
+    { id: 'hold', label: 'On Hold', status: 'hold' },
     { id: 'cancel', label: 'Cancelled', status: 'cancel' },
-    { id: 'reject', label: 'Rejected', status: 'reject' },
-    { id: 'partstatusnew', label: 'Parts Submitted', status: 'partstatusnew' },
-    { id: 'partstatusconfirm', label: 'Parts Confirmed', status: 'partstatusconfirm' },
-    { id: 'partstatusapprove', label: 'Parts Approved', status: 'partstatusapprove' },
-    { id: 'partstatusreject', label: 'Parts Rejected', status: 'partstatusreject' },
+    // { id: 'reject', label: 'Rejected', status: 'reject' },
+    // { id: 'partstatusnew', label: 'Parts Submitted', status: 'partstatusnew' },
+    // { id: 'partstatusconfirm', label: 'Parts Confirmed', status: 'partstatusconfirm' },
+    // { id: 'partstatusapprove', label: 'Parts Approved', status: 'partstatusapprove' },
+    // { id: 'partstatusreject', label: 'Parts Rejected', status: 'partstatusreject' },
   ];
   // Refs for tab scroll
   const tabScrollViewRef = React.useRef(null);
@@ -846,7 +847,7 @@ const BookingListScreen = ({ navigation }) => {
                 styles.mr2,
                 styles.roundedFull,
                 activeTab === tab.id ? styles.bgPrimary : styles.bgGray100,
-                { width: 40 }
+                // { minWidth: 80 }
               )}
               onPress={() => handleTabChange(tab.id)}
               activeOpacity={0.7}
@@ -864,9 +865,9 @@ const BookingListScreen = ({ navigation }) => {
         </ScrollView>
       </View>
 
-      <View style={clsx(styles.bgWhite, styles.px4, styles.py3, styles.shadowSm)}>
+      {/* <View style={clsx(styles.bgWhite, styles.px4, styles.py3, styles.shadowSm)}>
         <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween)}>
-          {/* Selected Tab Display */}
+          
           <TouchableOpacity
             style={clsx(
               styles.flexRow,
@@ -895,7 +896,7 @@ const BookingListScreen = ({ navigation }) => {
         
         </View>
 
-        {/* Dropdown Modal */}
+
         <Modal
           transparent={true}
           visible={statusDropdownVisible}
@@ -965,7 +966,7 @@ const BookingListScreen = ({ navigation }) => {
             </View>
           </TouchableOpacity>
         </Modal>
-      </View>
+      </View> */}
 
       {/* Bookings List */}
       <FlatList

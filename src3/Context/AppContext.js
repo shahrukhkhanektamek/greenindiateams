@@ -9,7 +9,7 @@ import CustomSidebar from '../components/Provider/CustomSidebar';
 import { reset } from "../navigation/navigationService"; 
 
 export const AppContext = createContext();
-const ENVIRONMENT = "production"; // production or development
+const ENVIRONMENT = "development"; // production or development
 
 
 

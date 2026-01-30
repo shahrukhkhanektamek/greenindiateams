@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "731318336232",
+    "project_id": "gi-team",
+    "storage_bucket": "gi-team.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:731318336232:android:28f577348c1af5e11ee75d",
+        "android_client_info": {
+          "package_name": "com.greenindiateams"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_uGigOLu_WafNSam5_ouGFfyMk7Xe17g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

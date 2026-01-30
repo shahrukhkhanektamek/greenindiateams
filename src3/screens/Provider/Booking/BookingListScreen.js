@@ -216,7 +216,7 @@ const BookingListScreen = ({ navigation }) => {
   };
 
   // Function to handle booking status update
-  const handleStatusUpdate = async (bookingId, action) => {
+  const handleStatusUpdate = async (bookingId, action, bookingOData) => {
     try {
       // Set loading for this specific booking
       setActionLoading(prev => ({ ...prev, [bookingId]: true }));
@@ -241,6 +241,9 @@ const BookingListScreen = ({ navigation }) => {
           }
           return booking;
         }));
+
+        
+        navigation.navigate('BookingDetail', { booking: bookingOData });
 
         Toast.show({
           type: 'success',
@@ -541,8 +544,36 @@ const BookingListScreen = ({ navigation }) => {
     );
   };
 
+  // renderBookingCard function को इस तरह बदलें:
   const renderBookingCard = ({ item: booking }) => {
     const isActionLoading = actionLoading[booking.id];
+    
+    // Function to handle card press
+    const handleCardPress = () => {
+      if (booking.status === 'new') {
+        // Show confirmation for accept
+        Alert.alert(
+          'Accept Booking',
+          'Are you sure you want to accept this booking?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Accept', 
+              style: 'default',
+              onPress: () => {
+                // Accept the booking
+                handleStatusUpdate(booking.id, 'accept', booking.originalData);
+                // Then navigate to detail
+                // navigation.navigate('BookingDetail', { booking: booking.originalData });
+              }
+            }
+          ]
+        );
+      } else {
+        // For other statuses, directly navigate to detail
+        navigation.navigate('BookingDetail', { booking: booking.originalData });
+      }
+    };
     
     return (
       <TouchableOpacity
@@ -554,7 +585,7 @@ const BookingListScreen = ({ navigation }) => {
           styles.shadowSm,
           isActionLoading && styles.opacity50
         )}
-        onPress={() => navigation.navigate('BookingDetail', { booking: booking.originalData })}
+        onPress={handleCardPress}
         disabled={isActionLoading}
         activeOpacity={0.7}
       >
@@ -622,19 +653,49 @@ const BookingListScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Bottom Section - Amount & Action Buttons */}
+        {/* Bottom Section - Amount & Action Info */}
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
           <View>
-            <Text style={clsx(styles.textSm, styles.textMuted, styles.mb1)}>
+            {/* <Text style={clsx(styles.textSm, styles.textMuted, styles.mb1)}>
               Total Amount
             </Text>
             <Text style={clsx(styles.textXl, styles.fontBold, styles.textPrimary)}>
               ₹{booking.amount}
-            </Text>
+            </Text> */}
           </View>
           
-          {/* Render appropriate buttons based on status */}
-          {renderActionButtons(booking)}
+          {/* Status based instruction */}
+          {booking.status === 'new' ? (
+            <View style={clsx(
+              styles.flexRow,
+              styles.itemsCenter,
+              styles.px3,
+              styles.py2,
+              styles.bgInfoLight,
+              styles.roundedFull
+            )}>
+              <Icon name="touch-app" size={16} color={colors.info} />
+              <Text style={clsx(styles.textInfo, styles.fontMedium, styles.ml1)}>
+                Tap to Accept
+              </Text>
+            </View>
+          ) : (
+            <View style={clsx(
+              styles.flexRow,
+              styles.itemsCenter,
+              styles.px3,
+              styles.py2,
+              styles.border,
+              styles.borderPrimary,
+              styles.bgWhite,
+              styles.roundedFull
+            )}>
+              <Text style={clsx(styles.textPrimary, styles.fontMedium, styles.mr1)}>
+                View Details
+              </Text>
+              <Icon name="chevron-right" size={16} color={colors.primary} />
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -742,7 +803,7 @@ const BookingListScreen = ({ navigation }) => {
       />
 
       {/* Search Bar */}
-      <View style={clsx(styles.bgWhite, styles.px4, styles.py3)}>
+      {/* <View style={clsx(styles.bgWhite, styles.px4, styles.py3)}>
         <View style={clsx(
           styles.bgGray50, 
           styles.roundedLg, 
@@ -766,82 +827,41 @@ const BookingListScreen = ({ navigation }) => {
             </TouchableOpacity>
           )}
         </View>
-      </View>
+      </View> */}
 
-      {/* Tab Navigation - Fixed Horizontal Scroll */}
+      {/* Tab Navigation - Horizontal Scroll */}
       <View style={clsx(styles.bgWhite, styles.px4, styles.py3, styles.shadowSm)}>
-        <TouchableOpacity
-          style={clsx(
-            styles.flexRow,
-            styles.itemsCenter,
-            styles.justifyBetween,
-            styles.p3,
-            styles.border,
-            styles.borderGray,
-            styles.roundedLg,
-            styles.bgWhite
-          )}
-          onPress={() => setStatusDropdownVisible(!statusDropdownVisible)}
-          activeOpacity={0.7}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={clsx(styles.pb2)}
+          ref={tabScrollViewRef}
         >
-          <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-            <Icon name="filter-list" size={20} color={colors.primary} style={clsx(styles.mr2)} />
-            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-              {tabs.find(t => t.id === activeTab)?.label || 'Select Status'}
-            </Text>
-          </View>
-          <Icon 
-            name={statusDropdownVisible ? 'expand-less' : 'expand-more'} 
-            size={24} 
-            color={colors.textMuted} 
-          />
-        </TouchableOpacity>
-
-        {/* Status Dropdown */}
-        {statusDropdownVisible && (
-          <View style={clsx(
-            styles.bgWhite,
-            styles.mt1,
-            styles.border,
-            styles.borderGray,
-            styles.roundedLg,
-            styles.shadowMd,
-            { maxHeight: 300 }
-          )}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {tabs.map((tab) => (
-                <TouchableOpacity
-                  key={tab.id}
-                  style={clsx(
-                    styles.px3,
-                    styles.py3,
-                    styles.borderBottom,
-                    styles.borderGray,
-                    activeTab === tab.id && styles.bgPrimaryLight,
-                    tab.id === tabs[tabs.length - 1].id && styles.borderBottom0
-                  )}
-                  onPress={() => {
-                    handleTabChange(tab.id);
-                    setStatusDropdownVisible(false);
-                  }}
-                  activeOpacity={0.6}
-                >
-                  <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween)}>
-                    <Text style={clsx(
-                      styles.textBase,
-                      activeTab === tab.id ? styles.textWhite : styles.textBlack
-                    )}>
-                      {tab.label}
-                    </Text>
-                    {activeTab === tab.id && (
-                      <Icon name="check" size={20} color={colors.primary} />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
+          {tabs.map((tab) => (
+            <TouchableOpacity
+              key={tab.id}
+              style={clsx(
+                styles.px3,
+                styles.py2,
+                styles.mr2,
+                styles.roundedFull,
+                activeTab === tab.id ? styles.bgPrimary : styles.bgGray100,
+                { minWidth: 80 }
+              )}
+              onPress={() => handleTabChange(tab.id)}
+              activeOpacity={0.7}
+            >
+              <Text style={clsx(
+                styles.textSm,
+                styles.fontMedium,
+                styles.textCenter,
+                activeTab === tab.id ? styles.textWhite : styles.textBlack
+              )} numberOfLines={1}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       {/* Bookings List */}

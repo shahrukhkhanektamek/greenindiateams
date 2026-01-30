@@ -318,153 +318,157 @@ const DashboardScreen = ({ navigation }) => {
     ];
 
     return (
-      <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mt2)}>
-        {/* Left Winner (Second Position) */}
-        <View style={clsx(
-          styles.itemsCenter,styles.bgWinner,styles.h27,
-                    styles.roundedLg,
-                    styles.border,
-                    styles.borderPrimary,
-                    styles.p3,
-                    styles.shadowSm,
-                    styles.itemsCenter, 
-           { width: '30%' })}>
-          {orderedWinners[0] ? (
-            <>
-              <Image
-                source={{
-                  uri: imageCheck(orderedWinners[0].profileImage, 'user.png')
-                }}
-                style={{
+        <TouchableOpacity activeOpacity={1} style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mt2)} 
+        onPress={()=>{
+          navigation.navigate('WinnersHistoryScreen');
+        }}
+        >
+          {/* Left Winner (Second Position) */}
+          <View style={clsx(
+            styles.itemsCenter,styles.bgWinner,styles.h27,
+                      styles.roundedLg,
+                      styles.border,
+                      styles.borderPrimary,
+                      styles.p3,
+                      styles.shadowSm,
+                      styles.itemsCenter, 
+            { width: '30%' })}>
+            {orderedWinners[0] ? (
+              <>
+                <Image
+                  source={{
+                    uri: imageCheck(orderedWinners[0].profileImage, 'user.png')
+                  }}
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 30,
+                    borderWidth: 2,
+                    borderColor: colors.gray300,
+                  }}
+                />
+                <View style={clsx(styles.mt4, styles.itemsCenter)}>
+                  <Text style={clsx(styles.textSm, styles.fontBold, styles.textBlack, styles.textCenter)} numberOfLines={1}>
+                    {orderedWinners[0].name}
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <View style={clsx(styles.itemsCenter)}>
+                <View style={{
                   width: 80,
                   height: 80,
                   borderRadius: 30,
+                  backgroundColor: colors.gray100,
+                  justifyContent: 'center',
+                  alignItems: 'center',
                   borderWidth: 2,
                   borderColor: colors.gray300,
-                }}
-              />
-              <View style={clsx(styles.mt4, styles.itemsCenter)}>
-                <Text style={clsx(styles.textSm, styles.fontBold, styles.textBlack, styles.textCenter)} numberOfLines={1}>
-                  {orderedWinners[0].name}
-                </Text>
+                  borderStyle: 'dashed',
+                }}>
+                  <Icon name="person" size={24} color={colors.gray400} />
+                </View>
+                <Text style={clsx(styles.textXs, styles.textMuted, styles.mt1)}>No Data</Text>
               </View>
-            </>
-          ) : (
-            <View style={clsx(styles.itemsCenter)}>
-              <View style={{
-                width: 80,
-                height: 80,
-                borderRadius: 30,
-                backgroundColor: colors.gray100,
-                justifyContent: 'center',
-                alignItems: 'center',
-                borderWidth: 2,
-                borderColor: colors.gray300,
-                borderStyle: 'dashed',
-              }}>
-                <Icon name="person" size={24} color={colors.gray400} />
-              </View>
-              <Text style={clsx(styles.textXs, styles.textMuted, styles.mt1)}>No Data</Text>
-            </View>
-          )}
-        </View>
+            )}
+          </View>
 
-        {/* Center Winner (First Position) */}
-        <View style={clsx(styles.itemsCenter,styles.bgWinner,styles.h27, 
-                    styles.roundedLg,
-                    styles.border,
-                    styles.borderPrimary,
-                    styles.p3,
-                    styles.shadowSm,
-                    styles.itemsCenter, { width: '35%' })}>
-          {orderedWinners[1] ? (
-            <>
-              <Image
-                source={{
-                  uri: imageCheck(orderedWinners[1].profileImage, 'user.png')
-                }}
-                style={{
+          {/* Center Winner (First Position) */}
+          <View style={clsx(styles.itemsCenter,styles.bgWinner,styles.h27, 
+                      styles.roundedLg,
+                      styles.border,
+                      styles.borderPrimary,
+                      styles.p3,
+                      styles.shadowSm,
+                      styles.itemsCenter, { width: '35%' })}>
+            {orderedWinners[1] ? (
+              <>
+                <Image
+                  source={{
+                    uri: imageCheck(orderedWinners[1].profileImage, 'user.png')
+                  }}
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 40, 
+                    borderWidth: 3, 
+                    borderColor: colors.warning,
+                  }}
+                />
+                <View style={clsx(styles.mt4, styles.itemsCenter)}>
+                  <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.textCenter)} numberOfLines={1}>
+                    {orderedWinners[1].name}
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <View style={clsx(styles.itemsCenter)}>
+                <View style={{
                   width: 80,
                   height: 80,
-                  borderRadius: 40, 
-                  borderWidth: 3, 
-                  borderColor: colors.warning,
-                }}
-              />
-              <View style={clsx(styles.mt4, styles.itemsCenter)}>
-                <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.textCenter)} numberOfLines={1}>
-                  {orderedWinners[1].name}
-                </Text>
+                  borderRadius: 40,
+                  backgroundColor: colors.gray100,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  borderWidth: 3,
+                  borderColor: colors.gray300,
+                  borderStyle: 'dashed',
+                }}>
+                  <Icon name="person" size={36} color={colors.gray400} />
+                </View>
+                <Text style={clsx(styles.textSm, styles.textMuted, styles.mt2)}>No Data</Text>
               </View>
-            </>
-          ) : (
-            <View style={clsx(styles.itemsCenter)}>
-              <View style={{
-                width: 80,
-                height: 80,
-                borderRadius: 40,
-                backgroundColor: colors.gray100,
-                justifyContent: 'center',
-                alignItems: 'center',
-                borderWidth: 3,
-                borderColor: colors.gray300,
-                borderStyle: 'dashed',
-              }}>
-                <Icon name="person" size={36} color={colors.gray400} />
-              </View>
-              <Text style={clsx(styles.textSm, styles.textMuted, styles.mt2)}>No Data</Text>
-            </View>
-          )}
-        </View>
+            )}
+          </View>
 
-        {/* Right Winner (Third Position) */}
-        <View style={clsx(styles.itemsCenter,styles.bgWinner,styles.h27,
-                    styles.roundedLg,
-                    styles.border,
-                    styles.borderPrimary, 
-                    styles.p3,
-                    styles.shadowSm,
-                    styles.itemsCenter,  { width: '30%' })}>
-          {orderedWinners[2] ? (
-            <>
-              <Image
-                source={{
-                  uri: imageCheck(orderedWinners[2].profileImage, 'user.png')
-                }}
-                style={{
-                  width: 80,
-                  height: 80,
+          {/* Right Winner (Third Position) */}
+          <View style={clsx(styles.itemsCenter,styles.bgWinner,styles.h27,
+                      styles.roundedLg,
+                      styles.border,
+                      styles.borderPrimary, 
+                      styles.p3,
+                      styles.shadowSm,
+                      styles.itemsCenter,  { width: '30%' })}>
+            {orderedWinners[2] ? (
+              <>
+                <Image
+                  source={{
+                    uri: imageCheck(orderedWinners[2].profileImage, 'user.png')
+                  }}
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 30,
+                    borderWidth: 2,
+                    borderColor: colors.gray300,
+                  }}
+                />
+                <View style={clsx(styles.mt4, styles.itemsCenter)}>
+                  <Text style={clsx(styles.textSm, styles.fontBold, styles.textBlack, styles.textCenter)} numberOfLines={1}>
+                    {orderedWinners[2].name}
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <View style={clsx(styles.itemsCenter)}>
+                <View style={{
+                  width: 60,
+                  height: 60,
                   borderRadius: 30,
+                  backgroundColor: colors.gray100,
+                  justifyContent: 'center',
+                  alignItems: 'center',
                   borderWidth: 2,
                   borderColor: colors.gray300,
-                }}
-              />
-              <View style={clsx(styles.mt4, styles.itemsCenter)}>
-                <Text style={clsx(styles.textSm, styles.fontBold, styles.textBlack, styles.textCenter)} numberOfLines={1}>
-                  {orderedWinners[2].name}
-                </Text>
+                  borderStyle: 'dashed',
+                }}>
+                  <Icon name="person" size={24} color={colors.gray400} />
+                </View>
+                <Text style={clsx(styles.textXs, styles.textMuted, styles.mt1)}>No Data</Text>
               </View>
-            </>
-          ) : (
-            <View style={clsx(styles.itemsCenter)}>
-              <View style={{
-                width: 60,
-                height: 60,
-                borderRadius: 30,
-                backgroundColor: colors.gray100,
-                justifyContent: 'center',
-                alignItems: 'center',
-                borderWidth: 2,
-                borderColor: colors.gray300,
-                borderStyle: 'dashed',
-              }}>
-                <Icon name="person" size={24} color={colors.gray400} />
-              </View>
-              <Text style={clsx(styles.textXs, styles.textMuted, styles.mt1)}>No Data</Text>
-            </View>
-          )}
-        </View>
-      </View>
+            )}
+          </View>
+        </TouchableOpacity>
     );
   };
 
@@ -485,6 +489,60 @@ const DashboardScreen = ({ navigation }) => {
       width: '30%',
       minHeight: 80,
     },
+  };
+
+  const getServiceIcon = (serviceName) => {
+    if (!serviceName) return 'home-repair-service';
+    
+    const service = serviceName.toLowerCase();
+    if (service.includes('ac') || service.includes('air')) return 'ac-unit';
+    if (service.includes('clean')) return 'cleaning-services';
+    if (service.includes('plumb')) return 'plumbing';
+    if (service.includes('electr')) return 'electrical-services';
+    if (service.includes('water') || service.includes('ro')) return 'water-drop';
+    if (service.includes('tv')) return 'tv';
+    return 'home-repair-service';
+  };
+  // Function to handle accept booking
+  const handleAcceptBooking = async (bookingId, job) => {
+    try {
+      setLoading(true);
+      
+      const response = await postData(
+        { bookingId },
+        Urls.bookingAccept + '/' + bookingId,
+        'POST'
+      );
+
+      if (response?.success) {
+
+        navigation.navigate('BookingDetail', { booking: job.originalData });
+
+        // Toast.show({
+        //   type: 'success',
+        //   text1: 'Success',
+        //   text2: 'Booking accepted successfully',
+        // });
+        
+        // Refresh dashboard data
+        await fetchDashboardData();
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: response?.message || 'Failed to accept booking',
+        });
+      }
+    } catch (error) {
+      console.error('Error accepting booking:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to accept booking. Please try again.',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (dashboardLoading && !refreshing) {
@@ -647,63 +705,168 @@ const DashboardScreen = ({ navigation }) => {
           </View>
 
           {todayBookings.length > 0 ? (
-            todayBookings.slice(0, 3).map((job) => (
-              <TouchableOpacity
-                key={job.id}
-                style={clsx(
-                  styles.bgWhite,
-                  styles.roundedLg,
-                  styles.p4,
-                  styles.mb3,
-                  styles.shadowSm
-                )}
-                onPress={() => navigation.navigate('BookingDetail', { booking: job.originalData })}
-              >
-                <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb2)}>
-                  <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)} numberOfLines={1}>
-                    {job.service}
-                  </Text>
-                  <View style={clsx(
-                    styles.px3,
-                    styles.py1,
-                    styles.roundedFull,
-                    { backgroundColor: `${getStatusColor(job.status)}20` }
-                  )}>
-                    <Text style={clsx(
-                      styles.textSm,
-                      styles.fontMedium,
-                      { color: getStatusColor(job.status) }
+            todayBookings.slice(0, 3).map((job) => {
+              // Function to handle card press
+              const handleCardPress = () => {
+                if (job.status === 'new') {
+                  // Show confirmation for accept
+                  Alert.alert(
+                    'Accept Booking',
+                    'Are you sure you want to accept this booking?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { 
+                        text: 'Accept', 
+                        style: 'default',
+                        onPress: () => {
+                          // First accept the booking
+                          handleAcceptBooking(job.id, job);
+                        }
+                      }
+                    ]
+                  );
+                } else {
+                  // For other statuses, directly navigate to detail
+                  navigation.navigate('BookingDetail', { booking: job.originalData });
+                }
+              };
+
+              return (
+                <TouchableOpacity
+                  key={job.id}
+                  style={clsx(
+                    styles.bgWhite,
+                    styles.roundedLg,
+                    styles.p4,
+                    styles.mb3,
+                    styles.shadowSm
+                  )}
+                  onPress={handleCardPress}
+                >
+                  {/* Top Section - Service & Status */}
+                  <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsStart, styles.mb3)}>
+                    <View style={clsx(styles.flexRow, styles.itemsCenter, styles.flex1)}>
+                      <View 
+                        style={[
+                          clsx(styles.roundedFull, styles.p2, styles.mr3), 
+                          { backgroundColor: `${getStatusColor(job.status)}20` }
+                        ]}
+                      >
+                        <Icon 
+                          name={getServiceIcon(job.service)} 
+                          size={20} 
+                          color={getStatusColor(job.status)} 
+                        />
+                      </View>
+                      <View style={clsx(styles.flex1)}>
+                        <Text 
+                          style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb1)} 
+                          numberOfLines={1}
+                        >
+                          {job.service}
+                        </Text>
+                        <Text style={clsx(styles.textSm, styles.textMuted)}>
+                          Booking ID: {job.bookingId}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={clsx(
+                      styles.px3,
+                      styles.py1,
+                      styles.roundedFull,
+                      { backgroundColor: `${getStatusColor(job.status)}20` }
                     )}>
-                      {getStatusLabel(job.status)}
-                    </Text>
+                      <Text style={clsx(
+                        styles.textXs,
+                        styles.fontMedium,
+                        { color: getStatusColor(job.status) }
+                      )} numberOfLines={1}>
+                        {getStatusLabel(job.status)}
+                      </Text>
+                    </View>
                   </View>
-                </View>
 
-                <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
-                  <Icon name="person" size={16} color={colors.textLight} />
-                  <Text style={clsx(styles.textBase, styles.textBlack, styles.ml2, styles.flex1)} numberOfLines={1}>
-                    {job.customerName}
-                  </Text>
-                </View>
+                  {/* Customer Details */}
+                  <View style={clsx(styles.mb3)}>
+                    <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
+                      <Icon name="person" size={16} color={colors.textMuted} style={clsx(styles.mr2)} />
+                      <Text style={clsx(styles.textSm, styles.textBlack, styles.flex1)} numberOfLines={1}>
+                        {job.customerName}
+                      </Text>
+                    </View>
 
-                {job.time && (
-                  <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
-                    <Icon name="schedule" size={16} color={colors.textLight} />
-                    <Text style={clsx(styles.textBase, styles.textBlack, styles.ml2)}>
-                      {job.time}
-                    </Text>
+                    <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
+                      <Icon name="phone" size={16} color={colors.textMuted} style={clsx(styles.mr2)} />
+                      <Text style={clsx(styles.textSm, styles.textBlack, styles.flex1)} numberOfLines={1}>
+                        {job.mobile}
+                      </Text>
+                    </View>
+
+                    {job.time && (
+                      <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
+                        <Icon name="schedule" size={16} color={colors.textMuted} style={clsx(styles.mr2)} />
+                        <Text style={clsx(styles.textSm, styles.textBlack, styles.flex1)} numberOfLines={1}>
+                          {job.time}
+                        </Text>
+                      </View>
+                    )}
+
+                    <View style={clsx(styles.flexRow, styles.itemsStart, styles.mb2)}>
+                      <Icon name="location-on" size={16} color={colors.textMuted} style={clsx(styles.mr2, styles.mt1)} />
+                      <Text style={clsx(styles.textSm, styles.textBlack, styles.flex1)} numberOfLines={2}>
+                        {job.address}
+                      </Text>
+                    </View>
                   </View>
-                )}
 
-                <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
-                  <Icon name="location-on" size={16} color={colors.textLight} />
-                  <Text style={clsx(styles.textBase, styles.textBlack, styles.ml2, styles.flex1)} numberOfLines={2}>
-                    {job.address}
-                  </Text>
-                </View>
-
-              </TouchableOpacity>
-            ))
+                  {/* Bottom Section - Amount & Action Info */}
+                  <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
+                    <View>
+                      {/* <Text style={clsx(styles.textSm, styles.textMuted, styles.mb1)}>
+                        Total Amount
+                      </Text>
+                      <Text style={clsx(styles.textXl, styles.fontBold, styles.textPrimary)}>
+                        ₹{job.amount}
+                      </Text> */}
+                    </View>
+                    
+                    {/* Status based instruction text */}
+                    {job.status === 'new' ? (
+                      <View style={clsx(
+                        styles.flexRow,
+                        styles.itemsCenter,
+                        styles.px3,
+                        styles.py2,
+                        styles.bgInfoLight,
+                        styles.roundedFull
+                      )}>
+                        <Icon name="touch-app" size={16} color={colors.info} />
+                        <Text style={clsx(styles.textInfo, styles.fontMedium, styles.ml1)}>
+                          Tap to Accept
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={clsx(
+                        styles.flexRow,
+                        styles.itemsCenter,
+                        styles.px3,
+                        styles.py2,
+                        styles.border,
+                        styles.borderPrimary,
+                        styles.bgWhite,
+                        styles.roundedFull
+                      )}>
+                        <Text style={clsx(styles.textPrimary, styles.fontMedium, styles.mr1)}>
+                          View Details
+                        </Text>
+                        <Icon name="chevron-right" size={16} color={colors.primary} />
+                      </View>
+                    )}
+                  </View>
+                  
+                </TouchableOpacity>
+              );
+            })
           ) : (
             <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p6, styles.itemsCenter)}>
               <Icon name="event-busy" size={40} color={colors.gray300} />
@@ -715,46 +878,6 @@ const DashboardScreen = ({ navigation }) => {
               </Text>
             </View>
           )}
-        </View>
-
-        {/* Quick Stats */}
-        <View style={clsx(styles.px4, styles.mt6)}>
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
-            Booking Status
-          </Text>
-          <View style={[clsx(styles.flexRow, styles.flexWrap, styles.justifyBetween)]}>
-            {quickStats.map((stat) => (
-              <TouchableOpacity
-                key={stat.id}
-                style={[
-                  clsx(
-                    styles.bgWhite,
-                    styles.roundedLg,
-                    styles.p3,
-                    styles.shadowSm,
-                    styles.itemsCenter,
-                  ),
-                  customStyles.statCard
-                ]}
-                onPress={() => navigation.navigate('BookingList', { initialTab: stat.status })}
-              >
-                <View
-                  style={[
-                    clsx(styles.roundedFull, styles.p2, styles.mb2),
-                    { backgroundColor: `${stat.color}20` }
-                  ]}
-                >
-                  <Icon name={stat.icon} size={20} color={stat.color} />
-                </View>
-                <Text style={clsx(styles.text2xl, styles.fontBold, styles.textBlack)}>
-                  {stat.count}
-                </Text>
-                <Text style={clsx(styles.textXs, styles.textMuted, styles.textCenter, styles.mt1)}>
-                  {stat.title}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
         </View>
 
         {/* Earnings Summary */}

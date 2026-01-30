@@ -18,6 +18,8 @@ import CompleteBookingScreen from '../screens/Provider/Booking/CompleteBookingSc
 import PartsSelectionScreen from '../screens/Provider/Booking/PartsSelectionScreen';
 import QrPaymentScreen from '../screens/Provider/Booking/QrPaymentScreen';
 import BookingDoneScreen from '../screens/Provider/Booking/BookingDoneScreen';
+import TargetScreen from '../screens/Provider/Target/TargetScreen';
+import WinnersHistoryScreen from '../screens/Provider/Winner/WinnersHistoryScreen';
 
 
 import ProviderProfileScreen from '../screens/Provider/Profile/ProviderProfileScreen';
@@ -58,6 +60,7 @@ import ProfileScreen from '../screens/Common/ProfileScreen';
 import SettingsScreen from '../screens/Common/SettingsScreen';
 import SupportScreen from '../screens/Common/SupportScreen';
 import TermsConditionsScreen from '../screens/Common/TermsConditionsScreen';
+// import NotificationScreen from '../screens/Common/NotificationScreen';
 
 // Import Auth Screens
 import IntroScreen from '../screens/Intro/IntroScreen'; 
@@ -143,11 +146,16 @@ function ProviderNavigator() {
         name="Support" 
         component={SupportScreen}
       />
-      
+       
       <Stack.Screen 
         name="TermsCondition" 
         component={TermsConditionsScreen}
       />
+{/*       
+      <Stack.Screen 
+        name="NotificationScreen" 
+        component={NotificationScreen}
+      /> */}
       
       {/* =========== AUTH FLOW (When user is NOT logged in) =========== */}
       {!user ? (
@@ -260,6 +268,16 @@ function ProviderNavigator() {
           <Stack.Screen 
             name="BookingDone" 
             component={BookingDoneScreen}
+          /> 
+          
+          <Stack.Screen 
+            name="TargetScreen" 
+            component={TargetScreen}
+          /> 
+          
+          <Stack.Screen 
+            name="WinnersHistoryScreen" 
+            component={WinnersHistoryScreen}
           /> 
 
           {/* =========== PROFILE SCREENS =========== */}

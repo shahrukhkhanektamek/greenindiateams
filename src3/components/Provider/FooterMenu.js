@@ -69,11 +69,11 @@ const FooterMenu = () => {
       activeIcon: 'list-alt'
     },
     { 
-      id: 'wallet', 
+      id: 'TargetScreen', 
       label: 'Target', 
       icon: 'track-changes', 
-      screen: 'Wallet',
-      activeIcon: 'account-balance-wallet'
+      screen: 'TargetScreen',
+      activeIcon: 'track-changes'
     },
     { 
       id: 'Earnings', 

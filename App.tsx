@@ -11,7 +11,7 @@ import ProviderNavigator from './src3/navigation/ProviderNavigator';
 import { AppProvider } from './src3/Context/AppContext';
 import ErrorBoundary from './src3/components/Common/ErrorBoundary'; 
 import NetworkIndicator from './src3/components/Common/NetworkIndicator';
-import MainLayout from './src3/screens/Common/MainLayout'; 
+import notificationService from './src3/components/Common/notificationService'; 
 
 // Import navigation service
 import { navigationRef } from './src3/navigation/navigationService';
@@ -24,9 +24,19 @@ if (__DEV__) {
   ]);
 }
 
+
+
 export default function App() {
   useEffect(() => {
     initializeApp();
+  }, []);
+
+  useEffect(() => {
+    const initializeNotifications = async () => {
+      await notificationService.initialize();
+    };
+    
+    initializeNotifications();
   }, []);
 
   const initializeApp = () => {

@@ -292,7 +292,7 @@ const AddWalletScreen = () => {
   };
 
   // Predefined amount buttons for quick selection
-  const quickAmounts = [100, 500, 1000, 2000, 5000];
+  const quickAmounts = [500, 1000, 2000, 3000, 5000];
 
   return (
     <View style={clsx(styles.flex1, styles.bgSurface)}>

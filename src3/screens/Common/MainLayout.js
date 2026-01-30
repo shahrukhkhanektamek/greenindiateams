@@ -139,6 +139,7 @@ const MainLayout = ({ children }) => {
       {/* Main Content */}
       <View style={styles.content}>
         {children}
+        <FooterMenu /> 
       </View>
 
       {/* Footer Menu */}

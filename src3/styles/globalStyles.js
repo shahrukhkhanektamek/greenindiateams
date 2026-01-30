@@ -484,6 +484,7 @@ const globalStyles = StyleSheet.create({
   h16: { height: scaleSize(64) },
   h20: { height: scaleSize(80) },
   h24: { height: scaleSize(96) },
+  h25: { height: scaleSize(98) },
   h26: { height: scaleSize(100) },
   h27: { height: scaleSize(145) },
   h28: { height: scaleSize(150) },

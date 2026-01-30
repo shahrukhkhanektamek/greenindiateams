@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Alert,
+  Modal, // ADDED
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
@@ -17,14 +18,10 @@ import styles, { clsx } from '../../styles/globalStyles';
 import { colors } from '../../styles/colors';
 import { AppContext } from '../../Context/AppContext';
 import FooterMenu from '../../components/Provider/FooterMenu';
-// import PermissionScreen from '../PermissionScreen';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const DashboardScreen = ({ navigation }) => {
-
-
-  
   const {
     setUser,
     setLoading,
@@ -52,11 +49,14 @@ const DashboardScreen = ({ navigation }) => {
     totalEarnings: 0,
     walletBalance: 0,
     rating: 0,
+    todayTimeSlots: 0, // ADDED
+    tomorrowTimeSlots: 0, // ADDED
   });
 
   const [todayBookings, setTodayBookings] = useState([]);
   const [quickStats, setQuickStats] = useState([]);
   const [winnersOfWeek, setWinnersOfWeek] = useState([]);
+  const [showTimeSlotModal, setShowTimeSlotModal] = useState(false); // ADDED: Modal visibility state
 
   // Fetch dashboard data
   const fetchDashboardData = async () => {
@@ -77,10 +77,11 @@ const DashboardScreen = ({ navigation }) => {
         const walletData = data.wallet || {};
         
         // Set all stats from API response
-        setStats({
+        setStats(prevStats => ({
+          ...prevStats,
           totalBookings: bookingsData.total || 0,
           newBookings: bookingsData.new || 0,
-          assignedBookings: 0, // Not in API response
+          assignedBookings: 0,
           acceptedBookings: bookingsData.accept || 0,
           ongoingBookings: bookingsData.ongoing || 0,
           completedBookings: bookingsData.complete || 0,
@@ -90,8 +91,9 @@ const DashboardScreen = ({ navigation }) => {
           todayEarnings: data.todayEarnning || 0,
           totalEarnings: data.totalEarnning || 0,
           walletBalance: walletData.totalCreditPoints || walletData.balance || 0,
-          rating: 4.8, // Fixed as per screenshot
-        });
+          todayTimeSlots: data.todayTimeSlots || 0, // ADDED
+          tomorrowTimeSlots: data.tomorrowTimeSlots || 0, // ADDED
+        }));
 
         // Set quick stats for display based on API data
         setQuickStats([
@@ -106,7 +108,7 @@ const DashboardScreen = ({ navigation }) => {
           {
             id: 'assigned',
             title: 'Assigned',
-            count: 0, // Not in API response
+            count: 0,
             icon: 'assignment-ind',
             color: colors.warning,
             status: 'assign',
@@ -148,6 +150,18 @@ const DashboardScreen = ({ navigation }) => {
         // Set winners of the week
         if (data.winnerOfTheWeek && Array.isArray(data.winnerOfTheWeek)) {
           setWinnersOfWeek(data.winnerOfTheWeek);
+        }
+
+        // Check time slots and show modal if needed
+        // ADDED: Check if todayTimeSlots or tomorrowTimeSlots is 0
+        const todaySlots = data.todayTimeSlots || 0;
+        const tomorrowSlots = data.tomorrowTimeSlots || 0;
+        
+        if (todaySlots === 0 || tomorrowSlots === 0) { 
+          // Show modal after a short delay to ensure UI is loaded
+          setTimeout(() => {
+            setShowTimeSlotModal(true);
+          }, 500);
         }
       }
 
@@ -205,7 +219,13 @@ const DashboardScreen = ({ navigation }) => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, []); 
+
+  // ADDED: Function to handle TimeTable navigation
+  const handleSetTimeTable = () => {
+    setShowTimeSlotModal(false);
+    navigation.navigate('AvailabilityScreen'); // Replace with your actual timetable screen name
+  };
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -292,16 +312,16 @@ const DashboardScreen = ({ navigation }) => {
 
     // Order: [second, first, third]
     const orderedWinners = [
-      winnersToShow[1] || null,  // Second winner on left
-      winnersToShow[0] || null,  // First winner in middle
-      winnersToShow[2] || null,  // Third winner on right
+      winnersToShow[1] || null,
+      winnersToShow[0] || null,
+      winnersToShow[2] || null,
     ];
 
     return (
       <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mt2)}>
         {/* Left Winner (Second Position) */}
         <View style={clsx(
-          styles.itemsCenter,styles.bgWinner,styles.h28,
+          styles.itemsCenter,styles.bgWinner,styles.h27,
                     styles.roundedLg,
                     styles.border,
                     styles.borderPrimary,
@@ -316,30 +336,24 @@ const DashboardScreen = ({ navigation }) => {
                   uri: imageCheck(orderedWinners[0].profileImage, 'user.png')
                 }}
                 style={{
-                  width: 60,
-                  height: 60,
+                  width: 80,
+                  height: 80,
                   borderRadius: 30,
                   borderWidth: 2,
                   borderColor: colors.gray300,
                 }}
               />
-              <View style={clsx(styles.mt1, styles.itemsCenter)}>
+              <View style={clsx(styles.mt4, styles.itemsCenter)}>
                 <Text style={clsx(styles.textSm, styles.fontBold, styles.textBlack, styles.textCenter)} numberOfLines={1}>
                   {orderedWinners[0].name}
-                </Text>
-                <Text style={clsx(styles.textXs, styles.textMuted, styles.textCenter)} numberOfLines={1}>
-                  {orderedWinners[0].categories?.[0]?.name || 'Technician'}
-                </Text>
-                <Text style={clsx(styles.textXs, styles.fontMedium, styles.textPrimary, styles.mt1)}>
-                  ({orderedWinners[0].providerId || 0})
                 </Text>
               </View>
             </>
           ) : (
             <View style={clsx(styles.itemsCenter)}>
               <View style={{
-                width: 60,
-                height: 60,
+                width: 80,
+                height: 80,
                 borderRadius: 30,
                 backgroundColor: colors.gray100,
                 justifyContent: 'center',
@@ -356,7 +370,7 @@ const DashboardScreen = ({ navigation }) => {
         </View>
 
         {/* Center Winner (First Position) */}
-        <View style={clsx(styles.itemsCenter,styles.bgWinner,styles.h29,
+        <View style={clsx(styles.itemsCenter,styles.bgWinner,styles.h27, 
                     styles.roundedLg,
                     styles.border,
                     styles.borderPrimary,
@@ -377,15 +391,9 @@ const DashboardScreen = ({ navigation }) => {
                   borderColor: colors.warning,
                 }}
               />
-              <View style={clsx(styles.mt2, styles.itemsCenter)}>
+              <View style={clsx(styles.mt4, styles.itemsCenter)}>
                 <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.textCenter)} numberOfLines={1}>
                   {orderedWinners[1].name}
-                </Text>
-                <Text style={clsx(styles.textSm, styles.textMuted, styles.textCenter)} numberOfLines={1}>
-                  {orderedWinners[1].categories?.[0]?.name || 'Technician'}
-                </Text>
-                <Text style={clsx(styles.textSm, styles.fontBold, styles.textPrimary, styles.mt1)}>
-                  ({orderedWinners[1].providerId || 0})
                 </Text>
               </View>
             </>
@@ -424,22 +432,16 @@ const DashboardScreen = ({ navigation }) => {
                   uri: imageCheck(orderedWinners[2].profileImage, 'user.png')
                 }}
                 style={{
-                  width: 60,
-                  height: 60,
+                  width: 80,
+                  height: 80,
                   borderRadius: 30,
                   borderWidth: 2,
                   borderColor: colors.gray300,
                 }}
               />
-              <View style={clsx(styles.mt1, styles.itemsCenter)}>
+              <View style={clsx(styles.mt4, styles.itemsCenter)}>
                 <Text style={clsx(styles.textSm, styles.fontBold, styles.textBlack, styles.textCenter)} numberOfLines={1}>
                   {orderedWinners[2].name}
-                </Text>
-                <Text style={clsx(styles.textXs, styles.textMuted, styles.textCenter)} numberOfLines={1}>
-                  {orderedWinners[2].categories?.[0]?.name || 'Technician'}
-                </Text>
-                <Text style={clsx(styles.textXs, styles.fontMedium, styles.textPrimary, styles.mt1)}>
-                  ({orderedWinners[2].providerId || 0})
                 </Text>
               </View>
             </>
@@ -496,34 +498,73 @@ const DashboardScreen = ({ navigation }) => {
     );
   }
 
-
-  
-
-
-
-
   return (
-
-
     <View style={clsx(styles.flex1, styles.bgSurface)}>
       
-      {/* Header with Profile - MODIFIED: Credit points added to right side */}
-      <View style={clsx(styles.bgPrimary, styles.px4, styles.pt2, styles.pb4)}>
+      {/* ADDED: Time Slot Warning Modal */}
+      <Modal
+        visible={showTimeSlotModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowTimeSlotModal(false)}
+      >
+        <View style={clsx(styles.flex1, styles.justifyCenter, styles.itemsCenter, { backgroundColor: 'rgba(0,0,0,0.5)' })}>
+          <View style={clsx(styles.bgWhite, styles.roundedXl, styles.p6, styles.mx5, styles.shadowXl, { maxWidth: SCREEN_WIDTH * 0.9 })}>
+            <View style={clsx(styles.itemsCenter, styles.mb-4)}>
+              <Icon name="schedule" size={60} color={colors.warning} />
+              <Text style={clsx(styles.text2xl, styles.fontBold, styles.textBlack, styles.mt4, styles.textCenter)}>
+                Set Your Time Table
+              </Text>
+            </View>
+            
+            <Text style={clsx(styles.textBase, styles.textMuted, styles.mb6, styles.textCenter)}>
+              {stats.todayTimeSlots === 0 && stats.tomorrowTimeSlots === 0 
+                ? "You haven't set your timetable for today or tomorrow. You won't receive any bookings until you set your availability."
+                : stats.todayTimeSlots === 0 
+                ? "You haven't set your timetable for today. You won't receive any bookings for today."
+                : "You haven't set your timetable for tomorrow. You won't receive any bookings for tomorrow."
+              }
+            </Text>
+            
+            <Text style={clsx(styles.textBase, styles.textBlack, styles.fontMedium, styles.mb2, styles.textCenter)}>
+              Please set your timetable to start receiving bookings.
+            </Text>
+            
+            <View style={clsx(styles.flexRow, styles.justifyCenter, styles.mt6)}>
+              <TouchableOpacity
+                style={clsx(styles.bgPrimary, styles.px6, styles.py3, styles.roundedFull, styles.flexRow, styles.itemsCenter)}
+                onPress={handleSetTimeTable}
+                activeOpacity={0.8}
+              >
+                <Icon name="edit-calendar" size={20} color={colors.white} style={styles.mr2} />
+                <Text style={clsx(styles.textWhite, styles.fontMedium, styles.textBase)}>
+                  Set Time Table Now
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
+            <TouchableOpacity
+              style={clsx(styles.mt4, styles.itemsCenter)}
+              onPress={() => setShowTimeSlotModal(false)}
+            >
+              <Text style={clsx(styles.textSm, styles.textMuted)}>
+                I'll do it later
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Header with Profile */}
+      <View style={clsx(styles.bgPrimary, styles.px4, styles.pt2, styles.pb1)}>
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb2)}>
           <View style={clsx(styles.flexRow, styles.itemsCenter, styles.flex1)}>
-            
-            <View style={clsx(styles.flex1)}>
-              <Text style={clsx(styles.textWhite, styles.textBase, styles.opacity75)}>
-                Welcome back,
-              </Text>
-              <Text style={clsx(styles.textWhite, styles.text2xl, styles.fontBold)} numberOfLines={1}>
+            <View style={clsx(styles.flex1)} >
+              <Text style={clsx(styles.textWhite, styles.text2xl, styles.fontBold)} numberOfLines={1} onPress={() => setLoading('sideBar', true)}>
                 {user?.name || 'Technician'}
               </Text>
-              <Text style={clsx(styles.textWhite, styles.textBase, styles.opacity75)}>
-                ID: {user?.servicemanId}
-              </Text>
-              <Text style={clsx(styles.textWhite, styles.textSm, styles.opacity75, styles.mt1)}>
-                {user?.categories[0]?.name || 'Service Technician'} • {user?.averageRating} ⭐
+              <Text style={clsx(styles.textWhite, styles.textBase, styles.opacity75)} onPress={() => setLoading('sideBar', true)}>
+                ID: {user?.servicemanId} . {user?.averageRating} ⭐
               </Text>
             </View>
           </View>
@@ -548,19 +589,20 @@ const DashboardScreen = ({ navigation }) => {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-              style={clsx(styles.bgPrimary, styles.roundedFull, styles.p1, styles.mr1)}
-              onPress={() => setLoading('sideBar', true)}
-            >
-              <Image
-                source={{
-                  uri: imageCheck(`${user?.profileImage}`,'user.png')
-                }}
-                style={customStyles.profileImage}
-              />
-            </TouchableOpacity>
+            style={clsx(
+              styles.flexRow,
+              styles.itemsCenter,
+              styles.bgWhite,
+              styles.px3,
+              styles.py2,
+              styles.roundedFull,
+              styles.mr1
+            )}
+            activeOpacity={0.8}
+          >
+            <FontAwesome5 name="bell" size={16} color={colors.primary} />
+          </TouchableOpacity>
         </View>
-
-        {/* REMOVED: Wallet Balance Card - Credit points already shown in header */}
       </View>
 
       <ScrollView
@@ -575,9 +617,9 @@ const DashboardScreen = ({ navigation }) => {
         }
         contentContainerStyle={clsx(styles.pb6)}
       >
-        {/* Performer of the Week Section - ADDED */}
-        <View style={clsx(styles.px4, styles.mt4)}>
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb2)}>
+        {/* Performer of the Week Section */}
+        <View style={clsx(styles.px4, styles.mt2)}>
+          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb0)}>
             Performer of the Week
           </Text>
           
@@ -591,7 +633,7 @@ const DashboardScreen = ({ navigation }) => {
           )}
         </View>
 
-        {/* Today's Bookings - KEPT SAME AS BEFORE */}
+        {/* Today's Bookings */}
         <View style={clsx(styles.px4, styles.mt6)}>
           <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
@@ -660,46 +702,6 @@ const DashboardScreen = ({ navigation }) => {
                   </Text>
                 </View>
 
-                <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
-                  <Text style={clsx(styles.text2xl, styles.fontBold, styles.textPrimary)}>
-                    ₹{job.amount}
-                  </Text>
-                  <TouchableOpacity
-                    style={clsx(
-                      styles.flexRow,
-                      styles.itemsCenter,
-                      styles.px3,
-                      styles.py2,
-                      job.status === 'new' ? styles.bgPrimary :
-                        job.status === 'accept' ? styles.bgSuccess :
-                          job.status === 'ongoing' ? styles.bgWarning :
-                            styles.bgSecondary,
-                      styles.roundedFull
-                    )}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      if (job.status === 'new') {
-                        // Navigate to accept/reject screen
-                        navigation.navigate('BookingDetail', { booking: job.originalData });
-                      } else {
-                        navigation.navigate('BookingDetail', { booking: job.originalData });
-                      }
-                    }}
-                  >
-                    <Text style={clsx(styles.textWhite, styles.fontMedium, styles.mr1)}>
-                      {job.status === 'new' ? 'Take Action' :
-                        job.status === 'accept' ? 'Start' :
-                          job.status === 'ongoing' ? 'Complete' : 'View'}
-                    </Text>
-                    <Icon
-                      name={job.status === 'new' ? 'arrow-forward' :
-                        job.status === 'accept' ? 'play-arrow' :
-                          job.status === 'ongoing' ? 'check' : 'chevron-right'}
-                      size={16}
-                      color={colors.white}
-                    />
-                  </TouchableOpacity>
-                </View>
               </TouchableOpacity>
             ))
           ) : (
@@ -715,7 +717,7 @@ const DashboardScreen = ({ navigation }) => {
           )}
         </View>
 
-        {/* Quick Stats - KEPT SAME AS BEFORE */}
+        {/* Quick Stats */}
         <View style={clsx(styles.px4, styles.mt6)}>
           <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
             Booking Status
@@ -755,9 +757,7 @@ const DashboardScreen = ({ navigation }) => {
           </View>
         </View>
 
-        
-
-        {/* Earnings Summary - KEPT SAME AS BEFORE */}
+        {/* Earnings Summary */}
         <View style={clsx(styles.px4, styles.mt6)}>
           <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>

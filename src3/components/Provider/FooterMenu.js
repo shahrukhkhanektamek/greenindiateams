@@ -70,10 +70,17 @@ const FooterMenu = () => {
     },
     { 
       id: 'wallet', 
-      label: 'Wallet', 
-      icon: 'account-balance-wallet', 
+      label: 'Target', 
+      icon: 'track-changes', 
       screen: 'Wallet',
       activeIcon: 'account-balance-wallet'
+    },
+    { 
+      id: 'Earnings', 
+      label: 'Earnings', 
+      icon: 'currency-rupee', 
+      screen: 'Earnings',
+      activeIcon: 'person'
     },
     { 
       id: 'profile', 

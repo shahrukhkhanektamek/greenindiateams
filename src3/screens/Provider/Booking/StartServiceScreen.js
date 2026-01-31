@@ -67,9 +67,6 @@ const StartServiceScreen = ({ navigation, route }) => {
 
   useEffect(() => {
 
-    // GetCurrentLocation2();
-    // return false;
-
     // Start automatic process when screen loads
     startAutomaticProcess();
     checkCameraPermission();
@@ -178,114 +175,53 @@ const StartServiceScreen = ({ navigation, route }) => {
   };
 
 
-
-  const GetCurrentLocation2 = async () => {
-    const deviceId = '';
-    try {   
   
-      // Get Current Position
-      Geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
 
-          console.log(`Latitude: ${latitude}, Longitude: ${longitude}`);
-        },
-        (error) => {
-          // See error codes below.
-          console.log(error.code, error.message);
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-      );
-    } catch (error) {
-      console.error(error);
-    }
-  };
+const requestLocationPermission = async () => {
+  if (Platform.OS === 'android') {
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+    );
+
+    return granted === PermissionsAndroid.RESULTS.GRANTED;
+  }
+  return true;
+};
 
 
   // Location Functions
   const getCurrentLocation = async () => {
-    let positions = {};
+  const hasPermission = await requestLocationPermission();
+  if (!hasPermission) {
+    console.log('Location permission denied');
+    return null;
+  }
 
-    // try { 
-      // if (Platform.OS === 'android') {
-      //   const granted = await PermissionsAndroid.request(
-      //     PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-      //   );
-        
-      //   if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-      //     console.log('Location permission denied');
-      //     return null;
-      //   }
-      // }
-  
-    //   // Get Current Position
-    //   Geolocation.getCurrentPosition(
-    //     (position) => {
-    //       const { latitude, longitude } = position.coords;
-    //       positions = {
-    //         latitude: position.coords.latitude,
-    //         longitude: position.coords.longitude,
-    //         accuracy: position.coords.accuracy
-    //       };
-          
-    //       console.log(`Latitude: ${positions}`);
-    //       return positions;
+  return new Promise((resolve, reject) => {
+    Geolocation.getCurrentPosition(
+      position => {
+        const locations = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        };
 
-    //     },
-    //     (error) => {
-    //       // See error codes below.
-    //       console.log(error.code, error.message);
-    //       return null;
-    //     },
-    //     { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-    //   );
-    // } catch (error) {
-    //   console.error(error);
-    //   return null;
-    // }
-
-    
-
-    try {
-      let positions = {};
-      
-      if (Platform.OS === 'android') {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-        );
-        
-        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          console.log('Location permission denied');
-          return null;
-        }
+        console.log('Location fetched:', locations);
+        resolve(locations); // ✅ yahin se return hoga
+      },
+      error => {
+        console.log('Location error:', error.code, error.message);
+        reject(error);
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 30000,
+        maximumAge: 10000,
       }
+    );
+  });
+};
 
-      const position = await new Promise((resolve, reject) => {
-        Geolocation.getCurrentPosition(
-          resolve,
-          reject,
-          {
-            enableHighAccuracy: true,
-            timeout: 15000,
-            maximumAge: 0,
-          }
-        );
-      });
-
-      positions = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy
-      };
-
-      console.log('Location fetched:', positions);
-      return positions;
-
-    } catch (error) {
-      console.log('Error getting location:', error);
-      return null;
-    }
-  };
 
   const verifyLocation = async () => {
     //  setLocationStatus('success');
@@ -545,7 +481,7 @@ const StartServiceScreen = ({ navigation, route }) => {
         setAutoVerifyingOTP(false);
         return;
       }
-
+      
       const formData = new FormData();
       formData.append('otp', otpString);
       formData.append('bookingId', bookingData?._id);
@@ -557,7 +493,13 @@ const StartServiceScreen = ({ navigation, route }) => {
           name: selectedSelfie.fileName || `selfie_${Date.now()}.jpg`,
         });
       }
-      
+      console.log('formData', formData)
+      console.log(`${Urls.verifyOtpAndStart}/${bookingData?._id}`)
+ 
+ 
+
+      // return;
+      // return;
       const response = await postData(
         formData,
         `${Urls.verifyOtpAndStart}/${bookingData?._id}`,

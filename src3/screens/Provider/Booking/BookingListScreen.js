@@ -630,12 +630,12 @@ const BookingListScreen = ({ navigation }) => {
             </Text>
           </View>
 
-          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
+          {/* <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
             <Icon name="phone" size={16} color={colors.textMuted} style={clsx(styles.mr2)} />
             <Text style={clsx(styles.textSm, styles.textBlack, styles.flex1)} numberOfLines={1}>
               {booking.mobile}
             </Text>
-          </View>
+          </View> */}
 
           {booking.date && (
             <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
@@ -681,21 +681,23 @@ const BookingListScreen = ({ navigation }) => {
               </Text>
             </View>
           ) : (
-            <View style={clsx(
-              styles.flexRow,
-              styles.itemsCenter,
-              styles.px3,
-              styles.py2,
-              styles.border,
-              styles.borderPrimary,
-              styles.bgWhite,
-              styles.roundedFull
-            )}>
-              <Text style={clsx(styles.textPrimary, styles.fontMedium, styles.mr1)}>
-                View Details
-              </Text>
-              <Icon name="chevron-right" size={16} color={colors.primary} />
-            </View>
+            <>
+              {/* <View style={clsx(
+                styles.flexRow,
+                styles.itemsCenter,
+                styles.px3,
+                styles.py2,
+                styles.border,
+                styles.borderPrimary,
+                styles.bgWhite,
+                styles.roundedFull
+              )}>
+                <Text style={clsx(styles.textPrimary, styles.fontMedium, styles.mr1)}>
+                  View Details
+                </Text>
+                <Icon name="chevron-right" size={16} color={colors.primary} />
+              </View> */}
+              </>
           )}
         </View>
       </TouchableOpacity>

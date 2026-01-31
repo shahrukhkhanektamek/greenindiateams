@@ -738,7 +738,7 @@ const ProviderProfileScreen = ({ navigation, route }) => {
         </View>
 
         {/* Logout Button */}
-        <View style={clsx(styles.mx4, styles.mt4, styles.mb6)}>
+        {/* <View style={clsx(styles.mx4, styles.mt4, styles.mb6)}>
           <TouchableOpacity
             style={clsx(
               styles.flexRow,
@@ -755,7 +755,7 @@ const ProviderProfileScreen = ({ navigation, route }) => {
               Logout
             </Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
       </ScrollView>
 
       {/* Profile Image Upload Modal */}

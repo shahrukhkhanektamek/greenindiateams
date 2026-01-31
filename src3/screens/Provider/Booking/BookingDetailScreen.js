@@ -1535,15 +1535,15 @@ const BookingDetailScreen = ({ navigation, route }) => {
     <View style={clsx(styles.flex1, styles.bgSurface)}>
       
       {/* Header */}
-      <View style={clsx(styles.bgPrimary, styles.px4, styles.pt3, styles.pb4)}>
-        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4)}>
+      <View style={clsx(styles.bgPrimary, styles.px4, styles.pt3, styles.pb2)}>
+        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb0)}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Icon name="arrow-back" size={24} color={colors.white} />
           </TouchableOpacity>
-          <Text style={clsx(styles.textWhite, styles.textXl, styles.fontBold)}>
+          {/* <Text style={clsx(styles.textWhite, styles.textXl, styles.fontBold)}>
             Booking Details
-          </Text>
-          <TouchableOpacity onPress={() => {
+          </Text> */}
+          {/* <TouchableOpacity onPress={() => {
             const shareMessage = `Booking Details:
               ID: ${formattedData?.bookingId}
               Service: ${formattedData?.service}
@@ -1560,22 +1560,22 @@ const BookingDetailScreen = ({ navigation, route }) => {
             }).catch(error => Alert.alert('Error', 'Failed to share booking details'));
           }}>
             <Icon name="share" size={24} color={colors.white} />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
         {/* Booking ID and Status */}
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
           <View>
-            <Text style={clsx(styles.textWhite, styles.textBase, styles.opacity75)}>
+            {/* <Text style={clsx(styles.textWhite, styles.textBase, styles.opacity75)}>
               Booking ID
             </Text>
             <Text style={clsx(styles.textWhite, styles.textLg, styles.fontBold)}>
               {formattedData.bookingId}
-            </Text>
+            </Text> */}
           </View>
           
           {/* Combined Status Badge */}
-          <View style={clsx(
+          {/* <View style={clsx(
             styles.px4,
             styles.py2,
             styles.roundedFull,
@@ -1587,7 +1587,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
             )}>
               {getStatusLabel(formattedData.status)}
             </Text>
-          </View>
+          </View> */}
         </View>
       </View>
  
@@ -1605,6 +1605,43 @@ const BookingDetailScreen = ({ navigation, route }) => {
           />
         }
       >
+
+        {/* Customer Information */}
+        <View style={clsx(styles.px4, styles.mt4)}>
+          {/* <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
+            Customer Information
+          </Text> */}
+          
+          <View style={clsx(
+            styles.bgWhite,
+            styles.roundedLg,
+            styles.p4,
+            styles.shadowSm
+          )}>
+            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
+              <View style={[clsx(styles.roundedFull, styles.overflowHidden, styles.mr2), 
+                { width: 60, height: 60, backgroundColor: colors.gray200 }
+              ]}>
+                {formattedData.profileImage ? (
+                  <Image
+                    source={{ uri: imageCheck(UploadUrl+'/'+formattedData.profileImage, 'user.png') }}
+                    style={{ width: '100%', height: '100%' }}
+                  />
+                ) : (
+                  <View style={clsx(styles.flex1, styles.itemsCenter, styles.justifyCenter)}>
+                    <Icon name="person" size={32} color={colors.gray500} />
+                  </View>
+                )}
+              </View>
+              <View style={clsx(styles.ml2, styles.flex1)}>
+                <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)}>
+                  {formattedData.customerName}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
         {/* Service Card */}
         <View style={clsx(styles.px4, styles.pt4, styles.mt4)}>
           <View style={clsx(
@@ -1633,16 +1670,19 @@ const BookingDetailScreen = ({ navigation, route }) => {
                 </Text>
               </View>
             </View>
-
+            
+            
             {/* Service Details */}
-            <View style={clsx(styles.mb4)}>
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
-                Service Items
-              </Text>
-              <Text style={clsx(styles.textBase, styles.textBlack)}>
-                {formattedData.serviceDetails}
-              </Text>
-            </View>
+            {(bookingData?.booking?.bookingItems?.length>1)?(
+              <View style={clsx(styles.mb4)}>
+                <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
+                  Service Items
+                </Text>
+                <Text style={clsx(styles.textBase, styles.textBlack)}>
+                  {formattedData.serviceDetails}
+                </Text>
+              </View>
+            ):(null)}
 
             {/* Parts Info */}
             {renderPartsInfoInServiceCard()}
@@ -1699,41 +1739,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
         {/* Parts Approval Section */}
         {renderPartsApprovalSection()}
 
-        {/* Customer Information */}
-        <View style={clsx(styles.px4, styles.mt4)}>
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
-            Customer Information
-          </Text>
-          
-          <View style={clsx(
-            styles.bgWhite,
-            styles.roundedLg,
-            styles.p4,
-            styles.shadowSm
-          )}>
-            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
-              <View style={[clsx(styles.roundedFull, styles.overflowHidden), 
-                { width: 60, height: 60, backgroundColor: colors.gray200 }
-              ]}>
-                {formattedData.profileImage ? (
-                  <Image
-                    source={{ uri: imageCheck(UploadUrl+'/'+formattedData.profileImage, 'user.png') }}
-                    style={{ width: '100%', height: '100%' }}
-                  />
-                ) : (
-                  <View style={clsx(styles.flex1, styles.itemsCenter, styles.justifyCenter)}>
-                    <Icon name="person" size={32} color={colors.gray500} />
-                  </View>
-                )}
-              </View>
-              <View style={clsx(styles.ml2, styles.flex1)}>
-                <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)}>
-                  {formattedData.customerName}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
+        
 
         {/* Service Details Section */}
         <View style={clsx(styles.px4, styles.mt4)}>
@@ -1946,47 +1952,10 @@ const BookingDetailScreen = ({ navigation, route }) => {
         }
       ]}>
         {formattedData.status === 'accept' || formattedData.status === 'new' ? (
-          <>
-            <ActionButton
-              icon="cancel"
-              label="Reject"
-              color={colors.error}
-              outlined={true}
-              onPress={() => Alert.alert(
-                'Reject Booking',
-                'Are you sure you want to reject this booking?',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { 
-                    text: 'Reject', 
-                    style: 'destructive',
-                    onPress: async () => {
-                      try {
-                        const response = await postData(
-                          { bookingId: bookingData?._id },
-                          Urls.rejectBooking,
-                          'POST'
-                        );
-                        
-                        if (response?.success) {
-                          Toast.show({
-                            type: 'success',
-                            text1: 'Booking Rejected',
-                            text2: 'Booking has been rejected successfully',
-                          });
-                          navigation.goBack();
-                        }
-                      } catch (error) {
-                        console.error('Error rejecting booking:', error);
-                      }
-                    }
-                  },
-                ]
-              )}
-            />
+          <>            
             <ActionButton
               icon="play-arrow"
-              label="Start Service"
+              label="Start Now"
               color={colors.primary}
               onPress={handleStartService}
             />

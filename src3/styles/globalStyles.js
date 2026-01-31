@@ -186,6 +186,7 @@ const globalStyles = StyleSheet.create({
   bgInfoLight: { backgroundColor: colors.infoLight },
   bgGray: { backgroundColor: colors.gray100 },
   bgWinner: { backgroundColor: colors.winner },
+  bgWinnerL: { backgroundColor: colors.winnerL },
   bgSurface: { backgroundColor: colors.surface },
   
   // =========== BORDER ===========

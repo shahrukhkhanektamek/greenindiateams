@@ -4,7 +4,7 @@ import { StatusBar, LogBox, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { MenuProvider } from 'react-native-popup-menu';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import Toast from 'react-native-toast-message';
+
 
 // Import components
 import ProviderNavigator from './src3/navigation/ProviderNavigator';

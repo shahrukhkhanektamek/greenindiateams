@@ -8,7 +8,6 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { AppContext } from '../../Context/AppContext';
 import FooterMenu from '../../components/Provider/FooterMenu';
-import CustomSidebar from '../../components/Provider/CustomSidebar';
 import { colors } from '../../styles/colors';
 
 // Navigation service imports
@@ -19,14 +18,11 @@ import {
   getCurrentRouteName,
   onNavigationStateChange 
 } from "../../navigation/navigationService"; 
+import MovableButton from '../../components/Common/MovableButton';
 
 const MainLayout = ({ children }) => {
   const { 
     user, 
-    loadingStates, 
-    setLoading,
-    drawerOpen,
-    setDrawerOpen 
   } = useContext(AppContext);
   
   const [currentScreen, setCurrentScreen] = useState('');
@@ -92,63 +88,32 @@ const MainLayout = ({ children }) => {
     return !hideFooterOn.includes(currentScreen);
   };
 
-  // Check if header should be shown
-  const shouldShowHeader = () => {
-    if (!user) return false;
-    
-    const hideHeaderOn = [
-      'Intro',
-      'IntroEarning',
-      'ProviderLogin',
-      'ProviderOTPLogin',
-      'SplashScreen',
-      'SelfieCaptureScreen',
-      'MediaCaptureScreen',
-      'CompleteBookingScreen',
-      'PartsSelectionScreen',
-    ];
-    
-    return !hideHeaderOn.includes(currentScreen);
-  };
 
-  // Toggle sidebar function
-  const toggleSidebar = () => {
-    setDrawerOpen(!drawerOpen);
-  };
 
-  // Handle back press
-  const handleBackPress = () => {
-    if (canGoBack()) {
-      goBack();
-    }
-  };
 
-  // Check if can go back
-  const canGoBack = () => {
-    const noBackScreens = [
-      'ProviderDashboard',
-      'Intro',
-      'ProviderLogin'
-    ];
-    
-    return !noBackScreens.includes(currentScreen);
-  };
 
   return (
     <>
       {/* Main Content */}
-      <View style={styles.content}>
+      <View style={styles.container}>
         {children}
-        <FooterMenu /> 
       </View>
 
-      {/* Footer Menu */}
-      {/* {shouldShowFooter() && (
+      {/* Footer Menu - conditional show */}
+      {shouldShowFooter() && (
         <FooterMenu />
-      )} */}
+      )}
+
+      <MovableButton 
+        onPress={()=>{navigate('Support')}}
+        buttonText="Help"
+        initialPosition="right-bottom"
+      />
+      
     </>
   );
 };
+
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -202,10 +167,6 @@ const styles = StyleSheet.create({
     color: colors.white,
     textAlign: 'center',
   },
-  content: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
   badge: {
     position: 'absolute',
     top: 5,
@@ -225,4 +186,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MainLayout; 
+export default MainLayout;

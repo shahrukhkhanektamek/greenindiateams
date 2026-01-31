@@ -5,19 +5,17 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  StatusBar,
   RefreshControl,
   ActivityIndicator,
   Dimensions,
   Alert,
-  Modal, // ADDED
+  Modal,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import styles, { clsx } from '../../styles/globalStyles';
 import { colors } from '../../styles/colors';
 import { AppContext } from '../../Context/AppContext';
-import FooterMenu from '../../components/Provider/FooterMenu';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -49,14 +47,41 @@ const DashboardScreen = ({ navigation }) => {
     totalEarnings: 0,
     walletBalance: 0,
     rating: 0,
-    todayTimeSlots: 0, // ADDED
-    tomorrowTimeSlots: 0, // ADDED
+    todayTimeSlots: 0,
+    tomorrowTimeSlots: 0,
   });
 
   const [todayBookings, setTodayBookings] = useState([]);
   const [quickStats, setQuickStats] = useState([]);
   const [winnersOfWeek, setWinnersOfWeek] = useState([]);
-  const [showTimeSlotModal, setShowTimeSlotModal] = useState(false); // ADDED: Modal visibility state
+  const [showTimeSlotModal, setShowTimeSlotModal] = useState(false);
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  // Format date for display
+  const formatDateForDisplay = (date) => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    const dayName = days[date.getDay()];
+    const day = date.getDate();
+    const monthName = months[date.getMonth()];
+    
+    return {
+      dayName,
+      day,
+      monthName,
+      fullDate: `${dayName}, ${monthName} ${day.toString().padStart(2, '0')}`,
+      fullDateWithYear: `${dayName}, ${monthName} ${day}, ${date.getFullYear()}`
+    };
+  };
+
+  // Get today and tomorrow dates
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+
+  const todayFormatted = formatDateForDisplay(today);
+  const tomorrowFormatted = formatDateForDisplay(tomorrow);
 
   // Fetch dashboard data
   const fetchDashboardData = async () => {
@@ -91,8 +116,8 @@ const DashboardScreen = ({ navigation }) => {
           todayEarnings: data.todayEarnning || 0,
           totalEarnings: data.totalEarnning || 0,
           walletBalance: walletData.totalCreditPoints || walletData.balance || 0,
-          todayTimeSlots: data.todayTimeSlots || 0, // ADDED
-          tomorrowTimeSlots: data.tomorrowTimeSlots || 0, // ADDED
+          todayTimeSlots: data.todayTimeSlots || 0,
+          tomorrowTimeSlots: data.tomorrowTimeSlots || 0,
         }));
 
         // Set quick stats for display based on API data
@@ -153,12 +178,10 @@ const DashboardScreen = ({ navigation }) => {
         }
 
         // Check time slots and show modal if needed
-        // ADDED: Check if todayTimeSlots or tomorrowTimeSlots is 0
         const todaySlots = data.todayTimeSlots || 0;
         const tomorrowSlots = data.tomorrowTimeSlots || 0;
         
         if (todaySlots === 0 || tomorrowSlots === 0) { 
-          // Show modal after a short delay to ensure UI is loaded
           setTimeout(() => {
             setShowTimeSlotModal(true);
           }, 500);
@@ -181,7 +204,6 @@ const DashboardScreen = ({ navigation }) => {
           
           let addressText = 'Address not available';
           
-          // Format time
           let formattedTime = '';
           if (booking.scheduleTime) {
             formattedTime = booking.scheduleTime;
@@ -221,10 +243,16 @@ const DashboardScreen = ({ navigation }) => {
     fetchDashboardData();
   }, []); 
 
-  // ADDED: Function to handle TimeTable navigation
+  // Function to handle TimeTable navigation
   const handleSetTimeTable = () => {
     setShowTimeSlotModal(false);
-    navigation.navigate('AvailabilityScreen'); // Replace with your actual timetable screen name
+    navigation.navigate('AvailabilityScreen');
+  };
+
+  // Function to handle date button press - navigate to separate screen
+  const handleDateButtonPress = (date) => {
+    // You can pass the date as parameter if needed
+    navigation.navigate('AvailabilityScreen', { selectedDate: date });
   };
 
   const onRefresh = () => {
@@ -265,37 +293,6 @@ const DashboardScreen = ({ navigation }) => {
     }
   };
 
-  const quickActions = [
-    {
-      id: '1',
-      title: 'Start Day',
-      icon: 'play-circle',
-      color: colors.success,
-      onPress: () => console.log('Start Day'),
-    },
-    {
-      id: '2',
-      title: 'Check Schedule',
-      icon: 'calendar-today',
-      color: colors.primary,
-      onPress: () => navigation.navigate('BookingList'),
-    },
-    {
-      id: '3',
-      title: 'My Wallet',
-      icon: 'account-balance-wallet',
-      color: colors.warning,
-      onPress: () => navigation.navigate('AddWallet'),
-    },
-    {
-      id: '4',
-      title: 'Performance',
-      icon: 'trending-up',
-      color: colors.secondary,
-      onPress: () => navigation.navigate('Performance'),
-    },
-  ];
-
   // Render winners of the week in the format: second winner on left, first in middle, third on right
   const renderWinnersOfWeek = () => {
     if (winnersOfWeek.length === 0) {
@@ -325,14 +322,14 @@ const DashboardScreen = ({ navigation }) => {
         >
           {/* Left Winner (Second Position) */}
           <View style={clsx(
-            styles.itemsCenter,styles.bgWinner,styles.h27,
+            styles.itemsCenter,styles.bgWinnerL,styles.h26,
                       styles.roundedLg,
                       styles.border,
                       styles.borderPrimary,
                       styles.p3,
                       styles.shadowSm,
                       styles.itemsCenter, 
-            { width: '30%' })}>
+            { width: '32%' })}>
             {orderedWinners[0] ? (
               <>
                 <Image
@@ -347,11 +344,11 @@ const DashboardScreen = ({ navigation }) => {
                     borderColor: colors.gray300,
                   }}
                 />
-                <View style={clsx(styles.mt4, styles.itemsCenter)}>
+                {/* <View style={clsx(styles.mt4, styles.itemsCenter)}>
                   <Text style={clsx(styles.textSm, styles.fontBold, styles.textBlack, styles.textCenter)} numberOfLines={1}>
                     {orderedWinners[0].name}
                   </Text>
-                </View>
+                </View> */}
               </>
             ) : (
               <View style={clsx(styles.itemsCenter)}>
@@ -368,19 +365,19 @@ const DashboardScreen = ({ navigation }) => {
                 }}>
                   <Icon name="person" size={24} color={colors.gray400} />
                 </View>
-                <Text style={clsx(styles.textXs, styles.textMuted, styles.mt1)}>No Data</Text>
+                {/* <Text style={clsx(styles.textXs, styles.textMuted, styles.mt1)}>No Data</Text> */}
               </View>
             )}
           </View>
 
           {/* Center Winner (First Position) */}
-          <View style={clsx(styles.itemsCenter,styles.bgWinner,styles.h27, 
+          <View style={clsx(styles.itemsCenter,styles.bgWinner,styles.h26, 
                       styles.roundedLg,
                       styles.border,
                       styles.borderPrimary,
                       styles.p3,
                       styles.shadowSm,
-                      styles.itemsCenter, { width: '35%' })}>
+                      styles.itemsCenter, { width: '32%' })}>
             {orderedWinners[1] ? (
               <>
                 <Image
@@ -395,40 +392,40 @@ const DashboardScreen = ({ navigation }) => {
                     borderColor: colors.warning,
                   }}
                 />
-                <View style={clsx(styles.mt4, styles.itemsCenter)}>
+                {/* <View style={clsx(styles.mt4, styles.itemsCenter)}>
                   <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.textCenter)} numberOfLines={1}>
                     {orderedWinners[1].name}
                   </Text>
-                </View>
+                </View> */}
               </>
             ) : (
               <View style={clsx(styles.itemsCenter)}>
                 <View style={{
                   width: 80,
                   height: 80,
-                  borderRadius: 40,
+                  borderRadius: 30,
                   backgroundColor: colors.gray100,
                   justifyContent: 'center',
                   alignItems: 'center',
-                  borderWidth: 3,
+                  borderWidth: 2,
                   borderColor: colors.gray300,
                   borderStyle: 'dashed',
                 }}>
-                  <Icon name="person" size={36} color={colors.gray400} />
+                  <Icon name="person" size={24} color={colors.gray400} />
                 </View>
-                <Text style={clsx(styles.textSm, styles.textMuted, styles.mt2)}>No Data</Text>
+                {/* <Text style={clsx(styles.textXs, styles.textMuted, styles.mt1)}>No Data</Text> */}
               </View>
             )}
           </View>
 
           {/* Right Winner (Third Position) */}
-          <View style={clsx(styles.itemsCenter,styles.bgWinner,styles.h27,
+          <View style={clsx(styles.itemsCenter,styles.bgWinnerL,styles.h26,
                       styles.roundedLg,
                       styles.border,
                       styles.borderPrimary, 
                       styles.p3,
                       styles.shadowSm,
-                      styles.itemsCenter,  { width: '30%' })}>
+                      styles.itemsCenter,  { width: '32%' })}>
             {orderedWinners[2] ? (
               <>
                 <Image
@@ -443,17 +440,17 @@ const DashboardScreen = ({ navigation }) => {
                     borderColor: colors.gray300,
                   }}
                 />
-                <View style={clsx(styles.mt4, styles.itemsCenter)}>
+                {/* <View style={clsx(styles.mt4, styles.itemsCenter)}>
                   <Text style={clsx(styles.textSm, styles.fontBold, styles.textBlack, styles.textCenter)} numberOfLines={1}>
                     {orderedWinners[2].name}
                   </Text>
-                </View>
+                </View> */}
               </>
             ) : (
               <View style={clsx(styles.itemsCenter)}>
                 <View style={{
-                  width: 60,
-                  height: 60,
+                  width: 80,
+                  height: 80,
                   borderRadius: 30,
                   backgroundColor: colors.gray100,
                   justifyContent: 'center',
@@ -464,31 +461,12 @@ const DashboardScreen = ({ navigation }) => {
                 }}>
                   <Icon name="person" size={24} color={colors.gray400} />
                 </View>
-                <Text style={clsx(styles.textXs, styles.textMuted, styles.mt1)}>No Data</Text>
+                {/* <Text style={clsx(styles.textXs, styles.textMuted, styles.mt1)}>No Data</Text> */}
               </View>
             )}
           </View>
         </TouchableOpacity>
     );
-  };
-
-  // Custom inline styles
-  const customStyles = {
-    quickActionCard: {
-      width: '48%',
-      marginBottom: 16,
-    },
-    profileImage: {
-      width: 50,
-      height: 50,
-      borderRadius: 25,
-      borderWidth: 2,
-      borderColor: colors.white,
-    },
-    statCard: {
-      width: '30%',
-      minHeight: 80,
-    },
   };
 
   const getServiceIcon = (serviceName) => {
@@ -503,6 +481,7 @@ const DashboardScreen = ({ navigation }) => {
     if (service.includes('tv')) return 'tv';
     return 'home-repair-service';
   };
+
   // Function to handle accept booking
   const handleAcceptBooking = async (bookingId, job) => {
     try {
@@ -515,14 +494,7 @@ const DashboardScreen = ({ navigation }) => {
       );
 
       if (response?.success) {
-
         navigation.navigate('BookingDetail', { booking: job.originalData });
-
-        // Toast.show({
-        //   type: 'success',
-        //   text1: 'Success',
-        //   text2: 'Booking accepted successfully',
-        // });
         
         // Refresh dashboard data
         await fetchDashboardData();
@@ -559,7 +531,7 @@ const DashboardScreen = ({ navigation }) => {
   return (
     <View style={clsx(styles.flex1, styles.bgSurface)}>
       
-      {/* ADDED: Time Slot Warning Modal */}
+      {/* Time Slot Warning Modal */}
       <Modal
         visible={showTimeSlotModal}
         transparent={true}
@@ -617,13 +589,29 @@ const DashboardScreen = ({ navigation }) => {
       <View style={clsx(styles.bgPrimary, styles.px4, styles.pt2, styles.pb1)}>
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb2)}>
           <View style={clsx(styles.flexRow, styles.itemsCenter, styles.flex1)}>
-            <View style={clsx(styles.flex1)} >
-              <Text style={clsx(styles.textWhite, styles.text2xl, styles.fontBold)} numberOfLines={1} onPress={() => setLoading('sideBar', true)}>
+            <View style={clsx(styles.flex1)}>
+              <Text 
+                style={clsx(styles.textWhite, styles.text2xl, styles.fontBold)} 
+                numberOfLines={1} 
+                onPress={() => setLoading('sideBar', true)}
+              >
                 {user?.name || 'Technician'}
               </Text>
-              <Text style={clsx(styles.textWhite, styles.textBase, styles.opacity75)} onPress={() => setLoading('sideBar', true)}>
-                ID: {user?.servicemanId} . {user?.averageRating} ⭐
-              </Text>
+              <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt1)}>
+                <Text 
+                  style={clsx(styles.textWhite, styles.textBase, styles.opacity75, styles.mr1)} 
+                  onPress={() => setLoading('sideBar', true)}
+                >
+                  ID: {user?.servicemanId} . 
+                </Text>
+                <Text 
+                  style={clsx(styles.textWhite, styles.textBase, styles.opacity75, styles.mr1)} 
+                  onPress={() => setLoading('sideBar', true)}
+                >
+                  {user?.averageRating}
+                </Text>
+                <Icon name="star" size={13} color="gold" />
+              </View>
             </View>
           </View>
            
@@ -675,14 +663,117 @@ const DashboardScreen = ({ navigation }) => {
         }
         contentContainerStyle={clsx(styles.pb6)}
       >
+        {/* ADDED: Dual Date Button Section (Like in Screenshot) */}
+        <View style={clsx(styles.px4, styles.mt4)}>
+          <View style={clsx(styles.flexRow, styles.justifyBetween)}>
+            {/* Today's Date Card */}
+            <TouchableOpacity
+              style={clsx(
+                styles.flex1,
+                styles.bgWhite,
+                styles.roundedLg,
+                styles.p2,
+                styles.shadowSm,
+                styles.mr2,
+                styles.border,
+                { borderColor: stats.todayTimeSlots === 0 ? colors.error : colors.gray200 }
+              )}
+              onPress={() => handleDateButtonPress(today)}
+              activeOpacity={0.7}
+            >
+              <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
+                <View style={clsx(styles.flex1)}>
+                  <Text style={clsx(styles.textBase, styles.fontNormal, styles.textBlack)}>
+                    {todayFormatted.fullDate}
+                  </Text>
+                  <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt1)}>
+                    <Icon 
+                      name="pause-circle-filled" 
+                      size={20} 
+                      color={stats.todayTimeSlots === 0 ? colors.error : colors.success} 
+                      style={styles.mr2}
+                    />
+                    <Text style={[
+                      clsx(styles.textSm, styles.fontMedium),
+                      { color: stats.todayTimeSlots === 0 ? colors.error : colors.textMuted }
+                    ]}>
+                      {stats.todayTimeSlots === 0 ? 'JOBS PAUSED' : 'JOBS ACTIVE'}
+                    </Text>
+                  </View>
+                </View>
+                <Icon name="chevron-right" size={20} color={colors.gray400} />
+              </View>
+            </TouchableOpacity>
+
+            {/* Tomorrow's Date Card */}
+            <TouchableOpacity
+              style={clsx(
+                styles.flex1,
+                styles.bgWhite,
+                styles.roundedLg,
+                styles.p2,
+                styles.shadowSm,
+                styles.ml2,
+                styles.border,
+                { borderColor: stats.tomorrowTimeSlots === 0 ? colors.error : colors.gray200 }
+              )}
+              onPress={() => handleDateButtonPress(tomorrow)}
+              activeOpacity={0.7}
+            >
+              <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
+                <View style={clsx(styles.flex1)}>
+                  <Text style={clsx(styles.textBase, styles.fontNormal, styles.textBlack)}>
+                    {tomorrowFormatted.fullDate}
+                  </Text>
+                  <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt1)}>
+                    <Icon 
+                      name="pause-circle-filled" 
+                      size={20} 
+                      color={stats.tomorrowTimeSlots === 0 ? colors.error : colors.success} 
+                      style={styles.mr2}
+                    />
+                    <Text style={[
+                      clsx(styles.textSm, styles.fontMedium),
+                      { color: stats.tomorrowTimeSlots === 0 ? colors.error : colors.textMuted }
+                    ]}>
+                      {stats.tomorrowTimeSlots === 0 ? 'JOBS PAUSED' : 'JOBS ACTIVE'}
+                    </Text>
+                  </View>
+                </View>
+                <Icon name="chevron-right" size={20} color={colors.gray400} />
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Note or Info Text Below Date Cards */}
+          {(stats.todayTimeSlots === 0 || stats.tomorrowTimeSlots === 0) && (
+            <View style={clsx(
+              styles.flexRow,
+              styles.itemsCenter,
+              styles.mt3,
+              styles.p3,
+              styles.roundedMd,
+              { backgroundColor: colors.warning + '20' }
+            )}>
+              <Icon name="info" size={16} color={colors.warning} style={styles.mr2} />
+              <Text style={clsx(styles.textSm, styles.fontMedium, { color: colors.warning })}>
+                {stats.todayTimeSlots === 0 && stats.tomorrowTimeSlots === 0 
+                  ? "Set your time slots to start receiving bookings" 
+                  : "Some days have no time slots set"
+                }
+              </Text>
+            </View>
+          )}
+        </View>
+
         {/* Performer of the Week Section */}
-        <View style={clsx(styles.px4, styles.mt2)}>
+        <View style={clsx(styles.px4, styles.mt6)}>
           <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb0)}>
             Performer of the Week
           </Text>
           
           {winnersOfWeek.length > 0 ? renderWinnersOfWeek() : (
-            <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p6, styles.itemsCenter)}>
+            <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p6, styles.itemsCenter, styles.mt2)}>
               <FontAwesome5 name="trophy" size={40} color={colors.gray300} />
               <Text style={clsx(styles.textBase, styles.textBlack, styles.mt3)}>
                 No winners data available
@@ -880,64 +971,8 @@ const DashboardScreen = ({ navigation }) => {
           )}
         </View>
 
-        {/* Earnings Summary */}
-        <View style={clsx(styles.px4, styles.mt6)}>
-          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
-            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
-              Earnings Summary
-            </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Earnings')}>
-              <Text style={clsx(styles.textPrimary, styles.fontMedium)}>
-                View Details
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p4, styles.shadowSm)}>
-            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb3)}>
-              <View>
-                <Text style={clsx(styles.textSm, styles.textMuted)}>
-                  Today's Earnings
-                </Text>
-                <Text style={clsx(styles.text2xl, styles.fontBold, styles.textSuccess)}>
-                  ₹{stats.todayEarnings?.toLocaleString() || '0'}
-                </Text>
-              </View>
-              <View>
-                <Text style={clsx(styles.textSm, styles.textMuted)}>
-                  Total Earnings
-                </Text>
-                <Text style={clsx(styles.text2xl, styles.fontBold, styles.textBlack)}>
-                  ₹{stats.totalEarnings?.toLocaleString() || '0'}
-                </Text>
-              </View>
-            </View>
-
-            {/* Progress Bar */}
-            <View style={clsx(styles.mb2)}>
-              <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
-                <Text style={clsx(styles.textSm, styles.textMuted)}>
-                  Weekly Target: ₹50,000
-                </Text>
-                <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
-                  {Math.round((stats.todayEarnings / 50000) * 100)}%
-                </Text>
-              </View>
-              <View style={clsx(styles.bgGray200, styles.roundedFull, styles.overflowHidden, { height: 8 })}>
-                <View
-                  style={[
-                    clsx(styles.bgPrimary, styles.hFull, styles.roundedFull),
-                    { width: `${Math.min((stats.todayEarnings / 50000) * 100, 100)}%` }
-                  ]}
-                />
-              </View>
-            </View>
-          </View>
-        </View>
-
       </ScrollView>
-      <FooterMenu />
-    </View>
+    </View> 
   );
 };
 

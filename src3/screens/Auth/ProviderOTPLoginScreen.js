@@ -17,6 +17,7 @@ import { AppContext } from '../../Context/AppContext';
 import { navigate } from '../../navigation/navigationService';
 
 import PermissionManager, { PermissionUtils } from '../../components/PermissionManager';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ProviderOTPLoginScreen = ({ navigation, route }) => {
   const {
@@ -195,11 +196,15 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
       
       try {
         const otpString = otp.join('');
+
+        // console.log(await AsyncStorage.getItem('fcm_token'))
+        // return;
         
         // API call to verify OTP
         const response = await postData({
           mobile: phone,
-          otp: otpString
+          otp: otpString,
+          fcmToken:await AsyncStorage.getItem('fcm_token')
         }, Urls.verifyOtp, 'POST');
         
         console.log('Verify OTP response:', response);

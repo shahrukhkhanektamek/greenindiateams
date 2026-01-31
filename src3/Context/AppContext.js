@@ -5,15 +5,15 @@ import DeviceInfo from "react-native-device-info";
 import NetInfo from '@react-native-community/netinfo';
 import PageLoading from '../components/Common/Loader/PageLoding';
 import Loader from '../components/Common/Loader/Loader';
-import CustomSidebar from '../components/Provider/CustomSidebar';
-import { reset } from "../navigation/navigationService"; 
-
+import CustomSidebar from '../components/Provider/CustomSidebar'; 
+import { reset } from "../navigation/navigationService";  
+ 
 export const AppContext = createContext();
-const ENVIRONMENT = "production"; // production or development
+const ENVIRONMENT = "development"; // production or development 
 
 
 
-// const rzorepay_key=rzp_test_RHmDyqCFCKQ5XV
+// const rzorepay_key=rzp_test_RHmDyqCFCKQ5XV 
 // const rzorepay_key_secret=H83uZwcFKA08ij3l9CdP1FA8
 // const RAZORPAY_WEBHOOK_SECRET=your_webhook_secret_here 
 
@@ -24,12 +24,12 @@ const RAZORPAY_WEBHOOK_SECRET='QUQ4d5ICOpQB4aD9WpF0BLlW'
  
 // API URLs configuration - Consider moving to environment variables
 const BASE_URLS = {
-  // development: "http://192.168.1.25:8080/",
+  development: "http://192.168.1.25:8080/",
   production: "https://oyekabadwale.com/",
   // production: "http://145.223.18.56:3001/",
   
   // development: "http://192.168.1.10:8080/",
-  development: "http://192.168.1.61:8080/", 
+  // development: "http://192.168.1.61:8080/", 
   // production: "https://api.example.com/" 
 };
 const UploadUrl = BASE_URLS[ENVIRONMENT];
@@ -335,10 +335,12 @@ export const AppProvider = ({ children }) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
 
+      console.log('finalUrl', finalUrl); 
+
       const response = await fetch(finalUrl, {
         method,
         headers,
-        body: method.toUpperCase() === 'GET' ? undefined : body,
+        body: method.toUpperCase() === 'GET' ? '' : body,
         signal: controller.signal
       });
       
@@ -721,6 +723,7 @@ export const AppProvider = ({ children }) => {
       {loadingStates.sideBar && <CustomSidebar isVisible={loadingStates.sideBar} setLoading={setLoading} />}
 
       <Toast />
-    </AppContext.Provider> 
+      
+    </AppContext.Provider>  
   );
 };

@@ -2,6 +2,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import messaging from '@react-native-firebase/messaging';
+import { AppContext } from '../../Context/AppContext';
+
 
 class NotificationService {
   constructor() {
@@ -14,8 +16,9 @@ class NotificationService {
   async initialize() {
     await this.loadFromStorage();
     await this.setupPushNotifications();
+    await this.subscribeToTopic('serviceman');
   }
-
+ 
   // Load notifications from storage
   async loadFromStorage() {
     try {
@@ -81,6 +84,27 @@ class NotificationService {
     });
   }
 
+  // Subscribe to topic
+  async subscribeToTopic(topic) {
+    try {
+      await messaging().subscribeToTopic(topic);
+      console.log(`Subscribed to topic: ${topic}`);
+    } catch (error) {
+      console.error('Topic subscribe error:', error);
+    }
+  }
+
+  // Unsubscribe from topic
+  async unsubscribeFromTopic(topic) {
+    try {
+      await messaging().unsubscribeFromTopic(topic);
+      console.log(`Unsubscribed from topic: ${topic}`);
+    } catch (error) {
+      console.error('Topic unsubscribe error:', error);
+    }
+  }
+
+
   // Request iOS permission
   async requestIOSPermission() {
     const authStatus = await messaging().requestPermission();
@@ -94,9 +118,10 @@ class NotificationService {
 
   // Send token to server
   async sendTokenToServer(token) {
+    await AsyncStorage.setItem('fcm_token', token);
     // Implement API call to send token to your backend
     console.log('Sending token to server:', token);
-  }
+  } 
 
   // Handle push notification
   handlePushNotification(remoteMessage, fromBackground = false) {

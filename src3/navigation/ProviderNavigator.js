@@ -466,7 +466,7 @@ function ProviderNavigator() {
           <Stack.Screen 
             name="CompleteBookingScreen" 
             component={CompleteBookingWithoutLayout}
-            options={modalOptions}
+            // options={modalOptions}
           /> 
           
           <Stack.Screen 

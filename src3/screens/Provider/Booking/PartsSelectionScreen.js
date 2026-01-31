@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
   const [submitting, setSubmitting] = useState(false);
   const [serviceItems, setServiceItems] = useState([]);
   const [rateGroups, setRateGroups] = useState([]);
+  const [filteredRateGroups, setFilteredRateGroups] = useState([]);
   const [selectedParts, setSelectedParts] = useState({});
   const [quantities, setQuantities] = useState({});
   const [totalAmount, setTotalAmount] = useState(0);
@@ -31,6 +32,10 @@ const PartsSelectionScreen = ({ navigation, route }) => {
   const [grandTotal, setGrandTotal] = useState(0);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
   const [selectedPartForQuantity, setSelectedPartForQuantity] = useState(null);
+  const [searchQueries, setSearchQueries] = useState({}); // Each service item has its own search query
+  const [addingPartId, setAddingPartId] = useState(null); // To show loading on specific add button
+  const [searchingServiceId, setSearchingServiceId] = useState(null); // To show searching state
+  const [buttonPressedId, setButtonPressedId] = useState(null); // For button press feedback
 
   useEffect(() => {
     calculateInitialAmounts();
@@ -40,6 +45,13 @@ const PartsSelectionScreen = ({ navigation, route }) => {
   useEffect(() => {
     calculateTotalAmounts();
   }, [selectedParts, quantities]);
+
+  useEffect(() => {
+    // Initialize filtered rate groups
+    if (rateGroups.length > 0) {
+      setFilteredRateGroups(rateGroups);
+    }
+  }, [rateGroups]);
 
   const calculateInitialAmounts = () => {
     try {
@@ -67,6 +79,13 @@ const PartsSelectionScreen = ({ navigation, route }) => {
         total: (item.salePrice || 0) * (item.quantity || 1)
       }));
       setServiceItems(items);
+      
+      // Initialize search queries for each service item
+      const initialSearchQueries = {};
+      bookingItems.forEach(item => {
+        initialSearchQueries[item._id] = '';
+      });
+      setSearchQueries(initialSearchQueries);
       
     } catch (error) {
       console.error('Error calculating amounts:', error);
@@ -112,6 +131,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
         const data = response.data[0];
         if (data.rateGroups && data.rateGroups.length > 0) {
           setRateGroups(data.rateGroups);
+          setFilteredRateGroups(data.rateGroups);
         } else {
           Toast.show({
             type: 'info',
@@ -152,8 +172,14 @@ const PartsSelectionScreen = ({ navigation, route }) => {
     setGrandTotal(originalAmount + partsTotal);
   };
 
-  const handlePartSelect = (rate, serviceItemId, groupTitle) => {
+  const handlePartSelect = async (rate, serviceItemId, groupTitle) => {
     const key = `${rate._id}_${serviceItemId}`;
+    
+    // Show button press feedback
+    setButtonPressedId(key);
+    
+    // Add a small delay for better UX
+    await new Promise(resolve => setTimeout(resolve, 200));
     
     if (selectedParts[key]) {
       // Remove part if already selected
@@ -165,7 +191,22 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       
       setSelectedParts(newSelectedParts);
       setQuantities(newQuantities);
+      
+      // Reset button press state
+      setButtonPressedId(null);
+      
+      Toast.show({
+        type: 'success',
+        text1: 'Removed',
+        text2: 'Part removed successfully',
+      });
     } else {
+      // Show adding state
+      setAddingPartId(key);
+      
+      // Add a small delay to show "Adding..." state
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // Calculate total price - अब unitPrice का उपयोग करें
       const price = parseFloat(rate.serviceCharge?.price || 0);
       const labourCharge = parseFloat(rate.serviceCharge?.labourCharge || 0);
@@ -198,6 +239,16 @@ const PartsSelectionScreen = ({ navigation, route }) => {
         ...prev,
         [key]: 1
       }));
+      
+      // Hide loading states
+      setAddingPartId(null);
+      setButtonPressedId(null);
+      
+      Toast.show({
+        type: 'success',
+        text1: 'Added',
+        text2: 'Part added successfully',
+      });
     }
   };
 
@@ -256,6 +307,12 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       }));
     }
     
+    Toast.show({
+      type: 'success',
+      text1: 'Updated',
+      text2: 'Quantity updated successfully',
+    });
+    
     setShowQuantityModal(false);
     setSelectedPartForQuantity(null);
   };
@@ -264,6 +321,50 @@ const PartsSelectionScreen = ({ navigation, route }) => {
     return Object.values(selectedParts).filter(
       part => part.serviceItemId === serviceItemId
     );
+  };
+
+  const getAllSelectedParts = () => {
+    return Object.values(selectedParts);
+  };
+
+  const filterRatesBySearch = async (serviceItemId, searchText) => {
+    // Update search query for this service item
+    setSearchQueries(prev => ({
+      ...prev,
+      [serviceItemId]: searchText
+    }));
+
+    // Show searching state
+    setSearchingServiceId(serviceItemId);
+
+    // Add a small delay to show searching state
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    if (!searchText.trim()) {
+      // If search is empty, show all rate groups
+      setFilteredRateGroups(rateGroups);
+      setSearchingServiceId(null);
+      return;
+    }
+
+    const filtered = rateGroups.map(group => {
+      const filteredRates = group.rates?.filter(rate => 
+        rate.description?.toLowerCase().includes(searchText.toLowerCase())
+      ) || [];
+      
+      return {
+        ...group,
+        rates: filteredRates
+      };
+    }).filter(group => group.rates.length > 0);
+
+    setFilteredRateGroups(filtered);
+    setSearchingServiceId(null);
+  };
+
+  const handleSearchSubmit = (serviceItemId) => {
+    const searchText = searchQueries[serviceItemId] || '';
+    filterRatesBySearch(serviceItemId, searchText);
   };
 
   const submitPartsForApproval = async () => {
@@ -344,6 +445,8 @@ const PartsSelectionScreen = ({ navigation, route }) => {
     // unitPrice का उपयोग करें
     const unitPrice = parseFloat(rate.unitPrice || 0);
     const itemTotalPrice = unitPrice * quantity;
+    const isAdding = addingPartId === key;
+    const isButtonPressed = buttonPressedId === key;
     
     return (
       <View style={clsx(
@@ -414,16 +517,34 @@ const PartsSelectionScreen = ({ navigation, route }) => {
         ) : (
           <TouchableOpacity
             onPress={() => handlePartSelect(rate, serviceItemId, groupTitle)}
+            disabled={isAdding || isButtonPressed}
             style={clsx(
-              styles.px3,
-              styles.py1,
-              styles.bgPrimary,
-              styles.roundedFull
+              styles.flexRow,
+              styles.itemsCenter,
+              styles.justifyCenter,
+              styles.px-3,
+              styles.py-2,
+              styles.w24,
+              styles.h10,
+              isButtonPressed ? styles.bgSuccess : (isAdding ? styles.bgGray400 : styles.bgPrimary),
+              styles.roundedFull,
+              (isAdding || isButtonPressed) && styles.opacity90
             )}
           >
-            <Text style={clsx(styles.textWhite, styles.textSm)}>
-              Add
-            </Text>
+            {isAdding ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : isButtonPressed ? (
+              <Text style={clsx(styles.textWhite, styles.textSm, styles.fontMedium)}>
+                ✓
+              </Text>
+            ) : (
+              <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+                <Icon name="add" size={18} color={colors.white} style={clsx(styles.mr1)} />
+                <Text style={clsx(styles.textWhite, styles.textSm, styles.fontMedium)}>
+                  Add
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         )}
       </View>
@@ -431,38 +552,38 @@ const PartsSelectionScreen = ({ navigation, route }) => {
   };
 
   const RateGroupSection = ({ group, serviceItemId }) => {
+    if (!group.rates || group.rates.length === 0) {
+      return null;
+    }
+    
     return (
       <View style={clsx(styles.mb4)}>
         <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb2)}>
           {group.title}
         </Text>
         
-        {group.rates && group.rates.length > 0 ? (
-          group.rates.map((rate, index) => {
-            const key = `${rate._id}_${serviceItemId}`;
-            const isSelected = !!selectedParts[key];
-            
-            return (
-              <RateItem
-                key={index}
-                rate={rate}
-                serviceItemId={serviceItemId}
-                groupTitle={group.title}
-                isSelected={isSelected}
-              />
-            );
-          })
-        ) : (
-          <Text style={clsx(styles.textBase, styles.textMuted, styles.textCenter, styles.py4)}>
-            No rates available in this group
-          </Text>
-        )}
+        {group.rates.map((rate, index) => {
+          const key = `${rate._id}_${serviceItemId}`;
+          const isSelected = !!selectedParts[key];
+          
+          return (
+            <RateItem
+              key={index}
+              rate={rate}
+              serviceItemId={serviceItemId}
+              groupTitle={group.title}
+              isSelected={isSelected}
+            />
+          );
+        })}
       </View>
     );
   };
 
   const ServiceItemSection = ({ serviceItem }) => {
     const selectedPartsForService = getSelectedPartsForService(serviceItem.id);
+    const searchQuery = searchQueries[serviceItem.id] || '';
+    const isSearching = searchingServiceId === serviceItem.id;
     
     return (
       <View style={clsx(styles.mb6, styles.p3, styles.bgWhite, styles.roundedLg, styles.shadowSm)}>
@@ -477,6 +598,67 @@ const PartsSelectionScreen = ({ navigation, route }) => {
             <Text style={clsx(styles.textXs, styles.textMuted)}>
               Service Item ID: {serviceItem.id.substring(0, 8)}...
             </Text>
+          </View>
+        </View>
+        
+        {/* Search Bar for this Service Item */}
+        <View style={clsx(styles.mb-3)}>
+          <View style={clsx(
+            styles.flexRow,
+            styles.itemsCenter,
+            styles.bgGray100,
+            styles.roundedFull,
+            styles.px4,
+            styles.py2,
+            styles.mb4
+          )}>
+            <Icon name="search" size={20} color={colors.gray500} />
+            <TextInput
+              style={clsx(
+                styles.flex1,
+                styles.ml2,
+                styles.textBase,
+                styles.textBlack
+              )}
+              placeholder="Search parts by name..."
+              value={searchQuery}
+              onChangeText={(text) => setSearchQueries(prev => ({...prev, [serviceItem.id]: text}))}
+              placeholderTextColor={colors.gray500}
+              returnKeyType="search"
+              onSubmitEditing={() => handleSearchSubmit(serviceItem.id)}
+              blurOnSubmit={true}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity 
+                onPress={() => {
+                  setSearchQueries(prev => ({...prev, [serviceItem.id]: ''}));
+                  filterRatesBySearch(serviceItem.id, '');
+                }}
+                style={clsx(styles.ml2)}
+              >
+                <Icon name="close" size={20} color={colors.gray500} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity 
+              onPress={() => handleSearchSubmit(serviceItem.id)}
+              disabled={isSearching || !searchQuery.trim()}
+              style={clsx(
+                styles.ml2,
+                styles.px3,
+                styles.py1,
+                styles.bgPrimary,
+                styles.roundedFull,
+                (isSearching || !searchQuery.trim()) && styles.opacity50
+              )}
+            >
+              {isSearching ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Text style={clsx(styles.textWhite, styles.textSm)}>
+                  Search
+                </Text>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
         
@@ -518,8 +700,15 @@ const PartsSelectionScreen = ({ navigation, route }) => {
           Available Parts (Rate Groups):
         </Text>
         
-        {rateGroups.length > 0 ? (
-          rateGroups.map((group, index) => (
+        {isSearching ? (
+          <View style={clsx(styles.py6, styles.itemsCenter)}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={clsx(styles.textBase, styles.textMuted, styles.mt2)}>
+              Searching parts...
+            </Text>
+          </View>
+        ) : filteredRateGroups.length > 0 ? (
+          filteredRateGroups.map((group, index) => (
             <RateGroupSection
               key={index}
               group={group}
@@ -527,9 +716,25 @@ const PartsSelectionScreen = ({ navigation, route }) => {
             />
           ))
         ) : (
-          <Text style={clsx(styles.textBase, styles.textMuted, styles.textCenter, styles.py4)}>
-            No rate groups available for this service
-          </Text>
+          <View style={clsx(styles.py6, styles.itemsCenter)}>
+            <Icon name="search-off" size={48} color={colors.gray400} style={clsx(styles.mb2)} />
+            <Text style={clsx(styles.textBase, styles.textMuted, styles.textCenter)}>
+              {searchQuery ? 'No parts found matching your search' : 'No rate groups available for this service'}
+            </Text>
+            {searchQuery && (
+              <TouchableOpacity
+                onPress={() => {
+                  setSearchQueries(prev => ({...prev, [serviceItem.id]: ''}));
+                  filterRatesBySearch(serviceItem.id, '');
+                }}
+                style={clsx(styles.mt2, styles.px4, styles.py2, styles.bgPrimary, styles.roundedFull)}
+              >
+                <Text style={clsx(styles.textWhite, styles.textSm)}>
+                  Clear Search
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
       </View>
     );
@@ -744,6 +949,39 @@ const PartsSelectionScreen = ({ navigation, route }) => {
                 </Text>
               </View>
               
+              {/* Selected Parts List */}
+              {getAllSelectedParts().length > 0 && (
+                <View style={clsx(styles.mb2, styles.mt2, styles.pt2, styles.borderTop, styles.borderGray300)}>
+                  <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
+                    Selected Parts:
+                  </Text>
+                  {getAllSelectedParts().map((part, index) => {
+                    const quantity = quantities[part.key] || 1;
+                    const partTotal = part.unitPrice * quantity;
+                    return (
+                      <View key={index} style={clsx(
+                        styles.flexRow,
+                        styles.justifyBetween,
+                        styles.itemsCenter,
+                        styles.mb2
+                      )}>
+                        <View style={clsx(styles.flex1)}>
+                          <Text style={clsx(styles.textSm, styles.textBlack)} numberOfLines={1}>
+                            {index + 1}. {part.description}
+                          </Text>
+                          <Text style={clsx(styles.textXs, styles.textMuted)}>
+                            {part.groupTitle}
+                          </Text>
+                        </View>
+                        <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
+                          ₹{partTotal}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+              
               <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb1)}>
                 <Text style={clsx(styles.textBase, styles.textMuted)}>
                   Additional Parts Amount:
@@ -840,7 +1078,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
             styles.roundedLg,
             styles.flex1,
             styles.mx1,
-            submitting && styles.opacity50
+            (submitting || Object.keys(selectedParts).length === 0) && styles.opacity50
           )}
           onPress={submitPartsForApproval}
           disabled={submitting || Object.keys(selectedParts).length === 0}

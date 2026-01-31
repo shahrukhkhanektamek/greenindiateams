@@ -483,7 +483,7 @@ const requestLocationPermission = async () => {
       }
       
       const formData = new FormData();
-      formData.append('otp', otpString);
+      formData.append('otp', otpString); 
       formData.append('bookingId', bookingData?._id);
       
       if (selectedSelfie && selectedSelfie.uri) {
@@ -493,13 +493,6 @@ const requestLocationPermission = async () => {
           name: selectedSelfie.fileName || `selfie_${Date.now()}.jpg`,
         });
       }
-      console.log('formData', formData)
-      console.log(`${Urls.verifyOtpAndStart}/${bookingData?._id}`)
- 
- 
-
-      // return;
-      // return;
       const response = await postData(
         formData,
         `${Urls.verifyOtpAndStart}/${bookingData?._id}`,
@@ -545,26 +538,35 @@ const requestLocationPermission = async () => {
     // Only allow numbers
     const numericText = text.replace(/[^0-9]/g, '');
     
-    // If text is being deleted
-    if (text === '' && index > 0) {
+    // If text is being deleted (backspace or empty)
+    if (text === '' || numericText === '') {
       newOtp[index] = '';
       setOtpInputs(newOtp);
       
-      // Move focus to previous input
-      if (otpInputRefs.current[index - 1]) {
-        otpInputRefs.current[index - 1].focus();
+      // Move focus to previous input if current is empty and we're deleting
+      if (text === '' && index > 0) {
+        // Wait a bit for state update
+        setTimeout(() => {
+          if (otpInputRefs.current[index - 1]) {
+            otpInputRefs.current[index - 1].focus();
+          }
+        }, 10);
       }
       return;
     }
     
     // If text is being entered
     if (numericText) {
-      newOtp[index] = numericText;
+      // Take only the first character if multiple entered
+      const char = numericText.charAt(0);
+      newOtp[index] = char;
       setOtpInputs(newOtp);
       
       // Move focus to next input if available
       if (index < 3 && otpInputRefs.current[index + 1]) {
-        otpInputRefs.current[index + 1].focus();
+        setTimeout(() => {
+          otpInputRefs.current[index + 1].focus();
+        }, 10);
       }
     }
     
@@ -572,13 +574,19 @@ const requestLocationPermission = async () => {
   };
   
   const handleOtpKeyPress = (event, index) => {
-    // Handle backspace key
+    // Handle backspace key when field is empty
     if (event.nativeEvent.key === 'Backspace') {
       if (otpInputs[index] === '' && index > 0) {
-        // Move focus to previous input
-        if (otpInputRefs.current[index - 1]) {
-          otpInputRefs.current[index - 1].focus();
-        }
+        // Move focus to previous input and clear it
+        setTimeout(() => {
+          if (otpInputRefs.current[index - 1]) {
+            otpInputRefs.current[index - 1].focus();
+            // Clear the previous input
+            const newOtp = [...otpInputs];
+            newOtp[index - 1] = '';
+            setOtpInputs(newOtp);
+          }
+        }, 10);
       }
     }
   };
@@ -1178,13 +1186,13 @@ const requestLocationPermission = async () => {
           </View>
           
           {/* OTP Timer */}
-          {otpTimer > 0 && (
+          {/* {otpTimer > 0 && (
             <View style={clsx(styles.itemsCenter, styles.mb4)}>
               <Text style={clsx(styles.textBase, styles.textMuted)}>
                 Resend OTP in {formatTime(otpTimer)}
               </Text>
             </View>
-          )}
+          )} */}
           
           {/* Auto Verification Status */}
           {autoVerifyingOTP && (

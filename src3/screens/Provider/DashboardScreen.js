@@ -588,25 +588,40 @@ const DashboardScreen = ({ navigation }) => {
       {/* Header with Profile */}
       <View style={clsx(styles.bgPrimary, styles.px4, styles.pt2, styles.pb1)}>
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb2)}>
+
+        <TouchableOpacity
+            style={clsx(
+              styles.flexRow,
+              styles.itemsCenter,
+              styles.bgWhite,
+              styles.px3,
+              styles.py2,
+              styles.roundedSm,
+              styles.mr1,
+              styles.mr2
+            )}
+            activeOpacity={0.8}
+            onPress={() => setLoading('sideBar', true)}
+          >
+            <FontAwesome5 name="bars" size={16} color={colors.primary} />
+          </TouchableOpacity>
+
           <View style={clsx(styles.flexRow, styles.itemsCenter, styles.flex1)}>
             <View style={clsx(styles.flex1)}>
               <Text 
                 style={clsx(styles.textWhite, styles.text2xl, styles.fontBold)} 
-                numberOfLines={1} 
-                onPress={() => setLoading('sideBar', true)}
+                numberOfLines={1}                 
               >
                 {user?.name || 'Technician'}
               </Text>
               <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt1)}>
                 <Text 
                   style={clsx(styles.textWhite, styles.textBase, styles.opacity75, styles.mr1)} 
-                  onPress={() => setLoading('sideBar', true)}
                 >
                   ID: {user?.servicemanId} . 
                 </Text>
                 <Text 
                   style={clsx(styles.textWhite, styles.textBase, styles.opacity75, styles.mr1)} 
-                  onPress={() => setLoading('sideBar', true)}
                 >
                   {user?.averageRating}
                 </Text>
@@ -797,6 +812,8 @@ const DashboardScreen = ({ navigation }) => {
 
           {todayBookings.length > 0 ? (
             todayBookings.slice(0, 3).map((job) => {
+              var originalData2 = job.originalData;
+              // console.log('job',originalData2)
               // Function to handle card press
               const handleCardPress = () => {
                 if (job.status === 'new') {
@@ -854,7 +871,7 @@ const DashboardScreen = ({ navigation }) => {
                           style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb1)} 
                           numberOfLines={1}
                         >
-                          {job.service}
+                          {originalData2?.bookingItems[0]?.service?.name}
                         </Text>
                         <Text style={clsx(styles.textSm, styles.textMuted)}>
                           Booking ID: {job.bookingId}
@@ -886,12 +903,12 @@ const DashboardScreen = ({ navigation }) => {
                       </Text>
                     </View>
 
-                    <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
+                    {/* <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
                       <Icon name="phone" size={16} color={colors.textMuted} style={clsx(styles.mr2)} />
                       <Text style={clsx(styles.textSm, styles.textBlack, styles.flex1)} numberOfLines={1}>
                         {job.mobile}
                       </Text>
-                    </View>
+                    </View> */}
 
                     {job.time && (
                       <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
@@ -902,12 +919,12 @@ const DashboardScreen = ({ navigation }) => {
                       </View>
                     )}
 
-                    <View style={clsx(styles.flexRow, styles.itemsStart, styles.mb2)}>
+                    {/* <View style={clsx(styles.flexRow, styles.itemsStart, styles.mb2)}>
                       <Icon name="location-on" size={16} color={colors.textMuted} style={clsx(styles.mr2, styles.mt1)} />
                       <Text style={clsx(styles.textSm, styles.textBlack, styles.flex1)} numberOfLines={2}>
                         {job.address}
                       </Text>
-                    </View>
+                    </View> */}
                   </View>
 
                   {/* Bottom Section - Amount & Action Info */}
@@ -937,21 +954,23 @@ const DashboardScreen = ({ navigation }) => {
                         </Text>
                       </View>
                     ) : (
-                      <View style={clsx(
-                        styles.flexRow,
-                        styles.itemsCenter,
-                        styles.px3,
-                        styles.py2,
-                        styles.border,
-                        styles.borderPrimary,
-                        styles.bgWhite,
-                        styles.roundedFull
-                      )}>
-                        <Text style={clsx(styles.textPrimary, styles.fontMedium, styles.mr1)}>
-                          View Details
-                        </Text>
-                        <Icon name="chevron-right" size={16} color={colors.primary} />
-                      </View>
+                      <>
+                        {/* <View style={clsx(
+                          styles.flexRow,
+                          styles.itemsCenter,
+                          styles.px3,
+                          styles.py2,
+                          styles.border,
+                          styles.borderPrimary,
+                          styles.bgWhite,
+                          styles.roundedFull
+                        )}>
+                          <Text style={clsx(styles.textPrimary, styles.fontMedium, styles.mr1)}>
+                            View Details
+                          </Text>
+                          <Icon name="chevron-right" size={16} color={colors.primary} />
+                        </View> */}
+                      </>
                     )}
                   </View>
                   

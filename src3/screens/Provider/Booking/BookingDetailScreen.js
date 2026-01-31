@@ -1540,9 +1540,10 @@ const BookingDetailScreen = ({ navigation, route }) => {
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Icon name="arrow-back" size={24} color={colors.white} />
           </TouchableOpacity>
-          {/* <Text style={clsx(styles.textWhite, styles.textXl, styles.fontBold)}>
+          <Text style={clsx(styles.textWhite, styles.textXl, styles.fontBold)}>
             Booking Details
-          </Text> */}
+          </Text>
+          <View></View>
           {/* <TouchableOpacity onPress={() => {
             const shareMessage = `Booking Details:
               ID: ${formattedData?.bookingId}
@@ -1566,12 +1567,12 @@ const BookingDetailScreen = ({ navigation, route }) => {
         {/* Booking ID and Status */}
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
           <View>
-            {/* <Text style={clsx(styles.textWhite, styles.textBase, styles.opacity75)}>
+            <Text style={clsx(styles.textWhite, styles.textBase, styles.opacity75)}>
               Booking ID
             </Text>
             <Text style={clsx(styles.textWhite, styles.textLg, styles.fontBold)}>
               {formattedData.bookingId}
-            </Text> */}
+            </Text>
           </View>
           
           {/* Combined Status Badge */}
@@ -1733,14 +1734,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        {/* Step Progress */}
-        {renderStepProgress()}
-
-        {/* Parts Approval Section */}
-        {renderPartsApprovalSection()}
-
-        
-
         {/* Service Details Section */}
         <View style={clsx(styles.px4, styles.mt4)}>
           <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
@@ -1791,6 +1784,16 @@ const BookingDetailScreen = ({ navigation, route }) => {
             icon="credit-card"
           />
         </View>
+
+        {/* Step Progress */}
+        {/* {renderStepProgress()} */}
+
+        {/* Parts Approval Section */}
+        {renderPartsApprovalSection()}
+
+        
+
+        
         
         {/* Media Upload Sections - Step by Step */}
         {(formattedData.status === 'ongoing' || isPartsApprovalInProgress()) && (
@@ -1811,6 +1814,9 @@ const BookingDetailScreen = ({ navigation, route }) => {
             
             {/* STEP 2: Parts Selection (Only show if before media is uploaded AND no parts yet AND not in parts approval) */}
             {(beforeImages.length > 0 || beforeVideos.length > 0) && 
+             additionalParts.length === 0 && 
+             afterImages.length === 0 && 
+             afterVideos.length === 0 &&
              additionalParts.length === 0 && 
              !isPartsApprovalInProgress() && (
               <View style={clsx(styles.mb6, styles.p4, styles.bgWhite, styles.roundedLg, styles.shadowSm)}>
@@ -1861,7 +1867,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
                     </Text>
                   </TouchableOpacity>
                   
-                  <TouchableOpacity
+                  {/* <TouchableOpacity
                     style={clsx(
                       styles.flex1,
                       styles.flexRow,
@@ -1877,13 +1883,15 @@ const BookingDetailScreen = ({ navigation, route }) => {
                     <Text style={clsx(styles.textGray700, styles.fontBold, styles.textBase)}>
                       Skip Parts
                     </Text>
-                  </TouchableOpacity>
+                  </TouchableOpacity> */}
                 </View>
               </View>
             )}
             
             {/* STEP 3/4: After Service Media (Only show if before media is uploaded AND (parts approved/rejected OR parts skipped)) */}
             {((beforeImages.length > 0 || beforeVideos.length > 0) && 
+              afterImages.length === 0 && 
+              afterVideos.length === 0 &&
               (isPartsApproved() || isPartsRejected() || 
                (additionalParts.length === 0 && !isPartsApprovalInProgress()))) && (
               <MediaSection

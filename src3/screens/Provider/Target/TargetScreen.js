@@ -254,12 +254,12 @@ const TargetScreen = ({ navigation }) => {
                   {targetData?.complete || 0}
                 </Text>
               </View>
-              {/* <View style={localStyles.targetRow}>
+              <View style={localStyles.targetRow}>
                 <Text style={localStyles.targetDetailLabel}>Acceptance Rate:</Text>
                 <Text style={[localStyles.targetDetailValue, { color: getPerformanceColor(calculateAcceptanceRate()) }]}>
-                  {calculateAcceptanceRate().toFixed(1)}%
+                  100%
                 </Text>
-              </View> */}
+              </View>
             </View>
           </View>
 

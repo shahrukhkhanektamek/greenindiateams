@@ -355,14 +355,14 @@ const EarningScreen = ({ navigation }) => {
             </Text>
           </View>
           
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={clsx(styles.px3, styles.py2, styles.bgPrimary, styles.roundedFull)}
             onPress={() => handleViewDetails(earning)}
           >
             <Text style={clsx(styles.textSm, styles.fontMedium, styles.textWhite)}>
               View Details
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
       </View>
     );
@@ -595,34 +595,7 @@ const EarningScreen = ({ navigation }) => {
           )}
         </View>
 
-        {/* Withdraw Button */}
-        <TouchableOpacity
-          style={clsx(
-            styles.button,
-            styles.mt4,
-            earnings.length === 0 && styles.opacity50
-          )}
-          onPress={handleWithdraw}
-          disabled={earnings.length === 0 || loading}
-        >
-          <View style={clsx(styles.flexRow, styles.justifyCenter, styles.itemsCenter)}>
-            <Icon name="account-balance-wallet" size={20} color={colors.white} style={clsx(styles.mr2)} />
-            <Text style={clsx(styles.buttonText)}>
-              Go Back Dashboard
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Info Message */}
-        <View style={clsx(styles.mt4, styles.p3, styles.bgInfoLight, styles.roundedLg)}>
-          <Text style={clsx(styles.textSm, styles.textInfo)}>
-            <Icon name="info" size={16} color={colors.info} />{' '}
-            Note: Earnings are calculated based on completed bookings. Payout status shows if earnings have been paid out.
-          </Text>
-          <Text style={clsx(styles.textXs, styles.textInfo, styles.mt1)}>
-            Scroll to bottom to load more records automatically or tap "Load More" button.
-          </Text>
-        </View>
+    
       </ScrollView>
     </View>
   ); 

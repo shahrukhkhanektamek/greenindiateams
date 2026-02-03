@@ -265,6 +265,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     zIndex: 9999,
+    opacity:0.5, 
   },
   touchableArea: {
     width: '100%',

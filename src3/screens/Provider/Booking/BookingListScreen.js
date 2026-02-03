@@ -32,7 +32,7 @@ const BookingListScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [actionLoading, setActionLoading] = useState({}); // Track individual booking actions
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('new');
   const [statusDropdownVisible, setStatusDropdownVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -48,7 +48,7 @@ const BookingListScreen = ({ navigation }) => {
 
   // API filter parameters
   const [apiFilters, setApiFilters] = useState({
-    status: '',
+    status: 'new',
     search: '',
     category: '',
     dateRange: '',
@@ -57,7 +57,7 @@ const BookingListScreen = ({ navigation }) => {
   });
 
   const tabs = [
-    { id: 'all', label: 'All', status: '' },
+    // { id: 'all', label: 'All', status: '' },
     { id: 'new', label: 'New', status: 'new' },
     // { id: 'assign', label: 'Assigned', status: 'assign' },
     // { id: 'accept', label: 'Accepted', status: 'accept' },
@@ -377,7 +377,7 @@ const BookingListScreen = ({ navigation }) => {
       maxPrice: '',
     });
     
-    setActiveTab('all');
+    setActiveTab('new');
     setSearchQuery('');
   };
 

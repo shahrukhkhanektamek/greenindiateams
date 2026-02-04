@@ -106,6 +106,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       // Get first service category (assuming single service for now)
       const serviceCategoryId = bookingItems[0]?.service?.categoryId;
       const servicesubCategoryId = bookingItems[0]?.service?.subCategoryId;
+      console.log(bookingData)
       
       if (!serviceCategoryId) {
         Toast.show({

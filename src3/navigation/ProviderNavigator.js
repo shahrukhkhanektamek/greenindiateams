@@ -41,7 +41,7 @@ import AddWalletScreen from '../screens/Provider/Wallet/AddWalletScreen';
 import TransactionHistoryScreen from '../screens/Provider/Transaction/TransactionHistoryScreen';
 import TransactionDetailsScreen from '../screens/Provider/Transaction/TransactionDetailsScreen';
 import ScheduleScreen from '../screens/Provider/ScheduleScreen';
-import PerformanceScreen from '../screens/Provider/PerformanceScreen';
+// import PerformanceScreen from '../screens/Provider/PerformanceScreen';
 import ToolsScreen from '../screens/Provider/ToolsScreen';
 
 // Import Common Screens
@@ -615,10 +615,10 @@ function ProviderNavigator() {
             component={ScheduleWithLayout}
           />            
           
-          <Stack.Screen 
+          {/* <Stack.Screen 
             name="Performance" 
             component={PerformanceWithLayout}
-          />            
+          />             */}
           
           <Stack.Screen 
             name="Tools" 

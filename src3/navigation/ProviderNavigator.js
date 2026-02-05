@@ -31,8 +31,11 @@ import ServiceAvailabilityScreen from '../screens/Provider/TimeTable/ServiceAvai
 import ZonesScreen from '../screens/Provider/Zone/ZonesScreen';
 import TodayJobsScreen from '../screens/Provider/TodayJobsScreen';
 import JobDetailsScreen from '../screens/Provider/JobDetailsScreen';
+
 import EarningsScreen from '../screens/Provider/Earning/EarningScreen'; 
 import EarningDetailsScreen  from '../screens/Provider/Earning/EarningDetailsScreen';
+import BankTransferListScreen  from '../screens/Provider/Earning/BankTransferListScreen';
+
 import WalletScreen from '../screens/Provider/Wallet/WalletScreen';
 import AddWalletScreen from '../screens/Provider/Wallet/AddWalletScreen';
 import TransactionHistoryScreen from '../screens/Provider/Transaction/TransactionHistoryScreen';
@@ -567,6 +570,11 @@ function ProviderNavigator() {
           {/* =========== EARNINGS SCREENS =========== */}
           <Stack.Screen 
             name="Earnings" 
+            component={EarningsWithLayout}
+          />
+          
+          <Stack.Screen 
+            name="BankTransferListScreen" 
             component={EarningsWithLayout}
           />
           

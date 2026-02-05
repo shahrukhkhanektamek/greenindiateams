@@ -187,6 +187,7 @@ const TargetScreen = ({ navigation }) => {
                     key={month.value}
                     label={month.label}
                     value={month.value}
+                    color={colors.black}
                   />
                 ))}
               </Picker>
@@ -207,6 +208,7 @@ const TargetScreen = ({ navigation }) => {
                     key={year}
                     label={year.toString()}
                     value={year}
+                    color={colors.black}
                   />
                 ))}
               </Picker>

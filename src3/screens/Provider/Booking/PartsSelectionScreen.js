@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef } from 'react';
+import React, { useState, useEffect, useContext, useRef, useMemo, useCallback, memo } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,411 @@ import {
   ActivityIndicator,
   FlatList,
   Modal,
+  Keyboard,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import { AppContext } from '../../../Context/AppContext';
+
+// Memoized RateItem Component
+const RateItem = memo(({ 
+  rate, 
+  serviceItemId, 
+  groupTitle, 
+  isSelected,
+  quantity,
+  addingPartId,
+  buttonPressedId,
+  handlePartSelect,
+  openQuantityModal,
+  handleQuantityChange,
+  removePart
+}) => {
+  const key = `${rate._id}_${serviceItemId}`;
+  const price = parseFloat(rate.serviceCharge?.price || 0);
+  const labourCharge = parseFloat(rate.serviceCharge?.labourCharge || 0);
+  const discountPrice = parseFloat(rate.serviceCharge?.discountPrice || 0);
+  const unitPrice = parseFloat(rate.unitPrice || 0);
+  const itemTotalPrice = unitPrice * quantity;
+  const isAdding = addingPartId === key;
+  const isButtonPressed = buttonPressedId === key;
+  
+  return (
+    <View style={clsx(
+      styles.flexRow,
+      styles.itemsCenter,
+      styles.justifyBetween,
+      styles.p3,
+      styles.mb2,
+      isSelected ? styles.bgPrimaryLight : styles.bgGray50,
+      styles.roundedLg,
+      styles.border,
+      isSelected ? styles.borderPrimary : styles.borderGray300
+    )}>
+      <View style={clsx(styles.flex1)}>
+        <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+          {rate.description}
+        </Text>
+        
+        <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt1)}>
+          {/* {price > 0 && (
+            <Text style={clsx(styles.textSm, styles.textMuted, styles.mr2)}>
+              Parts: ₹{price}
+            </Text>
+          )} */}
+          
+          {/* {labourCharge > 0 && (
+            <Text style={clsx(styles.textSm, styles.textMuted, styles.mr2)}>
+              Labour: ₹{labourCharge}
+            </Text>
+          )} */}
+          
+        </View>
+          {/* {discountPrice > 0 && (
+            <Text style={clsx(styles.textSm, styles.textSuccess, styles.mr2)}>
+              Discount: ₹{discountPrice}
+            </Text>
+          )} */}
+        
+        <Text style={clsx(styles.textSm, styles.fontBold, styles.textPrimary, styles.mt1)}>
+          Unit Price: ₹{unitPrice}
+        </Text>
+        
+        {isSelected && (
+          <Text style={clsx(styles.textSm, styles.fontBold, styles.textSuccess, styles.mt1)}>
+            Total: ₹{itemTotalPrice}
+          </Text>
+        )}
+      </View>
+      
+      {isSelected ? (
+        <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+          <View style={clsx(
+            styles.flexRow,
+            styles.itemsCenter,
+            styles.bgWhite,
+            styles.border,
+            styles.borderGray300,
+            styles.roundedFull,
+            styles.p1,
+            styles.mr2
+          )}>
+            <TouchableOpacity
+              onPress={() => handleQuantityChange(key, -1)}
+              style={clsx(
+                styles.w8,
+                styles.h8,
+                styles.bgGray200,
+                styles.roundedFull,
+                styles.itemsCenter,
+                styles.justifyCenter
+              )}
+            >
+              <Icon name="remove" size={16} color={colors.black} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              onPress={() => openQuantityModal(rate, serviceItemId, groupTitle)}
+              style={clsx(styles.px3, styles.mx1)}
+            >
+              <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
+                {quantity}
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              onPress={() => handleQuantityChange(key, 1)}
+              style={clsx(
+                styles.w8,
+                styles.h8,
+                styles.bgPrimary,
+                styles.roundedFull,
+                styles.itemsCenter,
+                styles.justifyCenter
+              )}
+            >
+              <Icon name="add" size={16} color={colors.white} />
+            </TouchableOpacity>
+          </View>
+          
+          {/* <TouchableOpacity
+            onPress={() => removePart(key)}
+            style={clsx(
+              styles.w8,
+              styles.h8,
+              styles.bgDanger,
+              styles.roundedFull,
+              styles.itemsCenter,
+              styles.justifyCenter,
+              styles.ml1
+            )}
+          >
+            <Icon name="delete" size={16} color={colors.white} />
+          </TouchableOpacity> */}
+        </View>
+      ) : (
+        <TouchableOpacity
+          onPress={() => handlePartSelect(rate, serviceItemId, groupTitle)}
+          disabled={isAdding || isButtonPressed}
+          style={clsx(
+            styles.flexRow,
+            styles.itemsCenter,
+            styles.justifyCenter,
+            styles.px4,
+            styles.py2,
+            isButtonPressed ? styles.bgSuccess : (isAdding ? styles.bgGray400 : styles.bgPrimary),
+            styles.roundedFull,
+            (isAdding || isButtonPressed) && styles.opacity90
+          )}
+        >
+          {isAdding ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : isButtonPressed ? (
+            <>
+              <Icon name="check" size={18} color={colors.white} style={clsx(styles.mr1)} />
+              <Text style={clsx(styles.textWhite, styles.textSm, styles.fontMedium)}>
+                Added
+              </Text>
+            </>
+          ) : (
+            <>
+              <Icon name="add" size={18} color={colors.white} style={clsx(styles.mr1)} />
+              <Text style={clsx(styles.textWhite, styles.textSm, styles.fontMedium)}>
+                Add
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+});
+
+// Memoized RateGroupSection
+const RateGroupSection = memo(({ 
+  group, 
+  serviceItemId, 
+  selectedParts, 
+  quantities,
+  handlePartSelect,
+  openQuantityModal,
+  handleQuantityChange,
+  removePart,
+  addingPartId,
+  buttonPressedId
+}) => {
+  if (!group.rates || group.rates.length === 0) {
+    return null;
+  }
+  
+  return (
+    <View style={clsx(styles.mb4)}>
+      <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb2)}>
+        {group.title}
+      </Text>
+      
+      {group.rates.map((rate, index) => {
+        const key = `${rate._id}_${serviceItemId}`;
+        const isSelected = !!selectedParts[key];
+        const quantity = quantities[key] || 1;
+        
+        return (
+          <RateItem
+            key={`${rate._id}_${index}`}
+            rate={rate}
+            serviceItemId={serviceItemId}
+            groupTitle={group.title}
+            isSelected={isSelected}
+            quantity={quantity}
+            addingPartId={addingPartId}
+            buttonPressedId={buttonPressedId}
+            handlePartSelect={handlePartSelect}
+            openQuantityModal={openQuantityModal}
+            handleQuantityChange={handleQuantityChange}
+            removePart={removePart}
+          />
+        );
+      })}
+    </View>
+  );
+});
+
+// Memoized ServiceItemTabContent
+const ServiceItemTabContent = memo(({ 
+  serviceItem,
+  searchQuery,
+  isSearching,
+  filteredRateGroups,
+  selectedParts,
+  quantities,
+  handleSearchChange,
+  handleSearchSubmit,
+  clearSearch,
+  handlePartSelect,
+  openQuantityModal,
+  handleQuantityChange,
+  removePart,
+  addingPartId,
+  buttonPressedId
+}) => {
+  if (!serviceItem) return null;
+  
+  const selectedPartsForService = Object.values(selectedParts).filter(
+    part => part.serviceItemId === serviceItem.id
+  );
+  
+  return (
+    <View style={clsx(styles.flex1)}>
+      {/* Service Item Header */}
+      <View style={clsx(styles.mb4, styles.p3, styles.bgWhite, styles.roundedLg, styles.shadowSm)}>
+        <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
+          {serviceItem.name}
+        </Text>
+        <Text style={clsx(styles.textSm, styles.textMuted)}>
+          Qty: {serviceItem.quantity} × ₹{serviceItem.price} = ₹{serviceItem.total}
+        </Text>
+      </View>
+      
+      {/* Search Bar for this Service Item */}
+      <View style={clsx(styles.mb3)}>
+        <View style={clsx(
+          styles.flexRow,
+          styles.itemsCenter,
+          styles.bgGray100,
+          styles.roundedFull,
+          styles.px4,
+          styles.py2
+        )}>
+          <Icon name="search" size={20} color={colors.gray500} />
+          <TextInput
+            style={clsx(
+              styles.flex1,
+              styles.ml2,
+              styles.textBase,
+              styles.textBlack
+            )}
+            placeholder="Search parts by name..."
+            value={searchQuery}
+            onChangeText={(text) => handleSearchChange(serviceItem.id, text)}
+            placeholderTextColor={colors.gray500}
+            returnKeyType="search"
+            onSubmitEditing={() => handleSearchSubmit(serviceItem.id)}
+            blurOnSubmit={false}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity 
+              onPress={() => clearSearch(serviceItem.id)}
+              style={clsx(styles.ml2)}
+            >
+              <Icon name="close" size={20} color={colors.gray500} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity 
+            onPress={() => handleSearchSubmit(serviceItem.id)}
+            disabled={isSearching}
+            style={clsx(
+              styles.ml2,
+              styles.px3,
+              styles.py1,
+              styles.bgPrimary,
+              styles.roundedFull,
+              isSearching && styles.opacity50
+            )}
+          >
+            {isSearching ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              <Text style={clsx(styles.textWhite, styles.textSm)}>
+                Search
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+      
+      {/* Selected Parts Summary for this Service */}
+      {selectedPartsForService.length > 0 && (
+        <View style={clsx(styles.mb3, styles.p3, styles.bgSuccessLight, styles.roundedLg)}>
+          <Text style={clsx(styles.textBase, styles.fontMedium, styles.textSuccess, styles.mb2)}>
+            Selected Parts for {serviceItem.name} ({selectedPartsForService.length})
+          </Text>
+          {selectedPartsForService.map((part, index) => {
+            const quantity = quantities[part.key] || 1;
+            const partTotal = part.unitPrice * quantity;
+            return (
+              <View key={part.key} style={clsx(
+                styles.flexRow,
+                styles.justifyBetween,
+                styles.itemsCenter,
+                styles.mb1
+              )}>
+                <Text style={clsx(styles.textSm, styles.textSuccessDark)} numberOfLines={1}>
+                  {index + 1}. {part.description}
+                </Text>
+                <Text style={clsx(styles.textSm, styles.fontMedium, styles.textSuccessDark)}>
+                  ₹{partTotal}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+      
+      {/* Available Parts */}
+      <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
+        Available Parts:
+      </Text>
+      
+      {isSearching ? (
+        <View style={clsx(styles.py6, styles.itemsCenter)}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={clsx(styles.textBase, styles.textMuted, styles.mt2)}>
+            Searching parts...
+          </Text>
+        </View>
+      ) : filteredRateGroups.length > 0 ? (
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          style={clsx(styles.maxH96)}
+        >
+          {filteredRateGroups.map((group, index) => (
+            <RateGroupSection
+              key={`${group._id || group.title}_${index}`}
+              group={group}
+              serviceItemId={serviceItem.id}
+              selectedParts={selectedParts}
+              quantities={quantities}
+              handlePartSelect={handlePartSelect}
+              openQuantityModal={openQuantityModal}
+              handleQuantityChange={handleQuantityChange}
+              removePart={removePart}
+              addingPartId={addingPartId}
+              buttonPressedId={buttonPressedId}
+            />
+          ))}
+        </ScrollView>
+      ) : (
+        <View style={clsx(styles.py6, styles.itemsCenter)}>
+          <Icon name="search-off" size={48} color={colors.gray400} style={clsx(styles.mb2)} />
+          <Text style={clsx(styles.textBase, styles.textMuted, styles.textCenter)}>
+            {searchQuery ? 'No parts found matching your search' : 'No rate groups available for this service'}
+          </Text>
+          {searchQuery && (
+            <TouchableOpacity
+              onPress={() => clearSearch(serviceItem.id)}
+              style={clsx(styles.mt2, styles.px4, styles.py2, styles.bgPrimary, styles.roundedFull)}
+            >
+              <Text style={clsx(styles.textWhite, styles.textSm)}>
+                Clear Search
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
+  );
+});
 
 const PartsSelectionScreen = ({ navigation, route }) => {
   const { bookingData, formattedData, loadBookingDetails } = route.params;
@@ -32,30 +432,21 @@ const PartsSelectionScreen = ({ navigation, route }) => {
   const [grandTotal, setGrandTotal] = useState(0);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
   const [selectedPartForQuantity, setSelectedPartForQuantity] = useState(null);
-  const [searchQueries, setSearchQueries] = useState({}); // Each service item has its own search query
-  const [addingPartId, setAddingPartId] = useState(null); // To show loading on specific add button
-  const [searchingServiceId, setSearchingServiceId] = useState(null); // To show searching state
-  const [buttonPressedId, setButtonPressedId] = useState(null); // For button press feedback
+  const [searchQueries, setSearchQueries] = useState({});
+  const [addingPartId, setAddingPartId] = useState(null);
+  const [searchingServiceId, setSearchingServiceId] = useState(null);
+  const [buttonPressedId, setButtonPressedId] = useState(null);
+  const [tempQuantities, setTempQuantities] = useState({});
+  const [activeTab, setActiveTab] = useState(0);
+  const [localSearchText, setLocalSearchText] = useState('');
 
-  useEffect(() => {
-    calculateInitialAmounts();
-    fetchRateGroups();
-  }, []);
+  const searchTimeoutRef = useRef(null);
+  const searchInputRefs = useRef({});
+  const flatListRef = useRef(null);
 
-  useEffect(() => {
-    calculateTotalAmounts();
-  }, [selectedParts, quantities]);
-
-  useEffect(() => {
-    // Initialize filtered rate groups
-    if (rateGroups.length > 0) {
-      setFilteredRateGroups(rateGroups);
-    }
-  }, [rateGroups]);
-
-  const calculateInitialAmounts = () => {
+  // Memoized initial amounts calculation
+  const calculateInitialAmounts = useCallback(() => {
     try {
-      // Calculate original booking amount
       const bookingItems = bookingData?.booking?.bookingItems || [];
       let originalAmt = 0;
       
@@ -69,18 +460,17 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       setTotalAmount(originalAmt);
       setGrandTotal(originalAmt);
 
-      // Prepare service items
-      const items = bookingItems.map(item => ({
-        id: item._id, // यह booking item का _id है (serviceItemId)
+      const items = bookingItems.map((item, index) => ({
+        id: item._id,
         serviceId: item.service?._id || item._id,
-        name: item.service?.name || 'Service Item',
+        name: item.service?.name || `Service Item ${index + 1}`,
         quantity: item.quantity || 1,
         price: item.salePrice || 0,
-        total: (item.salePrice || 0) * (item.quantity || 1)
+        total: (item.salePrice || 0) * (item.quantity || 1),
+        index: index
       }));
       setServiceItems(items);
       
-      // Initialize search queries for each service item
       const initialSearchQueries = {};
       bookingItems.forEach(item => {
         initialSearchQueries[item._id] = '';
@@ -90,23 +480,41 @@ const PartsSelectionScreen = ({ navigation, route }) => {
     } catch (error) {
       console.error('Error calculating amounts:', error);
     }
-  };
+  }, [bookingData]);
+
+  useEffect(() => {
+    calculateInitialAmounts();
+    fetchRateGroups();
+    
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    calculateTotalAmounts();
+  }, [selectedParts, quantities]);
+
+  useEffect(() => {
+    if (rateGroups.length > 0) {
+      setFilteredRateGroups(rateGroups);
+    }
+  }, [rateGroups]);
 
   const fetchRateGroups = async () => { 
     try {
       setLoading(true);
       
-      // Get service category from booking
       const bookingItems = bookingData?.booking?.bookingItems || [];
       if (bookingItems.length === 0) {
         setLoading(false);
         return;
       }
       
-      // Get first service category (assuming single service for now)
       const serviceCategoryId = bookingItems[0]?.service?.categoryId;
       const servicesubCategoryId = bookingItems[0]?.service?.subCategoryId;
-      console.log(bookingData)
       
       if (!serviceCategoryId) {
         Toast.show({
@@ -118,7 +526,6 @@ const PartsSelectionScreen = ({ navigation, route }) => {
         return;
       }
       
-      // Fetch rate groups for this category
       const response = await postData(
         {
           "category": serviceCategoryId,
@@ -162,10 +569,8 @@ const PartsSelectionScreen = ({ navigation, route }) => {
   const calculateTotalAmounts = () => {
     let partsTotal = 0;
     
-    // Calculate parts amount from selected parts
     Object.values(selectedParts).forEach(part => {
       const quantity = quantities[part.key] || 1;
-      // अब unitPrice का उपयोग करें
       partsTotal += (part.unitPrice || 0) * quantity;
     });
     
@@ -176,79 +581,53 @@ const PartsSelectionScreen = ({ navigation, route }) => {
   const handlePartSelect = async (rate, serviceItemId, groupTitle) => {
     const key = `${rate._id}_${serviceItemId}`;
     
-    // Show button press feedback
     setButtonPressedId(key);
     
-    // Add a small delay for better UX
     await new Promise(resolve => setTimeout(resolve, 200));
     
     if (selectedParts[key]) {
-      // Remove part if already selected
-      const newSelectedParts = { ...selectedParts };
-      delete newSelectedParts[key];
-      
-      const newQuantities = { ...quantities };
-      delete newQuantities[key];
-      
-      setSelectedParts(newSelectedParts);
-      setQuantities(newQuantities);
-      
-      // Reset button press state
-      setButtonPressedId(null);
-      
-      Toast.show({
-        type: 'success',
-        text1: 'Removed',
-        text2: 'Part removed successfully',
-      });
+      openQuantityModal(rate, serviceItemId, groupTitle);
     } else {
-      // Show adding state
       setAddingPartId(key);
       
-      // Add a small delay to show "Adding..." state
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Calculate total price - अब unitPrice का उपयोग करें
+      const unitPrice = parseFloat(rate.unitPrice || 0);
       const price = parseFloat(rate.serviceCharge?.price || 0);
       const labourCharge = parseFloat(rate.serviceCharge?.labourCharge || 0);
       const discountPrice = parseFloat(rate.serviceCharge?.discountPrice || 0);
-      // unitPrice का उपयोग करें (यह पहले से ही discount लगा हुआ price है)
-      const unitPrice = parseFloat(rate.unitPrice || 0);
       
-      // Find service item to get its ID
       const serviceItem = serviceItems.find(s => s.id === serviceItemId);
       
-      // Add part
       setSelectedParts(prev => ({
         ...prev,
         [key]: {
           key: key,
           rateId: rate._id,
           description: rate.description,
-          unitPrice: unitPrice, // unitPrice का उपयोग करें
+          unitPrice: unitPrice,
           originalPrice: price,
           labourCharge: labourCharge,
           discountPrice: discountPrice,
-          serviceItemId: serviceItem?.id, // यह booking item का _id है
-          serviceId: serviceItem?.serviceId, // यह service का _id है
+          serviceItemId: serviceItem?.id,
+          serviceId: serviceItem?.serviceId,
           serviceItemName: serviceItem?.name,
           groupTitle: groupTitle
         }
       }));
-      // Set default quantity
+      
       setQuantities(prev => ({
         ...prev,
         [key]: 1
       }));
       
-      // Hide loading states
       setAddingPartId(null);
       setButtonPressedId(null);
       
       Toast.show({
         type: 'success',
         text1: 'Added',
-        text2: 'Part added successfully',
+        text2: 'Part added with quantity 1',
       });
     }
   };
@@ -257,30 +636,61 @@ const PartsSelectionScreen = ({ navigation, route }) => {
     const currentQty = quantities[partKey] || 1;
     const newQty = currentQty + increment;
     
-    if (newQty < 1) return;
+    if (newQty < 1) {
+      removePart(partKey);
+      return;
+    }
     
     setQuantities(prev => ({
       ...prev,
       [partKey]: newQty
     }));
+    
+    Toast.show({
+      type: 'info',
+      text1: 'Updated',
+      text2: `Quantity updated to ${newQty}`,
+    });
+  };
+
+  const removePart = (partKey) => {
+    if (!selectedParts[partKey]) return;
+    
+    const part = selectedParts[partKey];
+    
+    setSelectedParts(prev => {
+      const newSelectedParts = { ...prev };
+      delete newSelectedParts[partKey];
+      return newSelectedParts;
+    });
+    
+    setQuantities(prev => {
+      const newQuantities = { ...prev };
+      delete newQuantities[partKey];
+      return newQuantities;
+    });
+    
+    Toast.show({
+      type: 'success',
+      text1: 'Removed',
+      text2: `${part.description} removed`,
+    });
   };
 
   const openQuantityModal = (rate, serviceItemId, groupTitle) => {
     const key = `${rate._id}_${serviceItemId}`;
+    const unitPrice = parseFloat(rate.unitPrice || 0);
     const price = parseFloat(rate.serviceCharge?.price || 0);
     const labourCharge = parseFloat(rate.serviceCharge?.labourCharge || 0);
     const discountPrice = parseFloat(rate.serviceCharge?.discountPrice || 0);
-    // unitPrice का उपयोग करें
-    const unitPrice = parseFloat(rate.unitPrice || 0);
     
-    // Find service item to get its ID
     const serviceItem = serviceItems.find(s => s.id === serviceItemId);
     
     setSelectedPartForQuantity({
       key: key,
       rateId: rate._id,
       description: rate.description,
-      unitPrice: unitPrice, // unitPrice का उपयोग करें
+      unitPrice: unitPrice,
       originalPrice: price,
       labourCharge: labourCharge,
       discountPrice: discountPrice,
@@ -293,56 +703,66 @@ const PartsSelectionScreen = ({ navigation, route }) => {
   };
 
   const handleQuantitySubmit = (quantity) => {
-    if (!selectedPartForQuantity || quantity < 1) return;
+    if (!selectedPartForQuantity) return;
     
-    setQuantities(prev => ({
-      ...prev,
-      [selectedPartForQuantity.key]: quantity
-    }));
-    
-    // Also update selectedParts if it doesn't exist yet
-    if (!selectedParts[selectedPartForQuantity.key]) {
-      setSelectedParts(prev => ({
+    if (quantity < 1) {
+      removePart(selectedPartForQuantity.key);
+      Toast.show({
+        type: 'info',
+        text1: 'Removed',
+        text2: 'Quantity set to 0, part removed',
+      });
+    } else {
+      setQuantities(prev => ({
         ...prev,
-        [selectedPartForQuantity.key]: selectedPartForQuantity
+        [selectedPartForQuantity.key]: quantity
       }));
+      
+      if (!selectedParts[selectedPartForQuantity.key]) {
+        setSelectedParts(prev => ({
+          ...prev,
+          [selectedPartForQuantity.key]: selectedPartForQuantity
+        }));
+      }
+      
+      Toast.show({
+        type: 'success',
+        text1: 'Updated',
+        text2: `Quantity updated to ${quantity}`,
+      });
     }
-    
-    Toast.show({
-      type: 'success',
-      text1: 'Updated',
-      text2: 'Quantity updated successfully',
-    });
     
     setShowQuantityModal(false);
     setSelectedPartForQuantity(null);
   };
 
-  const getSelectedPartsForService = (serviceItemId) => {
-    return Object.values(selectedParts).filter(
-      part => part.serviceItemId === serviceItemId
-    );
-  };
-
-  const getAllSelectedParts = () => {
-    return Object.values(selectedParts);
-  };
-
-  const filterRatesBySearch = async (serviceItemId, searchText) => {
-    // Update search query for this service item
+  // Optimized search handler with debouncing
+  const handleSearchChange = useCallback((serviceItemId, text) => {
+    // Update search query immediately for UI
     setSearchQueries(prev => ({
       ...prev,
-      [serviceItemId]: searchText
+      [serviceItemId]: text
     }));
-
-    // Show searching state
+    
+    // Set local search text
+    setLocalSearchText(text);
+    
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    // Set searching state
     setSearchingServiceId(serviceItemId);
+    
+    // Debounce the actual search
+    searchTimeoutRef.current = setTimeout(() => {
+      filterRatesBySearch(serviceItemId, text);
+    }, 300);
+  }, []);
 
-    // Add a small delay to show searching state
-    await new Promise(resolve => setTimeout(resolve, 300));
-
+  const filterRatesBySearch = useCallback((serviceItemId, searchText) => {
     if (!searchText.trim()) {
-      // If search is empty, show all rate groups
       setFilteredRateGroups(rateGroups);
       setSearchingServiceId(null);
       return;
@@ -361,29 +781,37 @@ const PartsSelectionScreen = ({ navigation, route }) => {
 
     setFilteredRateGroups(filtered);
     setSearchingServiceId(null);
-  };
+  }, [rateGroups]);
 
   const handleSearchSubmit = (serviceItemId) => {
     const searchText = searchQueries[serviceItemId] || '';
     filterRatesBySearch(serviceItemId, searchText);
   };
 
+  const clearSearch = (serviceItemId) => {
+    setSearchQueries(prev => ({
+      ...prev,
+      [serviceItemId]: ''
+    }));
+    setLocalSearchText('');
+    filterRatesBySearch(serviceItemId, '');
+  };
+
   const submitPartsForApproval = async () => {
     try {
       setSubmitting(true);
       
-      // Prepare data for submission - सही structure में data prepare करें
       const partsData = Object.values(selectedParts).map(part => {
         const quantity = quantities[part.key] || 1;
         return {
-          serviceItemId: part.serviceItemId, // booking item का _id
-          serviceId: part.serviceId, // service का _id (optional)
+          serviceItemId: part.serviceItemId,
+          serviceId: part.serviceId,
           rateId: part.rateId,
           description: part.description,
-          unitPrice: part.unitPrice, // unitPrice का उपयोग करें
+          unitPrice: part.unitPrice,
           quantity: quantity,
           labourCharge: part.labourCharge,
-          totalPrice: part.unitPrice * quantity, // unitPrice का उपयोग करें
+          totalPrice: part.unitPrice * quantity,
           groupTitle: part.groupTitle
         };
       });
@@ -398,8 +826,6 @@ const PartsSelectionScreen = ({ navigation, route }) => {
         status: 'partstatusnew'
       };
 
-      console.log('Submitting parts:', requestData);
-
       const response = await postData(
         requestData,
         `${Urls.submitPartsForApproval}`,
@@ -413,7 +839,6 @@ const PartsSelectionScreen = ({ navigation, route }) => {
           text2: 'Parts submitted for approval',
         });
         
-        // Navigate back and refresh
         if (loadBookingDetails) {
           loadBookingDetails();
         }
@@ -435,310 +860,6 @@ const PartsSelectionScreen = ({ navigation, route }) => {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const RateItem = ({ rate, serviceItemId, groupTitle, isSelected }) => {
-    const key = `${rate._id}_${serviceItemId}`;
-    const quantity = quantities[key] || (isSelected ? 1 : 0);
-    const price = parseFloat(rate.serviceCharge?.price || 0);
-    const labourCharge = parseFloat(rate.serviceCharge?.labourCharge || 0);
-    const discountPrice = parseFloat(rate.serviceCharge?.discountPrice || 0);
-    // unitPrice का उपयोग करें
-    const unitPrice = parseFloat(rate.unitPrice || 0);
-    const itemTotalPrice = unitPrice * quantity;
-    const isAdding = addingPartId === key;
-    const isButtonPressed = buttonPressedId === key;
-    
-    return (
-      <View style={clsx(
-        styles.flexRow,
-        styles.itemsCenter,
-        styles.justifyBetween,
-        styles.p3,
-        styles.mb2,
-        isSelected ? styles.bgPrimaryLight : styles.bgGray50,
-        styles.roundedLg,
-        styles.border,
-        isSelected ? styles.borderPrimary : styles.borderGray300
-      )}>
-        <View style={clsx(styles.flex1)}>
-          <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-            {rate.description}
-          </Text>
-          
-          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt1)}>
-            {price > 0 && (
-              <Text style={clsx(styles.textSm, styles.textMuted, styles.mr2)}>
-                Parts: ₹{price}
-              </Text>
-            )}
-            
-            {labourCharge > 0 && (
-              <Text style={clsx(styles.textSm, styles.textMuted, styles.mr2)}>
-                Labour: ₹{labourCharge}
-              </Text>
-            )}
-            
-            {discountPrice > 0 && (
-              <Text style={clsx(styles.textSm, styles.textSuccess, styles.mr2)}>
-                Discount: ₹{discountPrice}
-              </Text>
-            )}
-          </View>
-          
-          <Text style={clsx(styles.textXs, styles.fontBold, styles.textPrimary, styles.mt1)}>
-            Unit Price: ₹{unitPrice}
-          </Text>
-        </View>
-        
-        {isSelected ? (
-          <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-            <TouchableOpacity
-              onPress={() => openQuantityModal(rate, serviceItemId, groupTitle)}
-              style={clsx(
-                styles.flexRow,
-                styles.itemsCenter,
-                styles.px3,
-                styles.py1,
-                styles.bgPrimary,
-                styles.roundedFull,
-                styles.mr2
-              )}
-            >
-              <Text style={clsx(styles.textWhite, styles.textSm)}>
-                {quantity} Qty
-              </Text>
-              <Icon name="edit" size={14} color={colors.white} style={clsx(styles.ml1)} />
-            </TouchableOpacity>
-            
-            <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
-              ₹{itemTotalPrice}
-            </Text>
-          </View>
-        ) : (
-          <TouchableOpacity
-            onPress={() => handlePartSelect(rate, serviceItemId, groupTitle)}
-            disabled={isAdding || isButtonPressed}
-            style={clsx(
-              styles.flexRow,
-              styles.itemsCenter,
-              styles.justifyCenter,
-              styles.px-3,
-              styles.py-2,
-              styles.w24,
-              styles.h10,
-              isButtonPressed ? styles.bgSuccess : (isAdding ? styles.bgGray400 : styles.bgPrimary),
-              styles.roundedFull,
-              (isAdding || isButtonPressed) && styles.opacity90
-            )}
-          >
-            {isAdding ? (
-              <ActivityIndicator size="small" color={colors.white} />
-            ) : isButtonPressed ? (
-              <Text style={clsx(styles.textWhite, styles.textSm, styles.fontMedium)}>
-                ✓
-              </Text>
-            ) : (
-              <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-                <Icon name="add" size={18} color={colors.white} style={clsx(styles.mr1)} />
-                <Text style={clsx(styles.textWhite, styles.textSm, styles.fontMedium)}>
-                  Add
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  };
-
-  const RateGroupSection = ({ group, serviceItemId }) => {
-    if (!group.rates || group.rates.length === 0) {
-      return null;
-    }
-    
-    return (
-      <View style={clsx(styles.mb4)}>
-        <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb2)}>
-          {group.title}
-        </Text>
-        
-        {group.rates.map((rate, index) => {
-          const key = `${rate._id}_${serviceItemId}`;
-          const isSelected = !!selectedParts[key];
-          
-          return (
-            <RateItem
-              key={index}
-              rate={rate}
-              serviceItemId={serviceItemId}
-              groupTitle={group.title}
-              isSelected={isSelected}
-            />
-          );
-        })}
-      </View>
-    );
-  };
-
-  const ServiceItemSection = ({ serviceItem }) => {
-    const selectedPartsForService = getSelectedPartsForService(serviceItem.id);
-    const searchQuery = searchQueries[serviceItem.id] || '';
-    const isSearching = searchingServiceId === serviceItem.id;
-    
-    return (
-      <View style={clsx(styles.mb6, styles.p3, styles.bgWhite, styles.roundedLg, styles.shadowSm)}>
-        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
-          <View style={clsx(styles.flex1)}>
-            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
-              {serviceItem.name}
-            </Text>
-            <Text style={clsx(styles.textSm, styles.textMuted)}>
-              Qty: {serviceItem.quantity} × ₹{serviceItem.price} = ₹{serviceItem.total}
-            </Text>
-            <Text style={clsx(styles.textXs, styles.textMuted)}>
-              Service Item ID: {serviceItem.id.substring(0, 8)}...
-            </Text>
-          </View>
-        </View>
-        
-        {/* Search Bar for this Service Item */}
-        <View style={clsx(styles.mb-3)}>
-          <View style={clsx(
-            styles.flexRow,
-            styles.itemsCenter,
-            styles.bgGray100,
-            styles.roundedFull,
-            styles.px4,
-            styles.py2,
-            styles.mb4
-          )}>
-            <Icon name="search" size={20} color={colors.gray500} />
-            <TextInput
-              style={clsx(
-                styles.flex1,
-                styles.ml2,
-                styles.textBase,
-                styles.textBlack
-              )}
-              placeholder="Search parts by name..."
-              value={searchQuery}
-              onChangeText={(text) => setSearchQueries(prev => ({...prev, [serviceItem.id]: text}))}
-              placeholderTextColor={colors.gray500}
-              returnKeyType="search"
-              onSubmitEditing={() => handleSearchSubmit(serviceItem.id)}
-              blurOnSubmit={true}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity 
-                onPress={() => {
-                  setSearchQueries(prev => ({...prev, [serviceItem.id]: ''}));
-                  filterRatesBySearch(serviceItem.id, '');
-                }}
-                style={clsx(styles.ml2)}
-              >
-                <Icon name="close" size={20} color={colors.gray500} />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity 
-              onPress={() => handleSearchSubmit(serviceItem.id)}
-              disabled={isSearching || !searchQuery.trim()}
-              style={clsx(
-                styles.ml2,
-                styles.px3,
-                styles.py1,
-                styles.bgPrimary,
-                styles.roundedFull,
-                (isSearching || !searchQuery.trim()) && styles.opacity50
-              )}
-            >
-              {isSearching ? (
-                <ActivityIndicator size="small" color={colors.white} />
-              ) : (
-                <Text style={clsx(styles.textWhite, styles.textSm)}>
-                  Search
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-        
-        {selectedPartsForService.length > 0 && (
-          <View style={clsx(styles.mb3)}>
-            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
-              Selected Parts:
-            </Text>
-            {selectedPartsForService.map((part, index) => {
-              const quantity = quantities[part.key] || 1;
-              return (
-                <View key={index} style={clsx(
-                  styles.flexRow,
-                  styles.justifyBetween,
-                  styles.itemsCenter,
-                  styles.p2,
-                  styles.bgGray50,
-                  styles.rounded,
-                  styles.mb1
-                )}>
-                  <View style={clsx(styles.flex1)}>
-                    <Text style={clsx(styles.textSm, styles.textBlack)}>
-                      • {part.description}
-                    </Text>
-                    <Text style={clsx(styles.textXs, styles.textMuted)}>
-                      {part.groupTitle}
-                    </Text>
-                  </View>
-                  <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
-                    {quantity} × ₹{part.unitPrice} = ₹{quantity * part.unitPrice}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        )}
-        
-        <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
-          Available Parts (Rate Groups):
-        </Text>
-        
-        {isSearching ? (
-          <View style={clsx(styles.py6, styles.itemsCenter)}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={clsx(styles.textBase, styles.textMuted, styles.mt2)}>
-              Searching parts...
-            </Text>
-          </View>
-        ) : filteredRateGroups.length > 0 ? (
-          filteredRateGroups.map((group, index) => (
-            <RateGroupSection
-              key={index}
-              group={group}
-              serviceItemId={serviceItem.id}
-            />
-          ))
-        ) : (
-          <View style={clsx(styles.py6, styles.itemsCenter)}>
-            <Icon name="search-off" size={48} color={colors.gray400} style={clsx(styles.mb2)} />
-            <Text style={clsx(styles.textBase, styles.textMuted, styles.textCenter)}>
-              {searchQuery ? 'No parts found matching your search' : 'No rate groups available for this service'}
-            </Text>
-            {searchQuery && (
-              <TouchableOpacity
-                onPress={() => {
-                  setSearchQueries(prev => ({...prev, [serviceItem.id]: ''}));
-                  filterRatesBySearch(serviceItem.id, '');
-                }}
-                style={clsx(styles.mt2, styles.px4, styles.py2, styles.bgPrimary, styles.roundedFull)}
-              >
-                <Text style={clsx(styles.textWhite, styles.textSm)}>
-                  Clear Search
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-      </View>
-    );
   };
 
   const QuantityModal = () => (
@@ -765,9 +886,6 @@ const PartsSelectionScreen = ({ navigation, route }) => {
               <Text style={clsx(styles.textSm, styles.textMuted, styles.mb1)}>
                 Category: {selectedPartForQuantity.groupTitle}
               </Text>
-              <Text style={clsx(styles.textXs, styles.textMuted, styles.mb2)}>
-                Service Item: {selectedPartForQuantity.serviceItemName}
-              </Text>
               
               <View style={clsx(styles.mb2)}>
                 <Text style={clsx(styles.textSm, styles.textMuted)}>
@@ -792,7 +910,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
                 <TouchableOpacity
                   onPress={() => {
                     const current = quantities[selectedPartForQuantity.key] || 1;
-                    handleQuantitySubmit(Math.max(1, current - 1));
+                    handleQuantitySubmit(Math.max(0, current - 1));
                   }}
                   style={clsx(
                     styles.w12,
@@ -817,8 +935,20 @@ const PartsSelectionScreen = ({ navigation, route }) => {
                   value={String(quantities[selectedPartForQuantity.key] || 1)}
                   keyboardType="numeric"
                   onChangeText={(text) => {
-                    const num = parseInt(text) || 1;
-                    handleQuantitySubmit(num);
+                    const num = parseInt(text) || 0;
+                    if (num === 0) {
+                      return;
+                    }
+                    setTempQuantities(prev => ({
+                      ...prev,
+                      [selectedPartForQuantity.key]: num
+                    }));
+                  }}
+                  onBlur={() => {
+                    const current = tempQuantities[selectedPartForQuantity.key];
+                    if (current !== undefined && current > 0) {
+                      handleQuantitySubmit(current);
+                    }
                   }}
                 />
                 
@@ -843,6 +973,29 @@ const PartsSelectionScreen = ({ navigation, route }) => {
               <Text style={clsx(styles.textLg, styles.fontBold, styles.textPrimary, styles.textCenter, styles.mb4)}>
                 Total: ₹{(selectedPartForQuantity.unitPrice * (quantities[selectedPartForQuantity.key] || 1))}
               </Text>
+              
+              <View style={clsx(styles.mb3)}>
+                <TouchableOpacity
+                  onPress={() => {
+                    handleQuantitySubmit(0);
+                    Toast.show({
+                      type: 'info',
+                      text1: 'Removed',
+                      text2: 'Part removed (quantity set to 0)',
+                    });
+                  }}
+                  style={clsx(
+                    styles.bgDangerLight,
+                    styles.py2,
+                    styles.roundedLg,
+                    styles.itemsCenter
+                  )}
+                >
+                  <Text style={clsx(styles.textDanger, styles.fontMedium)}>
+                    Remove Part (Set Quantity to 0)
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </>
           )}
           
@@ -890,6 +1043,164 @@ const PartsSelectionScreen = ({ navigation, route }) => {
     </Modal>
   );
 
+  // Memoized main render
+  const renderServiceItemTabs = useMemo(() => {
+    if (serviceItems.length <= 1) return null;
+    
+    return (
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        style={clsx(styles.bgWhite, styles.borderBottom, styles.borderGray300)}
+      >
+        <View style={clsx(styles.flexRow)}>
+          {serviceItems.map((item, index) => (
+            <TouchableOpacity
+              key={item.id}
+              onPress={() => setActiveTab(index)}
+              style={clsx(
+                styles.px4,
+                styles.py3,
+                styles.borderBottom2,
+                index === activeTab ? styles.borderPrimary : styles.borderTransparent
+              )}
+            >
+              <Text style={clsx(
+                styles.textBase,
+                styles.fontMedium,
+                index === activeTab ? styles.textPrimary : styles.textMuted
+              )}>
+                {item.name.length > 15 ? `${item.name.substring(0, 15)}...` : item.name}
+              </Text>
+              <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt1)}>
+                <View style={clsx(
+                  styles.w5,
+                  styles.h5,
+                  styles.roundedFull,
+                  styles.itemsCenter,
+                  styles.justifyCenter,
+                  index === activeTab ? styles.bgPrimary : styles.bgGray400,
+                  styles.mr1
+                )}>
+                  <Text style={clsx(styles.textXs, styles.textWhite)}>
+                    {index + 1}
+                  </Text>
+                </View>
+                <Text style={clsx(styles.textXs, styles.textMuted)}>
+                  ₹{item.total}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+    );
+  }, [serviceItems, activeTab]);
+
+  const renderAmountSummary = useMemo(() => {
+    const allSelectedParts = Object.values(selectedParts);
+    
+    return (
+      <View style={clsx(
+        styles.bgWhite,
+        styles.roundedLg,
+        styles.p4,
+        styles.shadowSm,
+        styles.mb4
+      )}>
+        <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
+          Amount Summary
+        </Text>
+        
+        <View style={clsx(styles.mb2)}>
+          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb1)}>
+            <Text style={clsx(styles.textBase, styles.textMuted)}>
+              Original Service Amount:
+            </Text>
+            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+              ₹{originalAmount}
+            </Text>
+          </View>
+          
+          {allSelectedParts.length > 0 && (
+            <View style={clsx(styles.mb2, styles.mt2, styles.pt2, styles.borderTop, styles.borderGray300)}>
+              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
+                Selected Parts ({allSelectedParts.length}):
+              </Text>
+              {allSelectedParts.map((part, index) => {
+                const quantity = quantities[part.key] || 1;
+                const partTotal = part.unitPrice * quantity;
+                const serviceItem = serviceItems.find(s => s.id === part.serviceItemId);
+                return (
+                  <View key={part.key} style={clsx(
+                    styles.flexRow,
+                    styles.justifyBetween,
+                    styles.itemsCenter,
+                    styles.mb2
+                  )}>
+                    <View style={clsx(styles.flex1)}>
+                      <Text style={clsx(styles.textSm, styles.textBlack)} numberOfLines={1}>
+                        {index + 1}. {part.description}
+                      </Text>
+                      <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt1)}>
+                        <Text style={clsx(styles.textXs, styles.textMuted)}>
+                          Qty: {quantity} × ₹{part.unitPrice}
+                        </Text>
+                        <View style={clsx(styles.mx2, styles.w1, styles.h1, styles.bgGray400, styles.roundedFull)} />
+                        <Text style={clsx(styles.textXs, styles.textMuted)}>
+                          {serviceItem?.name || 'Service'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
+                      ₹{partTotal}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+          
+          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb1)}>
+            <Text style={clsx(styles.textBase, styles.textMuted)}>
+              Additional Parts Amount:
+            </Text>
+            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textPrimary)}>
+              + ₹{partsAmount}
+            </Text>
+          </View>
+          
+          <View style={clsx(
+            styles.flexRow,
+            styles.justifyBetween,
+            styles.itemsCenter,
+            styles.mt3,
+            styles.pt3,
+            styles.borderTop,
+            styles.borderGray300
+          )}>
+            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
+              Grand Total:
+            </Text>
+            <Text style={clsx(styles.text2xl, styles.fontBold, styles.textPrimary)}>
+              ₹{grandTotal}
+            </Text>
+          </View>
+        </View>
+        
+        <View style={clsx(styles.mt3, styles.p3, styles.bgInfoLight, styles.rounded)}>
+          <Text style={clsx(styles.textSm, styles.textInfo, styles.textCenter)}>
+            💡 Currently viewing: {serviceItems[activeTab]?.name}
+          </Text>
+        </View>
+      </View>
+    );
+  }, [originalAmount, partsAmount, grandTotal, selectedParts, quantities, serviceItems, activeTab]);
+
+  const currentServiceItem = useMemo(() => {
+    return serviceItems[activeTab] || null;
+  }, [serviceItems, activeTab]);
+
   if (loading) {
     return (
       <View style={clsx(styles.flex1, styles.bgSurface, styles.justifyCenter, styles.itemsCenter)}>
@@ -923,109 +1234,44 @@ const PartsSelectionScreen = ({ navigation, route }) => {
         </Text>
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={true}
-        contentContainerStyle={clsx(styles.pb8)}
-      >
+      <View style={clsx(styles.flex1)}>
+        {/* Service Items Tabs */}
+        {renderServiceItemTabs}
+        
         {/* Amount Summary */}
-        <View style={clsx(styles.p4)}>
-          <View style={clsx(
-            styles.bgWhite,
-            styles.roundedLg,
-            styles.p4,
-            styles.shadowSm,
-            styles.mb4
-          )}>
-            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
-              Amount Summary
-            </Text>
-            
-            <View style={clsx(styles.mb2)}>
-              <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb1)}>
-                <Text style={clsx(styles.textBase, styles.textMuted)}>
-                  Original Service Amount:
-                </Text>
-                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-                  ₹{originalAmount}
-                </Text>
-              </View>
-              
-              {/* Selected Parts List */}
-              {getAllSelectedParts().length > 0 && (
-                <View style={clsx(styles.mb2, styles.mt2, styles.pt2, styles.borderTop, styles.borderGray300)}>
-                  <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
-                    Selected Parts:
-                  </Text>
-                  {getAllSelectedParts().map((part, index) => {
-                    const quantity = quantities[part.key] || 1;
-                    const partTotal = part.unitPrice * quantity;
-                    return (
-                      <View key={index} style={clsx(
-                        styles.flexRow,
-                        styles.justifyBetween,
-                        styles.itemsCenter,
-                        styles.mb2
-                      )}>
-                        <View style={clsx(styles.flex1)}>
-                          <Text style={clsx(styles.textSm, styles.textBlack)} numberOfLines={1}>
-                            {index + 1}. {part.description}
-                          </Text>
-                          <Text style={clsx(styles.textXs, styles.textMuted)}>
-                            {part.groupTitle}
-                          </Text>
-                        </View>
-                        <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
-                          ₹{partTotal}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </View>
+        <ScrollView
+          showsVerticalScrollIndicator={true}
+          contentContainerStyle={clsx(styles.pb32)}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={clsx(styles.p4)}>
+            {renderAmountSummary}
+
+            {/* Service Item Tab Content */}
+            <View style={clsx(styles.mt4)}>
+              {currentServiceItem && (
+                <ServiceItemTabContent
+                  serviceItem={currentServiceItem}
+                  searchQuery={searchQueries[currentServiceItem.id] || ''}
+                  isSearching={searchingServiceId === currentServiceItem.id}
+                  filteredRateGroups={filteredRateGroups}
+                  selectedParts={selectedParts}
+                  quantities={quantities}
+                  handleSearchChange={handleSearchChange}
+                  handleSearchSubmit={handleSearchSubmit}
+                  clearSearch={clearSearch}
+                  handlePartSelect={handlePartSelect}
+                  openQuantityModal={openQuantityModal}
+                  handleQuantityChange={handleQuantityChange}
+                  removePart={removePart}
+                  addingPartId={addingPartId}
+                  buttonPressedId={buttonPressedId}
+                />
               )}
-              
-              <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb1)}>
-                <Text style={clsx(styles.textBase, styles.textMuted)}>
-                  Additional Parts Amount:
-                </Text>
-                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textPrimary)}>
-                  + ₹{partsAmount}
-                </Text>
-              </View>
-              
-              <View style={clsx(
-                styles.flexRow,
-                styles.justifyBetween,
-                styles.itemsCenter,
-                styles.mt3,
-                styles.pt3,
-                styles.borderTop,
-                styles.borderGray300
-              )}>
-                <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
-                  Grand Total:
-                </Text>
-                <Text style={clsx(styles.text2xl, styles.fontBold, styles.textPrimary)}>
-                  ₹{grandTotal}
-                </Text>
-              </View>
-            </View>
-            
-            <View style={clsx(styles.mt3, styles.p3, styles.bgInfoLight, styles.rounded)}>
-              <Text style={clsx(styles.textSm, styles.textInfo, styles.textCenter)}>
-                💡 Amount will be sent for customer approval
-              </Text>
             </View>
           </View>
-
-          {/* Service Items */}
-          {serviceItems.map((serviceItem, index) => (
-            <ServiceItemSection
-              key={index}
-              serviceItem={serviceItem}
-            />
-          ))}
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
 
       {/* Bottom Action Buttons */}
       <View style={[

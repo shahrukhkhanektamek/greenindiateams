@@ -209,21 +209,51 @@ const BookingDetailScreen = ({ navigation, route }) => {
     
     // Start timer only for parts pending approval
     if (status === 'partstatusnew' || status === 'partstatusconfirm') {
-      // Use approvalTimer from data or default 5 minutes
-      const approvalTime = data.approvalTimer || 300; // 5 minutes in seconds
-      setApprovalTimeLeft(approvalTime);
-      setIsTimerRunning(true);
-      
-      timerRef.current = setInterval(() => {
-        setApprovalTimeLeft(prev => {
-          if (prev <= 1) {
-            clearInterval(timerRef.current);
-            setIsTimerRunning(false);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      // Check if we have a timestamp for approval deadline
+      if (data.timer || data.booking?.timer) {
+        const timer = data.timer || data.booking.timer;
+        const deadlineTime = new Date(timer).getTime();
+        const now = new Date();
+        const currentTime = now.getTime() + (5.5 * 60 * 60 * 1000);
+        const remainingSeconds = Math.max(0, Math.floor((deadlineTime - currentTime) / 1000));
+        
+        // If there's no time left, don't start timer
+        if (remainingSeconds <= 0) {
+          setApprovalTimeLeft(0);
+          setIsTimerRunning(false);
+          return;
+        }
+        
+        setApprovalTimeLeft(remainingSeconds);
+        setIsTimerRunning(true);
+        
+        timerRef.current = setInterval(() => {
+          setApprovalTimeLeft(prev => {
+            if (prev <= 1) {
+              clearInterval(timerRef.current);
+              setIsTimerRunning(false);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      } else {
+        // Fallback to timer value if no timestamp
+        const approvalTime = data.timer || data.booking?.timer || 300;
+        setApprovalTimeLeft(approvalTime);
+        setIsTimerRunning(true);
+        
+        timerRef.current = setInterval(() => {
+          setApprovalTimeLeft(prev => {
+            if (prev <= 1) {
+              clearInterval(timerRef.current);
+              setIsTimerRunning(false);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
     }
   };
 
@@ -489,7 +519,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
     const isOngoing = bookingData.status === 'ongoing';
     const partsNotAdded = !hasPartsBeenAdded();
     const notInPartsProcess = !isPartsApprovalInProgress();
-    
     return allBeforeMediaUploaded && noCapturedMedia && isOngoing && partsNotAdded && notInPartsProcess;
   };
 
@@ -1026,8 +1055,8 @@ const BookingDetailScreen = ({ navigation, route }) => {
     const isBeforeMediaRequired = currentStep === 1;
     const canUploadBeforeMedia = currentStep === 1;
     // const canUploadAfterMedia = currentStep === 3 && (!hasPartsBeenAdded() || isPartsApproved() || isPartsRejected());
-    const canUploadAfterMedia = currentStep === 3?true:false;
-    console.log("canUploadAfterMedia", canUploadAfterMedia)
+    const canUploadAfterMedia = currentStep === 2?true:false;
+    
     
     
     // Check if current item can capture media
@@ -1059,7 +1088,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
         <View style={clsx(styles.mb4)}>
           <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
             <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>
-              Before Service {isBeforeMediaRequired && '(Required)'}
+              Before Service {isMediaMandatory==1?'(Required)':'(Optional)'}
             </Text>
             <View style={[clsx(styles.px3, styles.py1, styles.roundedFull), 
               { backgroundColor: hasBeforeMedia ? colors.success + '20' : colors.warning + '20' }
@@ -1094,9 +1123,9 @@ const BookingDetailScreen = ({ navigation, route }) => {
                   onPress={() => openMediaModal(itemId, 'before-image', isMediaMandatory, false)}
                   disabled={isPartsPending() || !canCaptureMedia}
                 >
-                  <Icon name="add-a-photo" size={18} color={!canCaptureMedia ? colors.gray : colors.primary} />
+                  <Icon name="add-a-photo" size={18} color={!canCaptureMedia ? colors.gray : colors.white} />
                   <Text style={clsx(styles.textSm, styles.fontMedium, styles.ml2, 
-                    !canCaptureMedia ? styles.textMuted : styles.textPrimary)}>
+                    !canCaptureMedia ? styles.textMuted : styles.textWhite)}>
                     Add Images
                   </Text>
                 </TouchableOpacity>
@@ -1117,9 +1146,9 @@ const BookingDetailScreen = ({ navigation, route }) => {
                   onPress={() => openMediaModal(itemId, 'before-video', isMediaMandatory, false)}
                   disabled={isPartsPending() || !canCaptureMedia}
                 >
-                  <Icon name="videocam" size={18} color={!canCaptureMedia ? colors.gray : colors.secondary} />
+                  <Icon name="videocam" size={18} color={!canCaptureMedia ? colors.gray : colors.white} />
                   <Text style={clsx(styles.textSm, styles.fontMedium, styles.ml2,
-                    !canCaptureMedia ? styles.textMuted : styles.textSecondary)}>
+                    !canCaptureMedia ? styles.textMuted : styles.textWhite)}>
                     Add Videos
                   </Text>
                 </TouchableOpacity>
@@ -1140,29 +1169,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
                 <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack)}>
                   Captured (Not Uploaded)
                 </Text>
-                <TouchableOpacity
-                  style={clsx(
-                    styles.px3,
-                    styles.py1,
-                    styles.bgSuccess,
-                    styles.roundedFull,
-                    styles.flexRow,
-                    styles.itemsCenter
-                  )}
-                  onPress={() => uploadCapturedMediaForItem(itemId, 'before')}
-                  disabled={uploadingMedia}
-                >
-                  {uploadingMedia ? (
-                    <ActivityIndicator size="small" color={colors.white} />
-                  ) : (
-                    <>
-                      <Icon name="cloud-upload" size={14} color={colors.white} style={clsx(styles.mr1)} />
-                      <Text style={clsx(styles.textXs, styles.textWhite, styles.fontMedium)}>
-                        Upload
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                
               </View>
               
               {/* Images */}
@@ -1224,8 +1231,37 @@ const BookingDetailScreen = ({ navigation, route }) => {
                   ))}
                 </ScrollView>
               )}
+
+              <TouchableOpacity
+                  style={clsx(
+                    styles.bgSuccess,
+                    styles.roundedLg,
+                    styles.p3,
+                    styles.itemsCenter,
+                    styles.justifyCenter,
+                    styles.mt3,
+                    uploadingMedia && styles.opacity50
+                  )}
+                  onPress={() => uploadCapturedMediaForItem(itemId, 'before')}
+                  disabled={uploadingMedia}
+                >
+                  {uploadingMedia ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyCenter)}>
+                      <Icon name="cloud-upload" size={24} color={colors.white} style={clsx(styles.mr2)} />
+                      <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
+                        Upload All
+                      </Text>
+                    </View>
+                  )}
+              </TouchableOpacity>
+
+
             </View>
           )}
+
+           
           
           {/* Uploaded Before Media */}
           {(itemData.beforeImages?.length > 0 || itemData.beforeVideos?.length > 0) ? (
@@ -1353,9 +1389,9 @@ const BookingDetailScreen = ({ navigation, route }) => {
                 onPress={() => openMediaModal(itemId, 'after-image', isMediaMandatory, true)}
                 disabled={isPartsPending() || !hasBeforeMedia || !canCaptureMedia}
               >
-                <Icon name="add-a-photo" size={18} color={(!hasBeforeMedia || !canCaptureMedia) ? colors.gray : colors.primary} />
+                <Icon name="add-a-photo" size={18} color={(!hasBeforeMedia || !canCaptureMedia) ? colors.gray : colors.white} />
                 <Text style={clsx(styles.textSm, styles.fontMedium, styles.ml2,
-                  (!hasBeforeMedia || !canCaptureMedia) ? styles.textMuted : styles.textPrimary)}>
+                  (!hasBeforeMedia || !canCaptureMedia) ? styles.textMuted : styles.textWhite)}>
                   Add Images
                 </Text>
               </TouchableOpacity>
@@ -1376,9 +1412,9 @@ const BookingDetailScreen = ({ navigation, route }) => {
                 onPress={() => openMediaModal(itemId, 'after-video', isMediaMandatory, true)}
                 disabled={isPartsPending() || !hasBeforeMedia || !canCaptureMedia}
               >
-                <Icon name="videocam" size={18} color={(!hasBeforeMedia || !canCaptureMedia) ? colors.gray : colors.secondary} />
+                <Icon name="videocam" size={18} color={(!hasBeforeMedia || !canCaptureMedia) ? colors.gray : colors.white} />
                 <Text style={clsx(styles.textSm, styles.fontMedium, styles.ml2,
-                  (!hasBeforeMedia || !canCaptureMedia) ? styles.textMuted : styles.textSecondary)}>
+                  (!hasBeforeMedia || !canCaptureMedia) ? styles.textMuted : styles.textWhite)}>
                   Add Videos
                 </Text>
               </TouchableOpacity>
@@ -1403,29 +1439,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
                   <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack)}>
                     Captured (Not Uploaded)
                   </Text>
-                  <TouchableOpacity
-                    style={clsx(
-                      styles.px3,
-                      styles.py1,
-                      styles.bgSuccess,
-                      styles.roundedFull,
-                      styles.flexRow,
-                      styles.itemsCenter
-                    )}
-                    onPress={() => uploadCapturedMediaForItem(itemId, 'after')}
-                    disabled={uploadingMedia}
-                  >
-                    {uploadingMedia ? (
-                      <ActivityIndicator size="small" color={colors.white} />
-                    ) : (
-                      <>
-                        <Icon name="cloud-upload" size={14} color={colors.white} style={clsx(styles.mr1)} />
-                        <Text style={clsx(styles.textXs, styles.textWhite, styles.fontMedium)}>
-                          Upload
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
                 </View>
                 
                 {/* Images */}
@@ -1454,6 +1467,33 @@ const BookingDetailScreen = ({ navigation, route }) => {
                     ))}
                   </ScrollView>
                 )}
+
+                <TouchableOpacity
+                    style={clsx(
+                      styles.bgSuccess,
+                      styles.roundedLg,
+                      styles.p3,
+                      styles.itemsCenter,
+                      styles.justifyCenter,
+                      styles.mt3,
+                      uploadingMedia && styles.opacity50
+                    )}
+                    onPress={() => uploadCapturedMediaForItem(itemId, 'after')}
+                    disabled={uploadingMedia}
+                  >
+                    {uploadingMedia ? (
+                      <ActivityIndicator size="small" color={colors.white} />
+                    ) : (
+                      <>
+                        <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyCenter)}>
+                          <Icon name="cloud-upload" size={24} color={colors.white} style={clsx(styles.mr2)} />
+                          <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
+                            Upload All
+                          </Text>
+                        </View>
+                      </>
+                    )}
+                </TouchableOpacity>
                 
                 {/* Videos */}
                 {itemState.capturedAfterVideos?.length > 0 && (
@@ -1569,14 +1609,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
           </View>
         )}
         
-        {/* Message if after media section is not yet accessible */}
-        {!canUploadAfterMedia && currentStep < 3 && hasBeforeMedia && (
-          <View style={clsx(styles.p3, styles.bgInfoLight, styles.roundedLg)}>
-            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack, styles.textCenter)}>
-              After media can be uploaded after parts approval (if added) or after skipping parts selection.
-            </Text>
-          </View>
-        )}
       </View>
     );
   };
@@ -1824,7 +1856,8 @@ const BookingDetailScreen = ({ navigation, route }) => {
 
   // RENDER PARTS SELECTION BUTTON SECTION
   const renderPartsSelectionSection = () => {
-    if (!showPartsSelectionButton || isPartsApprovalInProgress()) return null;
+    // if ((!showPartsSelectionButton || isPartsApprovalInProgress()) && !isPartsRejected()) return null;
+    if (isPartsApprovalInProgress() && !isPartsRejected()) return null;
     
     return (
       <View style={clsx(styles.px4, styles.mt4)}>
@@ -1863,24 +1896,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
               </Text>
             </TouchableOpacity>
             
-            <TouchableOpacity
-              style={clsx(
-                styles.flex1,
-                styles.border,
-                styles.borderPrimary,
-                styles.bgWhite,
-                styles.roundedLg,
-                styles.p4,
-                styles.itemsCenter,
-                styles.justifyCenter,
-                styles.ml2
-              )}
-              onPress={skipPartsAndContinue}
-            >
-              <Text style={clsx(styles.textPrimary, styles.fontBold)}>
-                Skip Parts
-              </Text>
-            </TouchableOpacity>
+            
           </View>
         </View>
       </View>
@@ -2265,33 +2281,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
                 </View>
               </View>
               
-              {/* Upload Button Section */}
-              {showUploadButton && (
-                <TouchableOpacity
-                  style={clsx(
-                    styles.bgSuccess,
-                    styles.roundedLg,
-                    styles.p4,
-                    styles.itemsCenter,
-                    styles.justifyCenter,
-                    styles.mt3,
-                    uploadingMedia && styles.opacity50
-                  )}
-                  onPress={uploadAllCapturedMedia}
-                  disabled={uploadingMedia || isPartsPending()}
-                >
-                  {uploadingMedia ? (
-                    <ActivityIndicator size="small" color={colors.white} />
-                  ) : (
-                    <>
-                      <Icon name="cloud-upload" size={24} color={colors.white} style={clsx(styles.mr2)} />
-                      <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
-                        Upload All Captured Media ({mediaSummary.totalCaptured})
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              )}
+              
             </View>
           </View>
         </View>
@@ -2351,7 +2341,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
 
         {/* Parts Selection Section (Shows after all before media uploaded) */}
           
-        {(currentStep==2) && (
+        {(currentStep==2 || isPartsRejected()) && (
           renderPartsSelectionSection()
         )}
 
@@ -2367,33 +2357,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
             
             {bookingItems.map((item, index) => renderItemMediaSection(item, index))}
             
-            {/* Upload Button (if not shown above) */}
-            {showUploadButton && !isPartsPending() && (
-              <TouchableOpacity
-                style={clsx(
-                  styles.bgSuccess,
-                  styles.roundedLg,
-                  styles.p4,
-                  styles.itemsCenter,
-                  styles.justifyCenter,
-                  styles.mt4,
-                  uploadingMedia && styles.opacity50
-                )}
-                onPress={uploadAllCapturedMedia}
-                disabled={uploadingMedia || isPartsPending()}
-              >
-                {uploadingMedia ? (
-                  <ActivityIndicator size="small" color={colors.white} />
-                ) : (
-                  <>
-                    <Icon name="cloud-upload" size={24} color={colors.white} style={clsx(styles.mr2)} />
-                    <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
-                      Upload All Captured Media ({mediaSummary.totalCaptured})
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
+           
           </View>
         )}
 

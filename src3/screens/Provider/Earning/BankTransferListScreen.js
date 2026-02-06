@@ -373,7 +373,7 @@ const BankTransferListScreen = ({ navigation }) => {
           styles.mb3,
           styles.shadowSm
         )}
-        onPress={() => navigation.navigate('BankTransferDetail', { transfer: transfer.originalData })}
+        // onPress={() => navigation.navigate('BankTransferDetail', { transfer: transfer.originalData })}
         activeOpacity={0.7}
       >
         {/* Top Section - Transaction ID & Status */}
@@ -392,9 +392,9 @@ const BankTransferListScreen = ({ navigation }) => {
                 numberOfLines={1}>
                 {getPaymentModeLabel(transfer.paymentMode)}
               </Text>
-              <Text style={clsx(styles.textSm, styles.textMuted)}>
+              {/* <Text style={clsx(styles.textSm, styles.textMuted)}>
                 ID: {transfer.transactionId}
-              </Text>
+              </Text> */}
             </View>
           </View>
           <View style={clsx(
@@ -455,29 +455,6 @@ const BankTransferListScreen = ({ navigation }) => {
               {transfer.createdAt}
             </Text>
           </View>
-          
-          <TouchableOpacity 
-            style={clsx(
-              styles.flexRow,
-              styles.itemsCenter,
-              styles.px3,
-              styles.py2,
-              styles.border,
-              styles.borderPrimary,
-              styles.bgWhite,
-              styles.roundedFull
-            )}
-            onPress={(e) => {
-              e.stopPropagation();
-              navigation.navigate('BankTransferDetail', { transfer: transfer.originalData });
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={clsx(styles.textPrimary, styles.fontMedium, styles.mr1)}>
-              Details
-            </Text>
-            <Icon name="chevron-right" size={16} color={colors.primary} />
-          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
@@ -577,69 +554,13 @@ const BankTransferListScreen = ({ navigation }) => {
         showBack
         showNotification={false}
         type="white"
-        rightAction={true}
+        rightAction={false}
         rightActionIcon="filter-list"
         showProfile={false}
         onRightActionPress={() => setFilterModalVisible(true)}
       />
 
-      {/* Search Bar */}
-      <View style={clsx(styles.bgWhite, styles.px4, styles.py3)}>
-        <View style={clsx(
-          styles.bgGray50, 
-          styles.roundedLg, 
-          styles.px3, 
-          styles.py2, 
-          styles.flexRow, 
-          styles.itemsCenter
-        )}>
-          <Icon name="search" size={20} color={colors.textMuted} />
-          <TextInput
-            style={clsx(styles.flex1, styles.textBase, styles.textBlack, styles.ml2)}
-            placeholder="Search by transaction ID or amount..."
-            placeholderTextColor={colors.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-            keyboardType="numeric"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} style={clsx(styles.p1)}>
-              <Icon name="close" size={20} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {/* Status Tabs */}
-      <View style={clsx(styles.bgWhite, styles.px4, styles.py3, styles.shadowSm)}>
-        <Text style={clsx(styles.textSm, styles.fontMedium, styles.textMuted, styles.mb2)}>
-          Status
-        </Text>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={clsx(styles.pb2)}
-        >
-          {statusTabs.map((tab) => renderTabItem(tab, activeStatusTab, handleStatusTabChange))}
-        </ScrollView>
-      </View>
-
-      {/* Payment Mode Tabs */}
-      <View style={clsx(styles.bgWhite, styles.px4, styles.py3, styles.shadowSm)}>
-        <Text style={clsx(styles.textSm, styles.fontMedium, styles.textMuted, styles.mb2)}>
-          Payment Mode
-        </Text>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={clsx(styles.pb2)}
-        >
-          {paymentModeTabs.map((tab) => 
-            renderTabItem(tab, activePaymentModeTab, handlePaymentModeTabChange, false)
-          )}
-        </ScrollView>
-      </View>
+    
 
       {/* Transfers List */}
       <FlatList
@@ -657,7 +578,7 @@ const BankTransferListScreen = ({ navigation }) => {
         }
         contentContainerStyle={clsx(styles.px4, styles.py3)}
         ListEmptyComponent={
-          <View style={clsx(styles.itemsCenter, styles.justifyCenter, styles.py12, styles.px4)}>
+          <View style={clsx(styles.itemsCenter, styles.justifyCenter, styles.py6, styles.px4)}>
             <Icon name="account-balance" size={80} color={colors.gray300} />
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mt4, styles.textCenter)}>
               No bank transfers found
@@ -693,12 +614,7 @@ const BankTransferListScreen = ({ navigation }) => {
         ListHeaderComponent={
           transfers.length > 0 ? (
             <View style={clsx(styles.mb3)}>
-              <Text style={clsx(styles.textBase, styles.textMuted)}>
-                Showing {transfers.length} of {pagination.total} transfer{transfers.length !== 1 ? 's' : ''}
-              </Text>
-              <Text style={clsx(styles.textSm, styles.textMuted, styles.mt1)}>
-                Total Amount: ₹{transfers.reduce((sum, transfer) => sum + transfer.amount, 0).toFixed(2)}
-              </Text>
+              
               {(apiFilters.paymentStatus || apiFilters.paymentMode || apiFilters.search) && (
                 <TouchableOpacity
                   style={clsx(

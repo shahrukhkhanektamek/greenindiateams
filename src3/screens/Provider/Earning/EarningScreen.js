@@ -10,6 +10,7 @@ import {
   Dimensions,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { BarChart } from 'react-native-chart-kit';
 import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import Header from '../../../components/Common/Header';
@@ -26,10 +27,7 @@ const EarningScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [summaryData, setSummaryData] = useState(null);
-  const [chartType, setChartType] = useState('bar'); // 'bar' or 'line'
-  const screenWidth = Dimensions.get('window').width - 32;
-  const chartHeight = 200;
-  const barWidth = 28;
+  const screenWidth = Dimensions.get('window').width;
 
   // Fetch earnings summary data
   const fetchEarningsSummary = async () => {
@@ -80,29 +78,12 @@ const EarningScreen = ({ navigation }) => {
   const formatCurrency = (amount) => {
     if (!amount || isNaN(amount)) return '₹0';
     
-    if (amount >= 100000) {
-      return `₹${(amount / 100000).toFixed(1)}L`;
-    } else if (amount >= 1000) {
-      return `₹${(amount / 1000).toFixed(1)}k`;
-    }
-    
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     }).format(amount);
-  };
-
-  const formatShortCurrency = (amount) => {
-    if (!amount || isNaN(amount)) return '₹0';
-    
-    if (amount >= 100000) {
-      return `₹${(amount / 100000).toFixed(0)}L`;
-    } else if (amount >= 1000) {
-      return `₹${(amount / 1000).toFixed(0)}k`;
-    }
-    return `₹${amount}`;
   };
 
   const formatDate = (dateString) => {
@@ -160,477 +141,213 @@ const EarningScreen = ({ navigation }) => {
     }
   };
 
-  const renderCustomBarChart = () => {
-    if (!summaryData?.monthWiseEarning) return null;
-
-    const monthData = summaryData.monthWiseEarning;
-    const maxAmount = Math.max(...monthData.map(item => item.amount));
-    const scaleFactor = chartHeight / (maxAmount || 1);
-
-    return (
-      <View style={clsx(styles.mt4)}>
-        {/* Y-axis labels */}
-        <View style={clsx(styles.absolute, styles.left0, styles.top0, styles.bottom0, styles.w10, styles.justifyBetween)}>
-          {[100, 75, 50, 25, 0].map((percent, index) => (
-            <View key={index} style={clsx(styles.flexRow, styles.itemsCenter)}>
-              <Text style={clsx(styles.textXs, styles.textMuted)}>
-                {formatShortCurrency((percent / 100) * maxAmount)}
-              </Text>
-              <View style={clsx(styles.h1, styles.w4, styles.bgGrayLight, styles.ml1)} />
-            </View>
-          ))}
-        </View>
-
-        {/* Bars and X-axis */}
-        <View style={clsx(styles.ml10, styles.pb6)}>
-          {/* Bars */}
-          <View style={clsx(styles.flexRow, styles.itemsEnd, styles.h48)}>
-            {monthData.map((item, index) => {
-              const barHeight = (item.amount * scaleFactor) || 1;
-              return (
-                <View 
-                  key={index} 
-                  style={clsx(
-                    styles.mx1, 
-                    styles.relative,
-                    styles.itemsCenter,
-                    { flex: 1 }
-                  )}
-                >
-                  {/* Bar */}
-                  <View 
-                    style={[
-                      clsx(
-                        styles.bgPrimary, 
-                        styles.roundedT, 
-                        styles.wFull,
-                        styles.minH1,
-                        styles.relative
-                      ),
-                      { height: barHeight }
-                    ]}
-                  >
-                    {/* Bar value on hover/tap */}
-                    <TouchableOpacity
-                      style={clsx(styles.absolute, styles.bottomFull, styles.left0, styles.right0)}
-                    >
-                      <View style={clsx(
-                        styles.bgBlack, 
-                        styles.px2, 
-                        styles.py1, 
-                        styles.roundedSm,
-                        styles.mb1,
-                        styles.itemsCenter
-                      )}>
-                        <Text style={clsx(styles.textXs, styles.textWhite, styles.fontBold)}>
-                          {formatCurrency(item.amount)}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-                  
-                  {/* X-axis label */}
-                  <Text style={clsx(styles.textXs, styles.textMuted, styles.mt2, styles.textCenter)}>
-                    {getMonthShortName(item.month)}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-          
-          {/* X-axis line */}
-          <View style={clsx(styles.h1, styles.bgGrayLight, styles.mt2)} />
-        </View>
-      </View>
-    );
-  };
-
-  const renderCustomLineChart = () => {
-    if (!summaryData?.monthWiseEarning) return null;
-
-    const monthData = summaryData.monthWiseEarning;
-    const maxAmount = Math.max(...monthData.map(item => item.amount));
-    const scaleFactor = chartHeight / (maxAmount || 1);
-    const totalWidth = screenWidth - 40;
-    const pointSpacing = totalWidth / (monthData.length - 1);
-
-    // Calculate points for line
-    const points = monthData.map((item, index) => ({
-      x: index * pointSpacing + (barWidth / 2),
-      y: chartHeight - (item.amount * scaleFactor),
-      amount: item.amount
-    }));
-
-    // Create SVG-like line path (using View with border)
-    return (
-      <View style={clsx(styles.mt4)}>
-        {/* Y-axis labels */}
-        <View style={clsx(styles.absolute, styles.left0, styles.top0, styles.bottom0, styles.w10, styles.justifyBetween)}>
-          {[100, 75, 50, 25, 0].map((percent, index) => (
-            <View key={index} style={clsx(styles.flexRow, styles.itemsCenter)}>
-              <Text style={clsx(styles.textXs, styles.textMuted)}>
-                {formatShortCurrency((percent / 100) * maxAmount)}
-              </Text>
-              <View style={clsx(styles.h1, styles.w4, styles.bgGrayLight, styles.ml1)} />
-            </View>
-          ))}
-        </View>
-
-        {/* Chart area */}
-        <View style={clsx(styles.ml10, styles.pb6, styles.h48)}>
-          {/* Grid lines */}
-          <View style={clsx(styles.absolute, styles.top0, styles.bottom0, styles.right0, styles.left0)}>
-            {[0, 25, 50, 75, 100].map((percent, index) => (
-              <View 
-                key={index}
-                style={[
-                  clsx(styles.absolute, styles.left0, styles.right0, styles.h1, styles.bgGrayLight),
-                  { top: `${percent}%` }
-                ]}
-              />
-            ))}
-          </View>
-
-          {/* Line connecting points */}
-          <View style={clsx(styles.absolute, styles.top0, styles.bottom0, styles.right0, styles.left0)}>
-            {points.map((point, index) => {
-              if (index < points.length - 1) {
-                const nextPoint = points[index + 1];
-                const angle = Math.atan2(nextPoint.y - point.y, nextPoint.x - point.x) * (180 / Math.PI);
-                const length = Math.sqrt(
-                  Math.pow(nextPoint.x - point.x, 2) + 
-                  Math.pow(nextPoint.y - point.y, 2)
-                );
-                
-                return (
-                  <View
-                    key={`line-${index}`}
-                    style={[
-                      clsx(styles.absolute, styles.bgPrimary, styles.h1),
-                      {
-                        left: point.x,
-                        top: point.y,
-                        width: length,
-                        transform: [{ rotate: `${angle}deg` }],
-                        transformOrigin: '0 0',
-                      }
-                    ]}
-                  />
-                );
-              }
-              return null;
-            })}
-          </View>
-
-          {/* Data points */}
-          <View style={clsx(styles.absolute, styles.top0, styles.bottom0, styles.right0, styles.left0)}>
-            {points.map((point, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  clsx(
-                    styles.absolute, 
-                    styles.bgWhite, 
-                    styles.border2, 
-                    styles.borderPrimary, 
-                    styles.roundedFull,
-                    styles.itemsCenter,
-                    styles.justifyCenter
-                  ),
-                  {
-                    left: point.x - 8,
-                    top: point.y - 8,
-                    width: 16,
-                    height: 16,
-                  }
-                ]}
-              >
-                <View style={clsx(styles.bgPrimary, styles.roundedFull, styles.w2, styles.h2)} />
-                
-                {/* Tooltip on press */}
-                <View style={clsx(
-                  styles.absolute, 
-                  styles.bottomFull, 
-                  styles.mb2,
-                  styles.bgBlack, 
-                  styles.px2, 
-                  styles.py1, 
-                  styles.roundedSm,
-                  styles.itemsCenter
-                )}>
-                  <Text style={clsx(styles.textXs, styles.textWhite, styles.fontBold)}>
-                    {formatCurrency(point.amount)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* X-axis labels */}
-          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mtAuto)}>
-            {monthData.map((item, index) => (
-              <Text 
-                key={index} 
-                style={[
-                  clsx(styles.textXs, styles.textMuted),
-                  { width: pointSpacing, textAlign: 'center' }
-                ]}
-              >
-                {getMonthShortName(item.month)}
-              </Text>
-            ))}
-          </View>
-        </View>
-
-        {/* X-axis line */}
-        <View style={clsx(styles.h1, styles.bgGrayLight, styles.mt2)} />
-      </View>
-    );
-  };
-
   const renderChart = () => {
     if (!summaryData?.monthWiseEarning) return null;
 
+    // Get current month index (0-based)
+    const currentMonthIndex = new Date().getMonth();
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                       'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    // Get current month and previous 3 months (total 4 months)
+    const lastFourMonths = [];
+    for (let i = 3; i >= 0; i--) {
+      const monthIndex = (currentMonthIndex - i + 12) % 12;
+      const monthName = monthNames[monthIndex];
+      const monthData = summaryData.monthWiseEarning.find(
+        item => item.month === monthName
+      );
+      lastFourMonths.push({
+        month: monthName,
+        amount: monthData?.amount || 0
+      });
+    }
+
+    // Prepare chart data
+    const monthLabels = lastFourMonths.map(item => 
+      getMonthShortName(item.month)
+    );
+    
+    const earningsData = lastFourMonths.map(item => item.amount);
+
+    const hexToRgb = (hex) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? 
+      `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` 
+      : '46, 125, 50'; // Default to primary color RGB
+  };
+
+  const primaryRgb = hexToRgb(colors.primary);
+
+    // Chart configuration - Remove left Y-axis labels
+    const chartConfig = {
+      backgroundColor: colors.white,
+      backgroundGradientFrom: colors.white,
+      backgroundGradientTo: colors.white,
+      decimalPlaces: 0,
+      color: (opacity = 1) => `rgba(${primaryRgb || '30, 136, 229'}, ${opacity})`,
+      labelColor: (opacity = 1) => colors.textMuted,
+      style: {
+        borderRadius: 16,
+      },
+      propsForDots: {
+        r: '6',
+        strokeWidth: '2',
+        stroke: colors.primary,
+      },
+      propsForBackgroundLines: {
+        strokeDasharray: '',
+        stroke: colors.grayLight,
+      },
+      fillShadowGradient: colors.primary,
+      fillShadowGradientOpacity: 0.1,
+      formatYLabel: () => '', // Empty string to hide Y-axis labels
+      propsForVerticalLabels: {
+        fontSize: 11,
+      },
+      propsForHorizontalLabels: {
+        fontSize: 0, // Hide horizontal labels (Y-axis)
+      },
+    };
+
+    const data = {
+      labels: monthLabels,
+      datasets: [{
+        data: earningsData,
+      }]
+    };
+
+    const chartWidth = screenWidth - 48;
+
     return (
       <View style={clsx(styles.mb6)}>
-        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4)}>
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
-            Monthly Earnings Trend
-          </Text>
-          
-          <View style={clsx(styles.flexRow, styles.bgGrayLight, styles.roundedFull, styles.p1)}>
-            <TouchableOpacity
-              onPress={() => setChartType('bar')}
-              style={clsx(
-                styles.px3,
-                styles.py1,
-                chartType === 'bar' ? styles.bgPrimary : null,
-                styles.roundedFull
-              )}
-            >
-              <Icon 
-                name="bar-chart" 
-                size={18} 
-                color={chartType === 'bar' ? colors.white : colors.textMuted} 
-              />
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              onPress={() => setChartType('line')}
-              style={clsx(
-                styles.px3,
-                styles.py1,
-                chartType === 'line' ? styles.bgPrimary : null,
-                styles.roundedFull
-              )}
-            >
-              <Icon 
-                name="show-chart" 
-                size={18} 
-                color={chartType === 'line' ? colors.white : colors.textMuted} 
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
+        <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb4)}>
+          Last 4 Months Earnings
+        </Text>
 
         <View style={clsx(
           styles.bgWhite, 
           styles.p4, 
           styles.roundedLg, 
           styles.shadowSm,
-          styles.relative
+          styles.itemsCenter
         )}>
-          {/* Chart Type */}
-          {chartType === 'bar' ? renderCustomBarChart() : renderCustomLineChart()}
-
-          {/* Legend */}
-          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween, styles.mt6)}>
-            <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-              <View 
-                style={clsx(
-                  styles.w4, 
-                  styles.h4, 
-                  chartType === 'bar' ? styles.bgPrimary : styles.border2, 
-                  chartType === 'bar' ? null : styles.borderPrimary,
-                  styles.roundedSm,
-                  styles.mr2
-                )} 
-              />
-              <Text style={clsx(styles.textSm, styles.textMuted)}>
-                Monthly Earnings
-              </Text>
-            </View>
-            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
-              Total: {formatCurrency(summaryData.totals?.totalEarningAmount || 0)}
-            </Text>
-          </View>
-
-          {/* Statistics */}
-          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mt4, styles.pt4, styles.borderT, styles.borderGrayLight)}>
-            <View style={clsx(styles.itemsCenter)}>
-              <Text style={clsx(styles.textXs, styles.textMuted)}>Highest</Text>
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textSuccess)}>
-                {formatCurrency(Math.max(...summaryData.monthWiseEarning.map(item => item.amount)))}
-              </Text>
-            </View>
-            <View style={clsx(styles.itemsCenter)}>
-              <Text style={clsx(styles.textXs, styles.textMuted)}>Average</Text>
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
-                {formatCurrency(
-                  summaryData.monthWiseEarning.reduce((sum, item) => sum + item.amount, 0) / 
-                  summaryData.monthWiseEarning.length
-                )}
-              </Text>
-            </View>
-            <View style={clsx(styles.itemsCenter)}>
-              <Text style={clsx(styles.textXs, styles.textMuted)}>This Month</Text>
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textInfo)}>
-                {formatCurrency(summaryData.totals?.thisMonthEarningAmount || 0)}
-              </Text>
-            </View>
-          </View>
+          <BarChart
+          data={data}
+          width={chartWidth + 20} // Add extra width to push content
+          height={220}
+          chartConfig={chartConfig}
+          verticalLabelRotation={0}
+          fromZero={true}
+          showValuesOnTopOfBars={true}
+          withInnerLines={false}
+          withHorizontalLabels={false} // Completely disable horizontal labels
+          withVerticalLabels={true}
+          style={{
+            marginVertical: 8,
+            borderRadius: 16,
+            marginLeft: -60, // Negative margin to remove left space
+            paddingLeft: 0,
+          }}
+          yAxisLabel=""
+          yAxisSuffix=""
+          xAxisLabel=""
+          segments={4}
+          yLabelsOffset={0}
+          xLabelsOffset={-10}
+        />
         </View>
-      </View>
-    );
-  };
-
-  const renderMonthWiseEarnings = () => {
-    if (!summaryData?.monthWiseEarning) return null;
-
-    const currentMonthIndex = new Date().getMonth();
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
-    // Get last 6 months including current
-    const recentMonths = [];
-    for (let i = 5; i >= 0; i--) {
-      const monthIndex = (currentMonthIndex - i + 12) % 12;
-      const monthData = summaryData.monthWiseEarning.find(
-        item => getMonthShortName(item.month) === months[monthIndex]
-      );
-      recentMonths.push({
-        name: months[monthIndex],
-        amount: monthData?.amount || 0,
-        fullMonth: monthData?.month || ''
-      });
-    }
-
-    return (
-      <View style={clsx(styles.mb6)}>
-        <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb4)}>
-          Last 6 Months
-        </Text>
-        
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={clsx(styles.mb4)}
-        >
-          {recentMonths.map((month, index) => (
-            <TouchableOpacity
-              key={index} 
-              style={clsx(
-                styles.mr3, 
-                styles.p3, 
-                styles.bgWhite, 
-                styles.roundedLg, 
-                styles.shadowSm,
-                styles.minW24,
-                styles.itemsCenter,
-                month.amount > 0 ? styles.border2 : null,
-                month.amount > 0 ? styles.borderPrimary : null
-              )}
-            >
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary, styles.mb1)}>
-                {month.name}
-              </Text>
-              <Text style={clsx(
-                styles.textSm, 
-                styles.fontMedium, 
-                month.amount > 0 ? styles.textSuccess : styles.textMuted
-              )}>
-                {formatCurrency(month.amount)}
-              </Text>
-              {month.amount > 0 && (
-                <View style={clsx(styles.bgSuccess, styles.px2, styles.py1, styles.roundedFull, styles.mt2)}>
-                  <Icon name="trending-up" size={12} color={colors.white} />
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
       </View>
     );
   };
 
   const renderBankTransfers = () => {
-    if (!summaryData?.bankTransfer || summaryData.bankTransfer.length === 0) {
-      return (
-        <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm, styles.mb4)}>
-          <Text style={clsx(styles.textBase, styles.fontMedium, styles.textMuted, styles.textCenter)}>
-            No bank transfers found
-          </Text>
-        </View>
-      );
-    }
-
+  if (!summaryData?.bankTransfer || summaryData.bankTransfer.length === 0) {
     return (
-      <View style={clsx(styles.mb6)}>
-        <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb4)}>
-          Bank transfers
+      <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm, styles.mb4)}>
+        <Text style={clsx(styles.textBase, styles.fontMedium, styles.textMuted, styles.textCenter)}>
+          No bank transfers found
         </Text>
-        
-        {summaryData.bankTransfer.map((transfer, index) => (
-          <View 
-            key={transfer._id || index} 
-            style={clsx(
-              styles.bgWhite, 
-              styles.p4, 
-              styles.roundedLg, 
-              styles.shadowSm, 
-              styles.mb3
-            )}
-          >
-            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb2)}>
-              <Text style={clsx(styles.text2xl, styles.fontBold, styles.textBlack)}>
-                {formatCurrency(transfer.amount)}
-              </Text>
-              <View style={clsx(
-                styles.px3, 
-                styles.py1, 
-                styles.roundedFull, 
-                getStatusBg(transfer.paymentStatus)
-              )}>
-                <Text style={clsx(
-                  styles.textXs, 
-                  styles.fontMedium, 
-                  getStatusColor(transfer.paymentStatus)
-                )}>
-                  {transfer.paymentStatus?.toUpperCase() || 'PENDING'}
-                </Text>
-              </View>
-            </View>
-            
-            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
-              <Icon name="calendar-today" size={16} color={colors.textMuted} style={clsx(styles.mr2)} />
-              <Text style={clsx(styles.textSm, styles.textMuted)}>
-                {formatDate(transfer.fromDate)} - {formatDate(transfer.toDate)}
-              </Text>
-            </View>
-            
-            {transfer.paymentMode && (
-              <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-                <Icon name="payment" size={16} color={colors.textMuted} style={clsx(styles.mr2)} />
-                <Text style={clsx(styles.textSm, styles.textMuted)}>
-                  {transfer.paymentMode?.toUpperCase()} Transfer
-                </Text>
-              </View>
-            )}
-          </View>
-        ))}
       </View>
     );
-  };
+  }
+
+  return (
+    <View style={clsx(styles.mb6)}>
+      <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4)}>
+        <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
+          Recent Bank Transfers
+        </Text>
+        
+        <TouchableOpacity
+          onPress={() => navigate('BankTransferListScreen')}
+          style={clsx(
+            styles.flexRow,
+            styles.itemsCenter,
+            styles.px3,
+            styles.py2,
+            styles.bgPrimaryLight,
+            styles.roundedFull
+          )}
+        >
+          <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary, styles.mr1)}>
+            View All
+          </Text>
+          <Icon name="arrow-forward" size={16} color={colors.primary} />
+        </TouchableOpacity>
+      </View>
+      
+      {summaryData.bankTransfer.slice(0, 2).map((transfer, index) => (
+        <View 
+          key={transfer._id || index} 
+          style={clsx(
+            styles.bgWhite, 
+            styles.p4, 
+            styles.roundedLg, 
+            styles.shadowSm, 
+            styles.mb3
+          )}
+        >
+          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb2)}>
+            <Text style={clsx(styles.text2xl, styles.fontBold, styles.textBlack)}>
+              {formatCurrency(transfer.amount)}
+            </Text>
+            <View style={clsx(
+              styles.px3, 
+              styles.py1, 
+              styles.roundedFull, 
+              getStatusBg(transfer.paymentStatus)
+            )}>
+              <Text style={clsx(
+                styles.textXs, 
+                styles.fontMedium, 
+                getStatusColor(transfer.paymentStatus)
+              )}>
+                {transfer.paymentStatus?.toUpperCase() || 'PENDING'}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
+            <Icon name="calendar-today" size={16} color={colors.textMuted} style={clsx(styles.mr2)} />
+            <Text style={clsx(styles.textSm, styles.textMuted)}>
+              {formatDate(transfer.fromDate)} - {formatDate(transfer.toDate)}
+            </Text>
+          </View>
+          
+          {transfer.paymentMode && (
+            <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+              <Icon name="payment" size={16} color={colors.textMuted} style={clsx(styles.mr2)} />
+              <Text style={clsx(styles.textSm, styles.textMuted)}>
+                {transfer.paymentMode?.toUpperCase()} Transfer
+              </Text>
+            </View>
+          )}
+        </View>
+      ))}
+    </View>
+  );
+};
 
   const renderSummaryCards = () => {
     if (!summaryData?.totals) return null;
@@ -660,7 +377,7 @@ const EarningScreen = ({ navigation }) => {
             styles.bgSuccessLight, 
             styles.p3, 
             styles.roundedLg, 
-            styles.flexBasis48,
+            styles.w45,
             styles.mb3
           )}>
             <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb1)}>
@@ -679,7 +396,7 @@ const EarningScreen = ({ navigation }) => {
             styles.bgWarningLight, 
             styles.p3, 
             styles.roundedLg, 
-            styles.flexBasis48,
+            styles.w45,
             styles.mb3
           )}>
             <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb1)}>
@@ -698,7 +415,7 @@ const EarningScreen = ({ navigation }) => {
             styles.bgInfoLight, 
             styles.p3, 
             styles.roundedLg, 
-            styles.flexBasis48,
+            styles.w45,
             styles.mb3
           )}>
             <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb1)}>
@@ -717,7 +434,7 @@ const EarningScreen = ({ navigation }) => {
             styles.bgPrimaryLight, 
             styles.p3, 
             styles.roundedLg, 
-            styles.flexBasis48,
+            styles.w45,
             styles.mb3
           )}>
             <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb1)}>
@@ -730,6 +447,26 @@ const EarningScreen = ({ navigation }) => {
               {formatCurrency(totals.lastThreeMonthEarningAmount)}
             </Text>
           </View>
+
+          {/* Pending Deducrtion */}
+          <View style={clsx(
+            styles.bgPrimary, 
+            styles.p3, 
+            styles.roundedLg, 
+            styles.w12_12,
+            styles.mb3
+          )}>
+            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb1)}>
+              <Icon name="trending-up" size={16} color={colors.white} style={clsx(styles.mr2)} />
+              <Text style={clsx(styles.textSm, styles.fontMedium, styles.textWhite)}>
+                Pending Deduction
+              </Text>
+            </View>
+            <Text style={clsx(styles.textBase, styles.fontBold, styles.textWhite)}>
+              {formatCurrency(totals.cashCollectedSubmitPending)}
+            </Text>
+          </View>
+
         </View>
       </View>
     );
@@ -749,7 +486,7 @@ const EarningScreen = ({ navigation }) => {
   return (
     <View style={clsx(styles.flex1, styles.bgSurface)}>
       <Header
-        title="Money"
+        title="Earnings"
         showBack
         showNotification={false}
         type="white"
@@ -779,9 +516,6 @@ const EarningScreen = ({ navigation }) => {
 
         {/* Chart Section */}
         {renderChart()}
-
-        {/* Earned this month section */}
-        {renderMonthWiseEarnings()}
 
         {/* Bank transfers section */}
         {renderBankTransfers()}

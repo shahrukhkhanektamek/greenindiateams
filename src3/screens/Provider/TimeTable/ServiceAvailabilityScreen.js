@@ -289,7 +289,7 @@ const ServiceAvailabilityScreen = () => {
       allSlots.push({
         date: day.date,
         times: times,
-        _id: day.scheduleId // Include existing schedule ID for updates
+        // _id: day.scheduleId // Include existing schedule ID for updates
       });
     });
     

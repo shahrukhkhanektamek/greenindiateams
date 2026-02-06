@@ -299,7 +299,7 @@ const ServiceItemTabContent = memo(({
             placeholderTextColor={colors.gray500}
             returnKeyType="search"
             onSubmitEditing={() => handleSearchSubmit(serviceItem.id)}
-            blurOnSubmit={false}
+            blurOnSubmit={true}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity 
@@ -375,7 +375,7 @@ const ServiceItemTabContent = memo(({
       ) : filteredRateGroups.length > 0 ? (
         <ScrollView 
           showsVerticalScrollIndicator={false}
-          style={clsx(styles.maxH96)}
+          style={[clsx(styles.maxH96), {marginBottom:50}]}
         >
           {filteredRateGroups.map((group, index) => (
             <RateGroupSection
@@ -810,6 +810,8 @@ const PartsSelectionScreen = ({ navigation, route }) => {
           description: part.description,
           unitPrice: part.unitPrice,
           quantity: quantity,
+          discount: part.discountPrice || 0,
+          price: part.price || part.originalPrice || 0,
           labourCharge: part.labourCharge,
           totalPrice: part.unitPrice * quantity,
           groupTitle: part.groupTitle
@@ -1051,7 +1053,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
-        style={clsx(styles.bgWhite, styles.borderBottom, styles.borderGray300)}
+        style={clsx(styles.bgWhite, styles.borderBottom, styles.borderGray)}
       >
         <View style={clsx(styles.flexRow)}>
           {serviceItems.map((item, index) => (
@@ -1061,6 +1063,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
               style={clsx(
                 styles.px4,
                 styles.py3,
+                index === activeTab ? styles.bgGray : styles.bgWhite,
                 styles.borderBottom2,
                 index === activeTab ? styles.borderPrimary : styles.borderTransparent
               )}

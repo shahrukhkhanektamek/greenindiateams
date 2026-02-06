@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   View,
   Text,
@@ -226,11 +226,12 @@ const WalletScreen = ({ navigation }) => {
     fetchWalletData();
   };
 
-  const handleLoadMore = () => {
-    if (pagination.hasNextPage && !loadingMore) {
+  // Auto load more when scrolling
+  const handleEndReached = useCallback(() => {
+    if (pagination.hasNextPage && !loadingMore && !loading && !refreshing) {
       fetchWalletData(true);
     }
-  };
+  }, [pagination.hasNextPage, loadingMore, loading, refreshing]);
 
   useEffect(() => {
     fetchWalletData();
@@ -401,26 +402,7 @@ const WalletScreen = ({ navigation }) => {
       );
     }
 
-    return (
-      <TouchableOpacity
-        style={clsx(
-          styles.py3,
-          styles.itemsCenter,
-          styles.bgWhite,
-          styles.roundedLg,
-          styles.mt2,
-          styles.shadowSm
-        )}
-        onPress={handleLoadMore}
-      >
-        <Text style={clsx(styles.textBase, styles.fontMedium, styles.textPrimary)}>
-          Load More Transactions
-        </Text>
-        <Text style={clsx(styles.textXs, styles.textMuted, styles.mt1)}>
-          Showing {transactions.length} of {pagination.total}
-        </Text>
-      </TouchableOpacity>
-    );
+    return null; // Remove Load More button
   };
 
   if (loading && !refreshing) {
@@ -447,8 +429,14 @@ const WalletScreen = ({ navigation }) => {
         onRightActionPress={() => navigation.navigate('Settings')}
       />
 
-      <ScrollView 
+      {/* Replace ScrollView with SectionList for infinite scroll */}
+      <SectionList
+        sections={transactions.length > 0 ? groupTransactionsByDate() : []}
+        keyExtractor={(item) => item._id}
+        renderItem={renderTransactionItem}
+        renderSectionHeader={renderSectionHeader}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={clsx(styles.px4, styles.pb6, styles.pt2)}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -457,174 +445,163 @@ const WalletScreen = ({ navigation }) => {
             tintColor={colors.primary}
           />
         }
-        contentContainerStyle={clsx(styles.px4, styles.pb6, styles.pt2)}
-      >
-
-        {/* Wallet Balance Summary */}
-        <View style={clsx(styles.mb6)}>
-          <View style={clsx(styles.bgPrimary, styles.p4, styles.roundedLg, styles.shadowSm)}>
-            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween, styles.mb4)}>
-              <View>
-                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textWhite)}>
-                  Credit Points
-                </Text>
-                <Text style={clsx(styles.text3xl, styles.fontBold, styles.textWhite)}>
-                  {walletSummary.totalCreditPoints || 0}
-                </Text>
-              </View>
-              
-              <TouchableOpacity
-                style={clsx(
-                  styles.flexRow,
-                  styles.itemsCenter,
-                  styles.px4,
-                  styles.py2,
-                  styles.bgWhite,
-                  styles.roundedFull,
-                  styles.shadowSm
-                )}
-                onPress={handleAddCredit}
-              >
-                <Icon name="add" size={20} color={colors.primary} style={clsx(styles.mr2)} />
-                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textPrimary)}>
-                  Add Point
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        {/* Filters */}
-        <View style={clsx(styles.mb6)}>
-          <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm)}>
-            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb3)}>
-              Filter by Type
-            </Text>
-            
-            <View style={clsx(styles.flexRow, styles.flexWrap)}>
-              {[
-                { key: 'all', label: 'All', icon: 'list' },
-                { key: 'Credit', label: 'Credits', icon: 'add-circle' },
-                { key: 'Debit', label: 'Debits', icon: 'remove-circle' },
-              ].map((item) => (
-                <TouchableOpacity
-                  key={item.key}
-                  style={clsx(
-                    styles.px3,
-                    styles.py2,
-                    styles.mr2,
-                    styles.mb2,
-                    styles.roundedFull,
-                    filter === item.key ? styles.bgPrimary : styles.bgGray
-                  )}
-                  onPress={() => setFilter(item.key)}
-                >
-                  <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-                    <Icon 
-                      name={item.icon} 
-                      size={16} 
-                      color={filter === item.key ? colors.white : colors.text}
-                      style={clsx(styles.mr1)}
-                    />
-                    <Text style={clsx(
-                      styles.textSm,
-                      styles.fontMedium,
-                      filter === item.key ? styles.textWhite : styles.textBlack
-                    )}>
-                      {item.label}
+        // Infinite scroll props
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.5} // Load more when 50% from the end
+        ListHeaderComponent={
+          <>
+            {/* Wallet Balance Summary */}
+            <View style={clsx(styles.mb6)}>
+              <View style={clsx(styles.bgPrimary, styles.p4, styles.roundedLg, styles.shadowSm)}>
+                <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween, styles.mb4)}>
+                  <View>
+                    <Text style={clsx(styles.textBase, styles.fontMedium, styles.textWhite)}>
+                      Credit Points
+                    </Text>
+                    <Text style={clsx(styles.text3xl, styles.fontBold, styles.textWhite)}>
+                      {walletSummary.totalCreditPoints || 0}
                     </Text>
                   </View>
-                </TouchableOpacity>
-              ))}
+                  
+                  <TouchableOpacity
+                    style={clsx(
+                      styles.flexRow,
+                      styles.itemsCenter,
+                      styles.px4,
+                      styles.py2,
+                      styles.bgWhite,
+                      styles.roundedFull,
+                      styles.shadowSm
+                    )}
+                    onPress={handleAddCredit}
+                  >
+                    <Icon name="add" size={20} color={colors.primary} style={clsx(styles.mr2)} />
+                    <Text style={clsx(styles.textBase, styles.fontMedium, styles.textPrimary)}>
+                      Add Point
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
 
-            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mt4, styles.mb3)}>
-              Filter by Period
-            </Text>
-            
-            <View style={clsx(styles.flexRow, styles.flexWrap)}>
-              {[
-                { key: 'all', label: 'All Time' },
-                { key: 'today', label: 'Today' },
-                { key: 'this week', label: 'Week' },
-                { key: 'this month', label: 'Month' },
-              ].map((item) => (
-                <TouchableOpacity
-                  key={item.key}
-                  style={clsx(
-                    styles.px3,
-                    styles.py2,
-                    styles.mr2,
-                    styles.mb2,
-                    styles.roundedFull,
-                    selectedPeriod === item.key ? styles.bgSecondary : styles.bgGray
-                  )}
-                  onPress={() => setSelectedPeriod(item.key)}
-                >
-                  <Text style={clsx(
-                    styles.textSm,
-                    styles.fontMedium,
-                    selectedPeriod === item.key ? styles.textWhite : styles.textBlack
-                  )}>
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </View>
-
-        {/* Transactions List */}
-        <View>
-          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb3)}>
-            <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
-              Recent Transactions ({pagination.total})
-            </Text>
-            <Text style={clsx(styles.textSm, styles.textMuted)}>
-              Page {pagination.page} of {pagination.totalPages}
-            </Text>
-          </View>
-
-          {transactions.length === 0 ? (
-            <View style={clsx(styles.bgWhite, styles.p6, styles.roundedLg, styles.itemsCenter)}>
-              <Icon name="receipt-long" size={48} color={colors.textMuted} />
-              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textMuted, styles.mt3, styles.mb-2)}>
-                No transactions found
-              </Text>
-              <Text style={clsx(styles.textSm, styles.textMuted, styles.textCenter)}>
-                {filter !== 'all' ? `No ${filter} transactions` : 'No transactions for selected period'}
-              </Text>
-              <TouchableOpacity
-                style={clsx(styles.mt4, styles.px4, styles.py2, styles.bgPrimary, styles.roundedFull)}
-                onPress={() => {
-                  setFilter('all');
-                  setSelectedPeriod('all');
-                }}
-              >
-                <Text style={clsx(styles.textSm, styles.fontMedium, styles.textWhite)}>
-                  Clear Filters
+            {/* Filters */}
+            <View style={clsx(styles.mb6)}>
+              <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm)}>
+                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb3)}>
+                  Filter by Type
                 </Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              <SectionList
-                sections={groupTransactionsByDate()}
-                keyExtractor={(item) => item._id}
-                renderItem={renderTransactionItem}
-                renderSectionHeader={renderSectionHeader}
-                scrollEnabled={false}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={clsx(styles.pb2)}
-              />
-              
-              {/* Load More Footer */}
-              {renderFooter()}
-            </>
-          )}
-        </View>
+                
+                <View style={clsx(styles.flexRow, styles.flexWrap)}>
+                  {[
+                    { key: 'all', label: 'All', icon: 'list' },
+                    { key: 'Credit', label: 'Credits', icon: 'add-circle' },
+                    { key: 'Debit', label: 'Debits', icon: 'remove-circle' },
+                  ].map((item) => (
+                    <TouchableOpacity
+                      key={item.key}
+                      style={clsx(
+                        styles.px3,
+                        styles.py2,
+                        styles.mr2,
+                        styles.mb2,
+                        styles.roundedFull,
+                        filter === item.key ? styles.bgPrimary : styles.bgGray
+                      )}
+                      onPress={() => setFilter(item.key)}
+                    >
+                      <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+                        <Icon 
+                          name={item.icon} 
+                          size={16} 
+                          color={filter === item.key ? colors.white : colors.text}
+                          style={clsx(styles.mr1)}
+                        />
+                        <Text style={clsx(
+                          styles.textSm,
+                          styles.fontMedium,
+                          filter === item.key ? styles.textWhite : styles.textBlack
+                        )}>
+                          {item.label}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-      </ScrollView>
+                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mt4, styles.mb3)}>
+                  Filter by Period
+                </Text>
+                
+                <View style={clsx(styles.flexRow, styles.flexWrap)}>
+                  {[
+                    { key: 'all', label: 'All Time' },
+                    { key: 'today', label: 'Today' },
+                    { key: 'this week', label: 'Week' },
+                    { key: 'this month', label: 'Month' },
+                  ].map((item) => (
+                    <TouchableOpacity
+                      key={item.key}
+                      style={clsx(
+                        styles.px3,
+                        styles.py2,
+                        styles.mr2,
+                        styles.mb2,
+                        styles.roundedFull,
+                        selectedPeriod === item.key ? styles.bgSecondary : styles.bgGray
+                      )}
+                      onPress={() => setSelectedPeriod(item.key)}
+                    >
+                      <Text style={clsx(
+                        styles.textSm,
+                        styles.fontMedium,
+                        selectedPeriod === item.key ? styles.textWhite : styles.textBlack
+                      )}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            {/* Transactions Header */}
+            <View style={clsx(styles.mb3)}>
+              <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
+                <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
+                  Recent Transactions ({pagination.total})
+                </Text>
+                <Text style={clsx(styles.textSm, styles.textMuted)}>
+                  Page {pagination.page} of {pagination.totalPages}
+                </Text>
+              </View>
+            </View>
+          </>
+        }
+        ListEmptyComponent={
+          <View style={clsx(styles.bgWhite, styles.p6, styles.roundedLg, styles.itemsCenter)}>
+            <Icon name="receipt-long" size={48} color={colors.textMuted} />
+            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textMuted, styles.mt3, styles.mb2)}>
+              No transactions found
+            </Text>
+            <Text style={clsx(styles.textSm, styles.textMuted, styles.textCenter)}>
+              {filter !== 'all' ? `No ${filter} transactions` : 'No transactions for selected period'}
+            </Text>
+            <TouchableOpacity
+              style={clsx(styles.mt4, styles.px4, styles.py2, styles.bgPrimary, styles.roundedFull)}
+              onPress={() => {
+                setFilter('all');
+                setSelectedPeriod('all');
+              }}
+            >
+              <Text style={clsx(styles.textSm, styles.fontMedium, styles.textWhite)}>
+                Clear Filters
+              </Text>
+            </TouchableOpacity>
+          </View>
+        }
+        ListFooterComponent={renderFooter}
+        stickySectionHeadersEnabled={false}
+      />
     </View> 
   );
 };

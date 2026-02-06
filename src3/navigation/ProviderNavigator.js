@@ -95,6 +95,13 @@ const EarningsWithLayout = (props) => (
   </MainLayout>
 );
 
+// BankTransferListScreen with MainLayout
+const BankTransferListScreenWithLayout = (props) => (
+  <MainLayout>
+    <BankTransferListScreen {...props} />
+  </MainLayout>
+);
+
 // Wallet with MainLayout
 const WalletWithLayout = (props) => (
   <MainLayout>
@@ -328,7 +335,7 @@ function ProviderNavigator() {
   const commonScreenOptions = {
     headerShown: false,
     animation: 'slide_from_right',
-    gestureEnabled: true,
+    gestureEnabled: false,
     cardStyle: {
       backgroundColor: '#FFFFFF',
     },
@@ -575,7 +582,7 @@ function ProviderNavigator() {
           
           <Stack.Screen 
             name="BankTransferListScreen" 
-            component={EarningsWithLayout}
+            component={BankTransferListScreenWithLayout}
           />
           
           {/* Earning Details without Layout */}

@@ -169,7 +169,7 @@ const CompleteBookingScreen = () => {
       // Check if parts are pending approval
       if (isPartsPending()) {
         Toast.show({
-          type: 'warning',
+          type: 'error',
           text1: 'Parts Approval Pending',
           text2: 'Cannot complete booking while parts approval is pending',
         });
@@ -179,7 +179,7 @@ const CompleteBookingScreen = () => {
       // Validate payment for online mode
       if (paymentMode === 'online' && !onlinePaymentSuccess) {
         Toast.show({
-          type: 'warning',
+          type: 'error',
           text1: 'Payment Required',
           text2: 'Please complete online payment first',
         });
@@ -221,7 +221,7 @@ const CompleteBookingScreen = () => {
       // Check if paid amount matches total amount
       if (Math.abs(paidAmount - totalAmount) > 1) {
         Toast.show({
-          type: 'warning',
+          type: 'error',
           text1: 'Amount Mismatch',
           text2: `Paid amount (₹${paidAmount}) should match total amount (₹${totalAmount})`,
         });

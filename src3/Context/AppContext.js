@@ -106,6 +106,7 @@ export const AppProvider = ({ children }) => {
       trainingScheduleDetail: `${serviceManUrl}training-schedule-submit/detail`,
       
       earnings: `${serviceManUrl}earning`,
+      bankTransfers: `${serviceManUrl}bank-transfer`,
       earningDetails: `${serviceManUrl}earning`,
 
       myEarnings: `${serviceManUrl}serviceman-earning`,

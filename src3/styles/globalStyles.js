@@ -114,6 +114,8 @@ const globalStyles = StyleSheet.create({
   mr3: { marginRight: scaleSize(12) },
   mr4: { marginRight: scaleSize(16) },
   mr6: { marginRight: scaleSize(24) },
+
+  ml2: { marginRight: scaleSize(8) },
   
   mx0: { marginHorizontal: 0 },
   mx2: { marginHorizontal: scaleSize(8) },
@@ -357,6 +359,7 @@ const globalStyles = StyleSheet.create({
 
 
     w10: { width: scaleSize(40) },
+    w45: { width: '49%' },
     w14: { width: scaleSize(56) },
 
     // Spacing
@@ -473,6 +476,7 @@ const globalStyles = StyleSheet.create({
   w9_12: { width: '75%' },
   w10_12: { width: '83.333333%' },
   w11_12: { width: '91.666667%' }, 
+  w12_12: { width: '100%' }, 
   
   hFull: { height: '100%' },
   hPx: { height: 1 },

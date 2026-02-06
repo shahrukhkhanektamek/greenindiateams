@@ -80,7 +80,7 @@ const FooterMenu = () => {
       label: 'Earnings', 
       icon: 'currency-rupee', 
       screen: 'Earnings',
-      activeIcon: 'person'
+      activeIcon: 'currency-rupee'
     },
     { 
       id: 'profile', 

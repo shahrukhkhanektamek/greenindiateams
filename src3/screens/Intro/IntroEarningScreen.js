@@ -42,7 +42,8 @@ const IntroEarningScreen = ({ navigation }) => {
       setLoading(true);
       
       const response = await postData({}, Urls.earnings, 'GET', { 
-        showErrorMessage: false 
+        showErrorMessage: false,
+        showSuccessMessage: false 
       });
       
       if (response?.success) {
@@ -53,11 +54,11 @@ const IntroEarningScreen = ({ navigation }) => {
         
         // Show success message if data loaded
         if (earningsData.length > 0) {
-          Toast.show({
-            type: 'success',
-            text1: 'Success',
-            text2: 'Earnings data loaded successfully',
-          });
+          // Toast.show({
+          //   type: 'success',
+          //   text1: 'Success',
+          //   text2: 'Earnings data loaded successfully',
+          // });
         }
       } else {
         Alert.alert('Error', response?.message || 'Failed to fetch earnings data');
@@ -168,7 +169,7 @@ const IntroEarningScreen = ({ navigation }) => {
 
   const handleContinue = () => {
     // Navigate to ProfileUpdate
-    navigate('ProfileUpdate');
+    navigate('ProfileUpdate',{type:'new'});
   };
 
   if (loading && !refreshing) {

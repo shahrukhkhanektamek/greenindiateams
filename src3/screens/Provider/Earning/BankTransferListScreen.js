@@ -256,11 +256,11 @@ const BankTransferListScreen = ({ navigation }) => {
     await fetchTransfers(1, false);
     setRefreshing(false);
     
-    Toast.show({
-      type: 'success',
-      text1: 'Refreshed',
-      text2: 'Bank transfers list updated',
-    });
+    // Toast.show({
+    //   type: 'success',
+    //   text1: 'Refreshed',
+    //   text2: 'Bank transfers list updated',
+    // });
   };
 
   const handleStatusTabChange = (tabId) => {

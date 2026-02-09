@@ -318,8 +318,13 @@ const WalletScreen = ({ navigation }) => {
               <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
                 {item.purpose || 'Wallet Transaction'}
               </Text>
+              {(item?.bookingId)?(
+                <Text style={clsx(styles.textSm, styles.textMuted)}>
+                  Booking ID • {item.bookingId}
+                </Text>
+              ):(null)}
               <Text style={clsx(styles.textSm, styles.textMuted)}>
-                {item.transactionType} • {formatTime(item.dateOfDeposit || item.createdAt)}
+                {item.transactionType} • {formatTime(item.createdAt)}
               </Text>
             </View>
           </View>

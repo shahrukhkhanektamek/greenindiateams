@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  BackHandler,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../../styles/globalStyles';
@@ -13,7 +14,7 @@ import { colors } from '../../../styles/colors';
 import Header from '../../../components/Common/Header';
 import { AppContext } from '../../../Context/AppContext';
 
-const KYCStatusScreen = ({ navigation }) => {
+const KYCStatusScreen = ({ navigation, route }) => {
   const {
     Toast,
     Urls,
@@ -21,6 +22,22 @@ const KYCStatusScreen = ({ navigation }) => {
     fetchProfile,
     user,
   } = useContext(AppContext);
+
+  const type = route?.params?.type;
+  useEffect(() => {
+    const backAction = () => {
+        if(type=='new')
+        {
+          BackHandler.exitApp()
+          return true;
+        }
+    };  
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );  
+    return () => backHandler.remove();
+  }, []);
   
 
   const [loading, setLoading] = useState(true);
@@ -41,7 +58,7 @@ const KYCStatusScreen = ({ navigation }) => {
         const kycStatus = apiData.status || 'pending';
         // const kycStatus = 'approved';
 
-        fetchProfile()
+        await fetchProfile()
 
         setStatus(kycStatus);
         
@@ -95,11 +112,11 @@ const KYCStatusScreen = ({ navigation }) => {
         else if(!user?.trainingScheduleSubmit){
           buttonText = 'Go To Training';          
           buttonNavigate = 'Training';
+          navigation.navigate(buttonNavigate,{type:type});
         }
         else{
           buttonText = 'View Documents';
-          buttonNavigate = 'KYCView';
-          
+          buttonNavigate = 'KYCView';        
         }
       }
       

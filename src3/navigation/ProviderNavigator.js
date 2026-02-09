@@ -306,7 +306,7 @@ const TermsConditionsWithoutLayout = (props) => (
 
 // Main Navigator Component
 function ProviderNavigator() {
-  const { user, setrootScreen, rootScreen, profileStatus, fetchProfile } = useContext(AppContext);
+  const { user, setrootScreen, rootScreen, rootType, profileStatus, fetchProfile } = useContext(AppContext);
   const [isSplashVisible, setIsSplashVisible] = useState(true);
 
   useEffect(() => { 
@@ -367,7 +367,12 @@ function ProviderNavigator() {
         name="IntroEarning" 
         component={IntroEarningScreen}
         options={noAnimationOptions} 
-      />            
+      />
+      <Stack.Screen 
+        name="Intro" 
+        component={IntroScreen}
+        options={noAnimationOptions}
+      />   
     
      
       <Stack.Screen 
@@ -390,11 +395,7 @@ function ProviderNavigator() {
       {!user ? (
         <>
           {/* Splash/Intro Screens */}
-          <Stack.Screen 
-            name="Intro" 
-            component={IntroScreen}
-            options={noAnimationOptions}
-          />            
+                   
           
           
           

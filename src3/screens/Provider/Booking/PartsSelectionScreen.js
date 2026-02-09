@@ -450,11 +450,12 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       const bookingItems = bookingData?.booking?.bookingItems || [];
       let originalAmt = 0;
       
-      bookingItems.forEach(item => {
-        const itemPrice = item.salePrice || 0;
-        const itemQuantity = item.quantity || 1;
-        originalAmt += itemPrice * itemQuantity;
-      });
+      // bookingItems.forEach(item => {
+      //   const itemPrice = item.salePrice || 0;
+      //   const itemQuantity = item.quantity || 1;
+      //   originalAmt += itemPrice * itemQuantity;
+      // });
+      originalAmt = bookingData?.booking?.payableAmount;
       
       setOriginalAmount(originalAmt);
       setTotalAmount(originalAmt);
@@ -541,11 +542,11 @@ const PartsSelectionScreen = ({ navigation, route }) => {
           setRateGroups(data.rateGroups);
           setFilteredRateGroups(data.rateGroups);
         } else {
-          Toast.show({
-            type: 'info',
-            text1: 'No Parts Found',
-            text2: 'No rate groups available for this service',
-          });
+          // Toast.show({
+          //   type: 'info',
+          //   text1: 'No Parts Found',
+          //   text2: 'No rate groups available for this service',
+          // });
         }
       } else {
         Toast.show({
@@ -624,11 +625,11 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       setAddingPartId(null);
       setButtonPressedId(null);
       
-      Toast.show({
-        type: 'success',
-        text1: 'Added',
-        text2: 'Part added with quantity 1',
-      });
+      // Toast.show({
+      //   type: 'success',
+      //   text1: 'Added',
+      //   text2: 'Part added with quantity 1',
+      // });
     }
   };
 
@@ -646,11 +647,11 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       [partKey]: newQty
     }));
     
-    Toast.show({
-      type: 'info',
-      text1: 'Updated',
-      text2: `Quantity updated to ${newQty}`,
-    });
+    // Toast.show({
+    //   type: 'info',
+    //   text1: 'Updated',
+    //   text2: `Quantity updated to ${newQty}`,
+    // });
   };
 
   const removePart = (partKey) => {
@@ -670,11 +671,11 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       return newQuantities;
     });
     
-    Toast.show({
-      type: 'success',
-      text1: 'Removed',
-      text2: `${part.description} removed`,
-    });
+    // Toast.show({
+    //   type: 'success',
+    //   text1: 'Removed',
+    //   text2: `${part.description} removed`,
+    // });
   };
 
   const openQuantityModal = (rate, serviceItemId, groupTitle) => {
@@ -707,11 +708,11 @@ const PartsSelectionScreen = ({ navigation, route }) => {
     
     if (quantity < 1) {
       removePart(selectedPartForQuantity.key);
-      Toast.show({
-        type: 'info',
-        text1: 'Removed',
-        text2: 'Quantity set to 0, part removed',
-      });
+      // Toast.show({
+      //   type: 'info',
+      //   text1: 'Removed',
+      //   text2: 'Quantity set to 0, part removed',
+      // });
     } else {
       setQuantities(prev => ({
         ...prev,
@@ -725,11 +726,11 @@ const PartsSelectionScreen = ({ navigation, route }) => {
         }));
       }
       
-      Toast.show({
-        type: 'success',
-        text1: 'Updated',
-        text2: `Quantity updated to ${quantity}`,
-      });
+      // Toast.show({
+      //   type: 'success',
+      //   text1: 'Updated',
+      //   text2: `Quantity updated to ${quantity}`,
+      // });
     }
     
     setShowQuantityModal(false);
@@ -835,11 +836,11 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       );
 
       if (response?.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'Success',
-          text2: 'Parts submitted for approval',
-        });
+        // Toast.show({
+        //   type: 'success',
+        //   text1: 'Success',
+        //   text2: 'Parts submitted for approval',
+        // });
         
         if (loadBookingDetails) {
           loadBookingDetails();
@@ -980,11 +981,11 @@ const PartsSelectionScreen = ({ navigation, route }) => {
                 <TouchableOpacity
                   onPress={() => {
                     handleQuantitySubmit(0);
-                    Toast.show({
-                      type: 'info',
-                      text1: 'Removed',
-                      text2: 'Part removed (quantity set to 0)',
-                    });
+                    // Toast.show({
+                    //   type: 'info',
+                    //   text1: 'Removed',
+                    //   text2: 'Part removed (quantity set to 0)',
+                    // });
                   }}
                   style={clsx(
                     styles.bgDangerLight,

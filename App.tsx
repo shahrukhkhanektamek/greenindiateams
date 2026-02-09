@@ -32,16 +32,18 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const initializeNotifications = async () => {
-      await notificationService.initialize();
-    };
+    notificationService.initialize();
     
-    initializeNotifications();
-  }, []);
-
+    // Cleanup on unmount
+    return () => {
+      notificationService.cleanup();
+    };
+  }, []); 
+ 
   const initializeApp = () => {
     console.log('App initialized');
   };
+
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

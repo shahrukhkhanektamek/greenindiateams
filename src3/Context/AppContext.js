@@ -9,7 +9,7 @@ import CustomSidebar from '../components/Provider/CustomSidebar';
 import { reset } from "../navigation/navigationService";  
  
 export const AppContext = createContext();
-const ENVIRONMENT = "development"; // production or development 
+const ENVIRONMENT = "production"; // production or development 
 
 
 
@@ -42,6 +42,7 @@ export const AppProvider = ({ children }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [rootScreen, setrootScreen] = useState('Intro');
+  const [rootType, setrootType] = useState('');
   const [isheaderback, setisheaderback] = useState(null);
   const [loadingStates, setLoadingStates] = useState({
     page: false,
@@ -584,23 +585,30 @@ export const AppProvider = ({ children }) => {
   };
 
   const profileStatus = async () => {
+    
     if(user)
     {
       if(!user.profile && !user.dob)
       {
         setrootScreen('ProfileUpdate');
+        setrootType('new');
       }
       else if(!user.kyc)  
       {
         setrootScreen('KycScreen');
+        setrootType('new');
       } 
       else if(user.kyc)  
       {
         if(user.kyc.status=='pending' || user.kyc.status=='rejected')
+        {
           setrootScreen('KYCStatus');
+          setrootType('new');
+        }
         else if(!user?.trainingScheduleSubmit)
         {
           setrootScreen('Training');
+          setrootType('new');
         }
         else if(user?.trainingScheduleSubmit)
         {
@@ -615,6 +623,7 @@ export const AppProvider = ({ children }) => {
           )
           {
             setrootScreen('TrainingStatus');
+            setrootType('new');
           }
           else{
             setisheaderback(true) 
@@ -681,6 +690,8 @@ export const AppProvider = ({ children }) => {
     fetchProfile,
     setrootScreen,
     rootScreen,
+    rootType,
+    setrootType,
     profileStatus,
     
     // Data

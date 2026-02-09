@@ -320,11 +320,11 @@ const ServiceAvailabilityScreen = () => {
       const response = await postData(addData, Urls.addAvailability, 'POST');
 
       if (response && response.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'Success',
-          text2: 'Schedule updated successfully!',
-        });
+        // Toast.show({
+        //   type: 'success',
+        //   text1: 'Success',
+        //   text2: 'Schedule updated successfully!',
+        // });
         
         // Update initial state after successful save
         const updatedInitial = weekDates.map(day => ({

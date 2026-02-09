@@ -35,18 +35,19 @@ const EarningScreen = ({ navigation }) => {
       setLoading(true);
       
       const response = await postData({}, Urls.myEarnings, 'GET', { 
-        showErrorMessage: false 
+        showErrorMessage: false,
+        showSuccessMessage: false 
       });
       
       if (response?.success) {
         console.log('Earnings Summary API Response:', response);
         setSummaryData(response.data);
         
-        Toast.show({
-          type: 'success',
-          text1: 'Success',
-          text2: 'Earnings data loaded successfully',
-        });
+        // Toast.show({
+        //   type: 'success',
+        //   text1: 'Success',
+        //   text2: 'Earnings data loaded successfully',
+        // });
       } else {
         Alert.alert('Error', response?.message || 'Failed to fetch earnings data');
         setSummaryData(null);

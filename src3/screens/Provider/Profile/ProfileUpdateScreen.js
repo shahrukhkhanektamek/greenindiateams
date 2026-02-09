@@ -13,6 +13,7 @@ import {
   RefreshControl,
   FlatList,
   Modal,
+  BackHandler,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -32,6 +33,24 @@ const ProfileUpdateScreen = ({ route }) => {
     fetchProfile,
     user,
   } = useContext(AppContext);
+
+  const type = route?.params?.type;
+  useEffect(() => {
+    const backAction = () => {
+        if(type=='new')
+        {
+          BackHandler.exitApp()
+          return true;
+        }
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, []);
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -346,11 +365,11 @@ const ProfileUpdateScreen = ({ route }) => {
       await fetchCategories();
       await fetchCities();
       await fetchProfileData();
-      Toast.show({
-        type: 'success',
-        text1: 'Profile data refreshed',
-        text2: 'Latest data loaded successfully',
-      });
+      // Toast.show({
+      //   type: 'success',
+      //   text1: 'Profile data refreshed',
+      //   text2: 'Latest data loaded successfully',
+      // });
     } catch (error) {
       Toast.show({
         type: 'error',
@@ -447,75 +466,169 @@ const ProfileUpdateScreen = ({ route }) => {
   };
 
   const validateForm = () => {
-    const newErrors = {};
+  const newErrors = {};
+  let errorMessage = '';
+  let errorField = '';
 
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
+  if (!formData.name.trim()) {
+    newErrors.name = 'Name is required';
+    if (!errorMessage) {
+      errorMessage = 'Name is required';
+      errorField = 'name';
     }
+  }
 
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Enter a valid email address';
+  if (!formData.email.trim()) {
+    newErrors.email = 'Email is required';
+    if (!errorMessage) {
+      errorMessage = 'Email is required';
+      errorField = 'email';
     }
-
-    if (!formData.dob) {
-      newErrors.dob = 'Date of birth is required';
-    } else {
-      const today = new Date();
-      const birthDate = new Date(formData.dob);
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const monthDiff = today.getMonth() - birthDate.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
-      }
-      
-      if (age < 18) {
-        newErrors.dob = 'You must be at least 18 years old';
-      }
+  } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+    newErrors.email = 'Enter a valid email address';
+    if (!errorMessage) {
+      errorMessage = 'Enter a valid email address';
+      errorField = 'email';
     }
+  }
 
-    // Validate category selection
-    if (formData.categoryIds.length === 0) {
-      newErrors.category = 'Service category is required';
+  if (!formData.dob) {
+    newErrors.dob = 'Date of birth is required';
+    if (!errorMessage) {
+      errorMessage = 'Date of birth is required';
+      errorField = 'dob';
     }
-
-    // Validate city selection
-    if (!formData.cityId) {
-      newErrors.city = 'City is required';
+  } else {
+    const today = new Date();
+    const birthDate = new Date(formData.dob);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
     }
-
-    // Validate at least one reference
-    if (!formData.referenceName1.trim() && !formData.referenceName2.trim()) {
-      newErrors.references = 'At least one reference is required';
-    }
-
-    // Validate reference mobile numbers if names are provided
-    if (formData.referenceName1.trim() && !formData.referenceMobile1.trim()) {
-      newErrors.referenceMobile1 = 'Reference mobile number is required';
-    } else if (formData.referenceMobile1 && !/^\d{10}$/.test(formData.referenceMobile1)) {
-      newErrors.referenceMobile1 = 'Enter a valid 10-digit mobile number';
-    }
-
-    if (formData.referenceName2.trim() && !formData.referenceMobile2.trim()) {
-      newErrors.referenceMobile2 = 'Reference mobile number is required';
-    } else if (formData.referenceMobile2 && !/^\d{10}$/.test(formData.referenceMobile2)) {
-      newErrors.referenceMobile2 = 'Enter a valid 10-digit mobile number';
-    }
-
-    // Validate experience fields if Experience is selected
-    if (formData.experienceLevel === 'Experience') {
-      if (!formData.yearOfExperience) {
-        newErrors.yearOfExperience = 'Years of experience is required';
-      }
-      if (!formData.companyName.trim()) {
-        newErrors.companyName = 'Company name is required';
+    
+    if (age < 18) {
+      newErrors.dob = 'You must be at least 18 years old';
+      if (!errorMessage) {
+        errorMessage = 'You must be at least 18 years old';
+        errorField = 'dob';
       }
     }
+  }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  // Validate category selection
+  if (formData.categoryIds.length === 0) {
+    newErrors.category = 'Service category is required';
+    if (!errorMessage) {
+      errorMessage = 'Service category is required';
+      errorField = 'category';
+    }
+  }
+
+  // Validate city selection
+  if (!formData.cityId) {
+    newErrors.city = 'City is required';
+    if (!errorMessage) {
+      errorMessage = 'City is required';
+      errorField = 'city';
+    }
+  }
+
+  // Validate at least one reference
+  if (!formData.referenceName1.trim() && !formData.referenceName2.trim()) {
+    newErrors.references = 'At least one reference is required';
+    if (!errorMessage) {
+      errorMessage = 'At least one reference is required';
+      errorField = 'references';
+    }
+  }
+
+  // Validate reference mobile numbers if names are provided
+  if (formData.referenceName1.trim() && !formData.referenceMobile1.trim()) {
+    newErrors.referenceMobile1 = 'Reference mobile number is required';
+    if (!errorMessage) {
+      errorMessage = 'Reference 1 mobile number is required';
+      errorField = 'referenceMobile1';
+    }
+  } else if (formData.referenceMobile1 && !/^\d{10}$/.test(formData.referenceMobile1)) {
+    newErrors.referenceMobile1 = 'Enter a valid 10-digit mobile number';
+    if (!errorMessage) {
+      errorMessage = 'Enter a valid 10-digit mobile number for Reference 1';
+      errorField = 'referenceMobile1';
+    }
+  }
+
+  if (formData.referenceName2.trim() && !formData.referenceMobile2.trim()) {
+    newErrors.referenceMobile2 = 'Reference mobile number is required';
+    if (!errorMessage) {
+      errorMessage = 'Reference 2 mobile number is required';
+      errorField = 'referenceMobile2';
+    }
+  } else if (formData.referenceMobile2 && !/^\d{10}$/.test(formData.referenceMobile2)) {
+    newErrors.referenceMobile2 = 'Enter a valid 10-digit mobile number';
+    if (!errorMessage) {
+      errorMessage = 'Enter a valid 10-digit mobile number for Reference 2';
+      errorField = 'referenceMobile2';
+    }
+  }
+
+  // Validate experience fields if Experience is selected
+  if (formData.experienceLevel === 'Experience') {
+    if (!formData.yearOfExperience) {
+      newErrors.yearOfExperience = 'Years of experience is required';
+      if (!errorMessage) {
+        errorMessage = 'Years of experience is required';
+        errorField = 'yearOfExperience';
+      }
+    }
+    if (!formData.companyName.trim()) {
+      newErrors.companyName = 'Company name is required';
+      if (!errorMessage) {
+        errorMessage = 'Company name is required';
+        errorField = 'companyName';
+      }
+    }
+  }
+
+  // Validate permanent address
+  if (!formData.permanentAddress.trim()) {
+    newErrors.permanentAddress = 'Permanent address is required';
+    if (!errorMessage) {
+      errorMessage = 'Permanent address is required';
+      errorField = 'permanentAddress';
+    }
+  } else if (formData.permanentAddress.trim().length < 10) {
+    newErrors.permanentAddress = 'Permanent address must be at least 10 characters';
+    if (!errorMessage) {
+      errorMessage = 'Permanent address must be at least 10 characters';
+      errorField = 'permanentAddress';
+    }
+  }
+
+  // Validate current address
+  if (!formData.currentAddress.trim()) {
+    newErrors.currentAddress = 'Current address is required';
+    if (!errorMessage) {
+      errorMessage = 'Current address is required';
+      errorField = 'currentAddress';
+    }
+  } else if (formData.currentAddress.trim().length < 10) {
+    newErrors.currentAddress = 'Current address must be at least 10 characters';
+    if (!errorMessage) {
+      errorMessage = 'Current address must be at least 10 characters';
+      errorField = 'currentAddress';
+    }
+  }
+
+
+  setErrors(newErrors);
+  
+  return {
+    isValid: Object.keys(newErrors).length === 0,
+    message: errorMessage,
+    field: errorField
   };
+};
  
   const handleDateChange = (event, selectedDate) => {
     setShowDatePicker(false);
@@ -557,8 +670,22 @@ const ProfileUpdateScreen = ({ route }) => {
   };
 
   const handleUpdateProfile = async () => {
-    if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fix the errors in the form');
+    const validation = validateForm();
+  
+    if (!validation.isValid) {
+      // Toast show karein
+      Toast.show({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: validation.message,
+        position: 'top',
+        visibilityTime: 4000,
+      });
+      
+      // Optionally, error field par scroll karein
+      // Agar aap scroll functionality add karna chahte hain to neeche ka code use karein
+      // scrollToErrorField(validation.field);
+      
       return;
     }
 
@@ -631,7 +758,7 @@ const ProfileUpdateScreen = ({ route }) => {
         });
 
         if(!user.kyc) {
-          navigate('KycScreen');
+          navigate('KycScreen',{type:type});
         } else {
           goBack();
         }
@@ -1128,7 +1255,7 @@ const ProfileUpdateScreen = ({ route }) => {
     >
       <Header
         title="Profile"
-        showBack
+        showBack={type=='new'?false:true}
         showNotification={false}
         type="white"
         rightAction={false}
@@ -1209,21 +1336,21 @@ const ProfileUpdateScreen = ({ route }) => {
           
           <View style={clsx(styles.flexRow, styles.mt2)}>
             <TouchableOpacity
-              style={clsx(styles.flexRow, styles.itemsCenter, styles.mr4)}
+              style={clsx(styles.flexRow, styles.itemsCenter,styles.mr4, styles.p2, styles.bgPrimary, styles.rounded)}
               onPress={selectProfileImage}
             >
-              <Icon name="photo-library" size={20} color={colors.primary} />
-              <Text style={clsx(styles.textSm, styles.textPrimary, styles.ml1)}>
+              <Icon name="photo-library" size={20} color={colors.white} />
+              <Text style={clsx(styles.textSm, styles.textWhite, styles.ml1)}>
                 Gallery
               </Text>
             </TouchableOpacity>
             
             <TouchableOpacity
-              style={clsx(styles.flexRow, styles.itemsCenter)}
+              style={clsx(styles.flexRow, styles.itemsCenter,styles.mr4, styles.p2, styles.bgPrimary, styles.rounded)}
               onPress={captureProfileImage}
             >
-              <Icon name="camera-alt" size={20} color={colors.primary} />
-              <Text style={clsx(styles.textSm, styles.textPrimary, styles.ml1)}>
+              <Icon name="camera-alt" size={20} color={colors.white} />
+              <Text style={clsx(styles.textSm, styles.textWhite, styles.ml1)}>
                 Camera
               </Text>
             </TouchableOpacity>

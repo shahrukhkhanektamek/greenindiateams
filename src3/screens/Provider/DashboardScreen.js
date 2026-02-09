@@ -55,6 +55,7 @@ const DashboardScreen = ({ navigation }) => {
   const [quickStats, setQuickStats] = useState([]);
   const [winnersOfWeek, setWinnersOfWeek] = useState([]);
   const [showTimeSlotModal, setShowTimeSlotModal] = useState(false);
+  const [showWalletModal, setShowWalletModal] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
 
   // Format date for display
@@ -75,6 +76,10 @@ const DashboardScreen = ({ navigation }) => {
     };
   };
 
+  const handleWalletSetup = () => {
+    setShowWalletModal(false);
+    navigation.navigate('Wallet');   
+  };
   // Get today and tomorrow dates
   const today = new Date();
   const tomorrow = new Date(today);
@@ -186,6 +191,11 @@ const DashboardScreen = ({ navigation }) => {
             setShowTimeSlotModal(true);
           }, 500);
         }
+        if (walletData.totalCreditPoints < 1) { 
+          setTimeout(() => {
+            setShowWalletModal(true);
+          }, 500);
+        }
       }
 
       // Fetch today's bookings
@@ -259,11 +269,11 @@ const DashboardScreen = ({ navigation }) => {
     setRefreshing(true);
     fetchDashboardData().finally(() => {
       setRefreshing(false);
-      Toast.show({
-        type: 'success',
-        text1: 'Refreshed',
-        text2: 'Dashboard data updated',
-      });
+      // Toast.show({
+      //   type: 'success',
+      //   text1: 'Refreshed',
+      //   text2: 'Dashboard data updated',
+      // });
     });
   };
 
@@ -584,6 +594,60 @@ const DashboardScreen = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+
+      {/* Wallet Warning Modal */}
+      <Modal
+        visible={showWalletModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowWalletModal(false)}
+        >
+        <View style={clsx(styles.flex1, styles.justifyCenter, styles.itemsCenter, { backgroundColor: 'rgba(0,0,0,0.5)' })}>
+          <View style={clsx(styles.bgWhite, styles.roundedXl, styles.p6, styles.mx5, styles.shadowXl, { maxWidth: SCREEN_WIDTH * 0.9 })}>
+          <View style={clsx(styles.itemsCenter, styles.mb-4)}>
+          <Icon name="account-balance-wallet" size={60} color={colors.warning} />
+          <Text style={clsx(styles.text2xl, styles.fontBold, styles.textBlack, styles.mt4, styles.textCenter)}>
+          Complete Your Wallet Setup
+          </Text>
+          </View>
+          <Text style={clsx(styles.textBase, styles.textMuted, styles.mb6, styles.textCenter)}>
+            {!stats.walletConnected 
+              ? "You haven't connected your wallet yet. You won't be able to receive payments until you set up your wallet."
+              : !stats.bankAccountAdded 
+              ? "You haven't added your bank account details. You won't be able to withdraw earnings until you add your bank account."
+              : "Your wallet setup is incomplete. Please complete all the required steps to start receiving payments."
+            }
+          </Text>
+          
+          <Text style={clsx(styles.textBase, styles.textBlack, styles.fontMedium, styles.mb2, styles.textCenter)}>
+            Please complete your wallet setup to start receiving payments for your bookings.
+          </Text>
+          
+          <View style={clsx(styles.flexRow, styles.justifyCenter, styles.mt6)}>
+            <TouchableOpacity
+              style={clsx(styles.bgPrimary, styles.px6, styles.py3, styles.roundedFull, styles.flexRow, styles.itemsCenter)}
+              onPress={(handleWalletSetup)}
+              activeOpacity={0.8}
+            >
+              <Icon name="account-balance-wallet" size={20} color={colors.white} style={styles.mr2} />
+              <Text style={clsx(styles.textWhite, styles.fontMedium, styles.textBase)}>
+                Setup Wallet Now
+              </Text>
+            </TouchableOpacity>
+          </View>
+          
+          <TouchableOpacity
+            style={clsx(styles.mt4, styles.itemsCenter)}
+            onPress={() => setShowWalletModal(false)}
+          >
+            <Text style={clsx(styles.textSm, styles.textMuted)}>
+              I'll do it later
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
 
       {/* Header with Profile */}
       <View style={clsx(styles.bgPrimary, styles.px4, styles.pt2, styles.pb1)}>

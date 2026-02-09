@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  BackHandler,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../../styles/globalStyles';
@@ -18,7 +19,24 @@ const TrainingStatusScreen = ({ navigation, route }) => {
     Toast,
     Urls,
     postData,
+    rootType,
   } = useContext(AppContext);
+
+  const type = route?.params?.type || rootType;
+  useEffect(() => {
+    const backAction = () => {
+        if(type=='new')
+        {
+          BackHandler.exitApp()
+          return true;
+        }
+    };  
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );  
+    return () => backHandler.remove();
+  }, []);
 
   const id = route.params?.trainingId?route.params?.trainingId:"";
 
@@ -198,6 +216,11 @@ const TrainingStatusScreen = ({ navigation, route }) => {
           setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
         }
         
+        if(apiData.trainingScheduleStatus=='Complete' && type=='new')
+        {
+          navigation.navigate('ProviderDashboard',{type:type});
+        }
+
         return { success: true, data: formattedData };
       } else if (response?.success && !response.data) {
         // No training data found
@@ -213,6 +236,9 @@ const TrainingStatusScreen = ({ navigation, route }) => {
         stopCountdown();
         return { success: false, data: noData };
       } else {
+
+        navigation.navigate('Training',{type:type});
+
         // API error
         const errorData = {
           displayStatus: 'error',
@@ -310,13 +336,13 @@ const TrainingStatusScreen = ({ navigation, route }) => {
     setRefreshing(false);
     
     if (result.success) {
-      Toast.show({
-        type: 'success',
-        text1: 'Status refreshed',
-        text2: 'Latest training status loaded',
-        position: 'bottom',
-        visibilityTime: 2000,
-      });
+      // Toast.show({
+      //   type: 'success',
+      //   text1: 'Status refreshed',
+      //   text2: 'Latest training status loaded',
+      //   position: 'bottom',
+      //   visibilityTime: 2000,
+      // });
     } else if (result.data.displayStatus === 'no-training') {
       Toast.show({
         type: 'info',
@@ -342,13 +368,13 @@ const TrainingStatusScreen = ({ navigation, route }) => {
     setRefreshing(false);
     
     if (result.success) {
-      Toast.show({
-        type: 'success',
-        text1: 'Status updated',
-        text2: 'Training information refreshed',
-        position: 'top',
-        visibilityTime: 2000,
-      });
+      // Toast.show({
+      //   type: 'success',
+      //   text1: 'Status updated',
+      //   text2: 'Training information refreshed',
+      //   position: 'top',
+      //   visibilityTime: 2000,
+      // });
     }
   };
 
@@ -368,7 +394,7 @@ const TrainingStatusScreen = ({ navigation, route }) => {
           textColor: canReschedule ? colors.warning : colors.success,
           buttonText: canReschedule ? 'Reschedule Training' : 'View Details',
           buttonAction: canReschedule 
-            ? () => navigation.navigate('Training') 
+            ? () => navigation.navigate('Training',{type:''}) 
             : () => handleManualRefresh(),
           showRescheduleButton: canReschedule,
         };

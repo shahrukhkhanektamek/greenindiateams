@@ -315,10 +315,10 @@ const QRPaymentScreen = () => {
 
         {/* Amount Display */}
         <View style={clsx(styles.mb6, styles.p6, styles.bgPrimaryLight, styles.roundedLg, styles.itemsCenter)}>
-          <Text style={clsx(styles.textBase, styles.textMuted, styles.mb2)}>
+          <Text style={clsx(styles.textBase, styles.textWhite, styles.mb2)}>
             Total Amount to Pay
           </Text>
-          <Text style={clsx(styles.text4xl, styles.fontBold, styles.textPrimary)}>
+          <Text style={clsx(styles.text4xl, styles.fontBold, styles.textWhite)}>
             ₹{totalAmount?.toFixed(2) || '0.00'}
           </Text>
           {bookingData?.originalPaymentType === 'cod' && (

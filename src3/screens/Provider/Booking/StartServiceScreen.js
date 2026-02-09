@@ -189,38 +189,57 @@ const requestLocationPermission = async () => {
 };
 
 
-  // Location Functions
   const getCurrentLocation = async () => {
-  const hasPermission = await requestLocationPermission();
-  if (!hasPermission) {
-    console.log('Location permission denied');
-    return null;
-  }
-
-  return new Promise((resolve, reject) => {
-    Geolocation.getCurrentPosition(
-      position => {
-        const locations = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-        };
-
-        console.log('Location fetched:', locations);
-        resolve(locations); // ✅ yahin se return hoga
-      },
-      error => {
-        console.log('Location error:', error.code, error.message);
-        reject(error);
-      },
-      {
-        enableHighAccuracy: false,
-        timeout: 30000,
-        maximumAge: 10000,
+    const hasPermission = await requestLocationPermission();
+    
+    // अगर permission नहीं मिली तो force करें settings में open करने के लिए
+    if (!hasPermission) {
+      console.log('Location permission denied');
+      
+      // यूज़र को सेटिंग्स में redirect करने का option दें
+      const shouldOpenSettings = window.confirm(
+        'Location permission is required. Do you want to open app settings to grant permission?'
+      );
+      
+      if (shouldOpenSettings) {
+        // App settings खोलें
+        // React Native के लिए:
+        if (typeof Linking !== 'undefined' && Linking.openSettings) {
+          await Linking.openSettings();
+        }
+        // या Cordova/Capacitor के लिए:
+        else if (window.cordova && cordova.plugins.diagnostic) {
+          cordova.plugins.diagnostic.switchToSettings();
+        }
       }
-    );
-  });
-};
+      
+      return null;
+    }
+
+    return new Promise((resolve, reject) => {
+      Geolocation.getCurrentPosition(
+        position => {
+          const locations = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+          };
+
+          console.log('Location fetched:', locations);
+          resolve(locations);
+        },
+        error => {
+          console.log('Location error:', error.code, error.message);
+          reject(error);
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 30000,
+          maximumAge: 10000,
+        }
+      );
+    });
+  };
 
 
   const verifyLocation = async () => {
@@ -275,11 +294,11 @@ const requestLocationPermission = async () => {
 
         if (distance <= distanceCheck) {
           setLocationStatus('success');
-          Toast.show({
-            type: 'success',
-            text1: 'Location Verified',
-            text2: 'Moving to selfie verification...',
-          });
+          // Toast.show({
+          //   type: 'success',
+          //   text1: 'Location Verified',
+          //   text2: 'Moving to selfie verification...',
+          // });
           return true;
         } else {
           setLocationStatus('far');
@@ -413,11 +432,11 @@ const requestLocationPermission = async () => {
         setShowCamera(false);
         setTakingSelfie(false);
         
-        Toast.show({
-          type: 'success',
-          text1: 'Selfie Captured',
-          text2: 'Moving to OTP verification...',
-        });
+        // Toast.show({
+        //   type: 'success',
+        //   text1: 'Selfie Captured',
+        //   text2: 'Moving to OTP verification...',
+        // });
       }
     } catch (error) {
       console.error('Error capturing photo:', error);
@@ -452,11 +471,11 @@ const requestLocationPermission = async () => {
       if (response?.success) {
         setOtpSent(true);
         setOtpTimer(120); // 2 minutes timer
-        Toast.show({
-          type: 'success',
-          text1: 'OTP Sent',
-          text2: 'OTP has been sent to customer',
-        });
+        // Toast.show({
+        //   type: 'success',
+        //   text1: 'OTP Sent',
+        //   text2: 'OTP has been sent to customer',
+        // });
       } else {
         setOtpError(response?.message || 'Failed to send OTP');
         setAutoSendingOTP(false);
@@ -503,11 +522,11 @@ const requestLocationPermission = async () => {
       );
       
       if (response?.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'Service Started',
-          text2: 'Service has been started successfully.',
-        });
+        // Toast.show({
+        //   type: 'success',
+        //   text1: 'Service Started',
+        //   text2: 'Service has been started successfully.',
+        // });
 
         clearOtpInputs(); // OTP inputs clear करें
         

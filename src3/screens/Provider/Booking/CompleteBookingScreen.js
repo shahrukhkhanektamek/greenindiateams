@@ -86,11 +86,12 @@ const CompleteBookingScreen = () => {
         // Calculate original service amount
         const bookingItems = bookingData.booking?.bookingItems || [];
         let originalAmt = 0;
-        bookingItems.forEach(item => {
-          const itemPrice = item.salePrice || 0;
-          const itemQuantity = item.quantity || 1;
-          originalAmt += itemPrice * itemQuantity;
-        });
+        // bookingItems.forEach(item => {
+        //   const itemPrice = item.salePrice || 0;
+        //   const itemQuantity = item.quantity || 1;
+        //   originalAmt += itemPrice * itemQuantity;
+        // });
+        originalAmt = (bookingData?.booking?.payableAmount || 0) - (bookingData?.booking?.additionalPartAmount || 0);
         setOriginalServiceAmount(originalAmt);
         
         // Set grand total
@@ -135,8 +136,8 @@ const CompleteBookingScreen = () => {
     
     Toast.show({
       type: 'success',
-      text1: 'Payment Successful',
-      text2: 'Online payment completed successfully',
+      text1: 'Booking Completed',
+      text2: 'Booking has been completed successfully',
     });
   };
 
@@ -269,6 +270,7 @@ const CompleteBookingScreen = () => {
         });
         
         navigation.goBack();
+        handleOnlinePaymentSuccess()
         setTimeout(() => {
           if (loadBookingDetails) {
             loadBookingDetails();
@@ -381,31 +383,7 @@ const CompleteBookingScreen = () => {
           </TouchableOpacity>
         </View>
         
-        {/* Payment Amount Input for Cash */}
-        {paymentMode === 'cash' && (
-          <View>
-            <Text style={clsx(styles.textSm, styles.textMuted, styles.mb2)}>
-              Cash Amount Collected
-              {isPartsPending() && ' (Wait for parts approval)'}
-            </Text>
-            <TextInput
-              style={clsx(
-                styles.border,
-                styles.borderSuccess,
-                styles.roundedLg,
-                styles.p3,
-                styles.textBase,
-                styles.textBlack,
-                isPartsPending() && styles.bgGray200
-              )}
-              placeholder="Enter cash amount"
-              keyboardType="numeric"
-              value={cashAmount}
-              onChangeText={setCashAmount}
-              editable={!completingBooking && !isPartsPending()}
-            />
-          </View>
-        )}
+        
         
         {/* Payment Status for Online */}
         {paymentMode === 'online' && (
@@ -654,21 +632,6 @@ const CompleteBookingScreen = () => {
             {renderPartsDetails()}
             {renderPaymentSummary()}
             {calculateDueAmount() > 0 && renderPaymentModeSelection()}
-
-            <View style={clsx(styles.mb6, styles.p4, styles.bgInfoLight, styles.roundedLg)}>
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
-                📋 Important Instructions:
-              </Text>
-              <Text style={clsx(styles.textSm, styles.textMuted)}>
-                1. Ensure all service work is completed{"\n"}
-                2. All media (photos/videos) should be uploaded{"\n"}
-                {additionalParts.length > 0 && "3. Verify parts have been installed properly\n"}
-                4. Customer satisfaction should be confirmed{"\n"}
-                5. Collect payment as per booking type{"\n"}
-                6. Click "Complete Booking" to finish the service
-                {isPartsPending() && "\n\n⚠️ Cannot complete booking while parts approval is pending"}
-              </Text>
-            </View>
 
             <TouchableOpacity
               style={clsx(

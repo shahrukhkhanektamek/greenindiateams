@@ -246,11 +246,11 @@ const BookingListScreen = ({ navigation }) => {
         
         navigation.navigate('BookingDetail', { booking: bookingOData });
 
-        Toast.show({
-          type: 'success',
-          text1: 'Success',
-          text2: `Booking ${actionText}ed successfully`,
-        });
+        // Toast.show({
+        //   type: 'success',
+        //   text1: 'Success',
+        //   text2: `Booking ${actionText}ed successfully`,
+        // });
       } else {
         Toast.show({
           type: 'error',
@@ -328,11 +328,11 @@ const BookingListScreen = ({ navigation }) => {
     await fetchBookings(1, false);
     setRefreshing(false);
     
-    Toast.show({
-      type: 'success',
-      text1: 'Refreshed',
-      text2: 'Bookings list updated',
-    });
+    // Toast.show({
+    //   type: 'success',
+    //   text1: 'Refreshed',
+    //   text2: 'Bookings list updated',
+    // });
   };
 
   const handleTabChange = (tabId) => {
@@ -369,7 +369,7 @@ const BookingListScreen = ({ navigation }) => {
     });
     
     setApiFilters({
-      status: '',
+      status: 'new',
       search: '',
       category: '',
       dateRange: '',
@@ -379,6 +379,7 @@ const BookingListScreen = ({ navigation }) => {
     
     setActiveTab('new');
     setSearchQuery('');
+    setFilterModalVisible(false);
   };
 
   const getStatusColor = (status) => {
@@ -1076,7 +1077,7 @@ const BookingListScreen = ({ navigation }) => {
               
 
               {/* Price Range Filter */}
-              {renderFilterOption('priceRange', priceRanges)}
+              {/* {renderFilterOption('priceRange', priceRanges)} */}
 
               {/* Date Range Filter */}
               {renderFilterOption('dateRange', dateRanges)}

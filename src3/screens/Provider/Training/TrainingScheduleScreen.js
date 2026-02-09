@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   FlatList,
+  BackHandler,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../../styles/globalStyles';
@@ -25,6 +26,23 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
     userProfile,
     user,
   } = useContext(AppContext);
+
+  const type = route?.params?.type;
+  console.log(type)
+  useEffect(() => {
+    const backAction = () => {
+        if(type=='new')
+        {
+          BackHandler.exitApp()
+          return true;
+        }
+    };  
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );  
+    return () => backHandler.remove();
+  }, []);
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -355,11 +373,11 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
       });
       
       if (response?.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'Success',
-          text2: scheduleData.scheduleId ? 'Schedule updated successfully!' : 'Training scheduled successfully!',
-        });
+        // Toast.show({
+        //   type: 'success',
+        //   text1: 'Success',
+        //   text2: scheduleData.scheduleId ? 'Schedule updated successfully!' : 'Training scheduled successfully!',
+        // });
         
         // Update local state with new schedule
         const newSchedule = response.data?.trainigSubmit || response.data;
@@ -384,7 +402,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
         }
         
         await fetchProfile();
-        navigate('TrainingStatus');
+        navigate('TrainingStatus',{type:type});
       } else {
         Toast.show({
           type: 'error',
@@ -438,11 +456,11 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
       });
       
       if (response?.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'Success',
-          text2: 'Training rescheduled successfully!',
-        });
+        // Toast.show({
+        //   type: 'success',
+        //   text1: 'Success',
+        //   text2: 'Training rescheduled successfully!',
+        // });
         
         // Update local state
         const newSchedule = response.data?.trainigSubmit || response.data;
@@ -465,7 +483,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
         }
         
         await fetchProfile();
-        navigate('TrainingStatus');
+        navigate('TrainingStatus',{type:type});
       } else {
         Toast.show({
           type: 'error',
@@ -524,11 +542,11 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
       );
       
       if (response?.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'Success',
-          text2: 'Training cancelled successfully',
-        });
+        // Toast.show({
+        //   type: 'success',
+        //   text1: 'Success',
+        //   text2: 'Training cancelled successfully',
+        // });
         
         // Update local status
         setScheduleData(prev => ({
@@ -619,6 +637,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
       <TouchableOpacity
         style={clsx(
           styles.p3,
+          styles.px6,
           styles.mr3,
           styles.itemsCenter,
           styles.roundedMd,
@@ -631,7 +650,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
       >
         <Text style={clsx(
           styles.textSm,
-          isSelected ? styles.textPrimary : styles.textMuted
+          isSelected ? styles.textWhite : styles.textMuted
         )}>
           {dayStr}
         </Text>
@@ -639,13 +658,13 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
           styles.textLg,
           styles.fontBold,
           styles.mt1,
-          isSelected ? styles.textPrimary : styles.textBlack
+          isSelected ? styles.textWhite : styles.textBlack
         )}>
           {dateStr.split(' ')[0]}
         </Text>
         <Text style={clsx(
           styles.textSm,
-          isSelected ? styles.textPrimary : styles.textMuted
+          isSelected ? styles.textWhite : styles.textMuted
         )}>
           {dateStr.split(' ')[1]}
         </Text>
@@ -750,38 +769,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
               </View>
             )}
 
-            {/* Selected Date Display */}
-            {selectedDate && (
-              <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm, styles.mb6)}>
-                <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
-                  <Icon name="event" size={18} color={colors.primary} style={clsx(styles.mr2)} />
-                  <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.ml3)}>
-                    Selected Training Date
-                  </Text>
-                </View>
-                
-                <View style={clsx(
-                  styles.p3,
-                  styles.bgPrimaryLight,
-                  styles.rounded,
-                  styles.flexRow,
-                  styles.justifyBetween,
-                  styles.itemsCenter
-                )}>
-                  <View>
-                    <Text style={clsx(styles.textSm, styles.textPrimary)}>Date</Text>
-                    <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mt1)}>
-                      {formatDate(selectedDate)}
-                    </Text>
-                  </View>
-                  <Icon name="check-circle" size={24} color={colors.primary} />
-                </View>
-                
-                <Text style={clsx(styles.textSm, styles.textMuted, styles.mt3)}>
-                  Time: {trainingDetails.duration}
-                </Text>
-              </View>
-            )}
+            
 
             {/* Training Details Card */}
             <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm, styles.mb6)}>
@@ -808,9 +796,25 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
                 </View>
                 
                 <View style={clsx(styles.flexRow, styles.mb2)}>
-                  <Icon name="location-on" size={18} color={colors.textMuted} style={clsx(styles.mr2)} />
-                  <Text style={clsx(styles.textBase, styles.textBlack)}>
-                    Location: <Text style={styles.fontMedium}>{trainingDetails.location}</Text>
+                  <Icon
+                    name="location-on"
+                    size={18}
+                    color={colors.textMuted}
+                    style={clsx(styles.mr2)}
+                  />
+
+                  <Text
+                    style={clsx(
+                      styles.textBase,
+                      styles.textBlack,
+                      styles.flexWrap,
+                      { flex: 1, flexShrink: 1 }
+                    )}
+                  >
+                    Location:{" "}
+                    <Text style={styles.fontMedium}>
+                      {trainingDetails.location}
+                    </Text>
                   </Text>
                 </View>
                 
@@ -831,38 +835,13 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
             </View>
 
             {/* Schedule Section */}
-            <View style={clsx(styles.bgWhite, styles.p4, styles.roundedLg, styles.shadowSm)}>
+            <View style={clsx(styles.bgWhite, styles.p0, styles.roundedLg, styles.shadowSm)}>
               
 
-              {/* Selected Date Info */}
-              <View style={clsx(styles.mb4)}>
-                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb3)}>
-                  Scheduled Date & Time
-                </Text>
-                
-                <View style={clsx(
-                  styles.input,
-                  styles.flexRow,
-                  styles.justifyBetween,
-                  styles.itemsCenter,
-                  styles.p3
-                )}>
-                  <View>
-                    <Text style={clsx(styles.textSm, styles.textMuted)}>Date</Text>
-                    <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mt1)}>
-                      {selectedDate ? formatDate(selectedDate) : 'Not selected'}
-                    </Text>
-                  </View>
-                  <Icon name="event" size={24} color={colors.primary} />
-                </View>
-                
-                <Text style={clsx(styles.textSm, styles.textMuted, styles.mt3)}>
-                  Time: {trainingDetails.duration}
-                </Text>
-              </View>
+              
 
               {/* Action Buttons */}
-              <View style={clsx(styles.mt4)}>
+              <View style={clsx(styles.mt0)}>
                 {/* Cancel Button (only for scheduled/rescheduled status) */}
                 {(scheduleData.status === 'scheduled' || scheduleData.status === 'rescheduled') && (
                   <TouchableOpacity
@@ -934,20 +913,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
               </View>
             </View>
 
-            {/* Important Notes */}
-            <View style={clsx(styles.mt6, styles.p4, styles.bgInfoLight, styles.roundedLg)}>
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textInfo, styles.mb2)}>
-                Important Notes:
-              </Text>
-              <Text style={clsx(styles.textSm, styles.textInfo)}>
-                • Training duration: {trainingDetails.duration}
-                {'\n'}• Please arrive 15 minutes before scheduled time
-                {'\n'}• Bring your ID proof and notebook
-                {'\n'}• Maximum participants: {trainingDetails.maxParticipant}
-                {'\n'}• Rescheduling is allowed up to 24 hours before training
-                {'\n'}• Location: {trainingDetails.location}
-              </Text>
-            </View>
+          
               
             {/* Contact Support */}
             <TouchableOpacity

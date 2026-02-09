@@ -13,7 +13,7 @@ const getAndroidVersion = () => {
   return Platform.Version;
 };
 
-// Permission configuration
+// Permission configuration - MODIFIED TO ADD AUDIO PERMISSIONS
 const getPermissionConfig = () => {
   const isAndroid = Platform.OS === 'android';
   const androidVersion = getAndroidVersion();
@@ -50,6 +50,24 @@ const getPermissionConfig = () => {
       required: true,
       androidPermission: PermissionsAndroid.PERMISSIONS.CALL_PHONE,
     },
+    // NEW AUDIO PERMISSIONS ADDED BELOW
+    {
+      key: 'modify_audio_settings',
+      title: 'Audio Settings Control',
+      description: 'To ensure notification sounds play at maximum volume for urgent bookings.',
+      required: false, // Not required but recommended
+      androidPermission: PermissionsAndroid.PERMISSIONS.MODIFY_AUDIO_SETTINGS,
+      category: 'notification', // NEW: For grouping
+    },
+    {
+      key: 'notification_policy',
+      title: 'Do Not Disturb Access',
+      description: 'To play notification sounds even when phone is in Do Not Disturb mode.',
+      required: false, // Not required but recommended
+      androidPermission: PermissionsAndroid.PERMISSIONS.ACCESS_NOTIFICATION_POLICY,
+      category: 'notification', // NEW: For grouping
+      requiresSettings: true, // NEW: This permission needs manual settings access
+    },
   ];
 
   // Add notification permission for Android 13+
@@ -60,6 +78,7 @@ const getPermissionConfig = () => {
       description: 'Get instant updates about new bookings and schedule changes.',
       required: true,
       androidPermission: 'android.permission.POST_NOTIFICATIONS',
+      category: 'notification', // NEW: For grouping
     });
   } else if (isAndroid) {
     androidPermissions.push({
@@ -69,6 +88,7 @@ const getPermissionConfig = () => {
       required: false,
       androidPermission: null,
       autoGranted: true,
+      category: 'notification', // NEW: For grouping
     });
   }
 
@@ -93,7 +113,7 @@ const PermissionManager = ({
   const androidVersion = getAndroidVersion();
   const isAndroid = Platform.OS === 'android';
 
-  // Check Android permission
+  // Check Android permission - MODIFIED FOR AUDIO PERMISSIONS
   const checkAndroidPermission = useCallback(async (permissionKey, permissionConfig) => {
     try {
       if (permissionConfig.autoGranted) {
@@ -110,6 +130,19 @@ const PermissionManager = ({
         return result ? 'granted' : 'denied';
       }
 
+      // For ACCESS_NOTIFICATION_POLICY - needs special handling
+      if (permissionKey === 'notification_policy') {
+        try {
+          // This permission often requires checking via Settings
+          const result = await PermissionsAndroid.check(permissionConfig.androidPermission);
+          return result ? 'granted' : 'denied';
+        } catch (error) {
+          // If check fails, it's probably not granted
+          return 'denied';
+        }
+      }
+
+      // For other permissions
       const result = await PermissionsAndroid.check(permissionConfig.androidPermission);
       return result ? 'granted' : 'denied';
     } catch (err) {
@@ -117,7 +150,7 @@ const PermissionManager = ({
     }
   }, [androidVersion]);
 
-  // Request Android permission - SILENT VERSION (no alert)
+  // Request Android permission - SILENT VERSION (no alert) - MODIFIED FOR AUDIO PERMISSIONS
   const requestAndroidPermission = useCallback(async (permissionKey, permissionConfig) => {
     try {
       if (permissionConfig.autoGranted) {
@@ -136,6 +169,26 @@ const PermissionManager = ({
         return granted === PermissionsAndroid.RESULTS.GRANTED ? 'granted' : 'denied';
       }
 
+      // For ACCESS_NOTIFICATION_POLICY - needs special handling
+      if (permissionKey === 'notification_policy') {
+        try {
+          // This permission may require user to go to Settings
+          const granted = await PermissionsAndroid.request(
+            permissionConfig.androidPermission
+          );
+          
+          if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+            return 'granted';
+          } else {
+            // If denied, it might need manual settings access
+            return 'requires_settings';
+          }
+        } catch (error) {
+          return 'unavailable';
+        }
+      }
+
+      // For other permissions
       const granted = await PermissionsAndroid.request(
         permissionConfig.androidPermission
       );
@@ -212,7 +265,12 @@ const PermissionManager = ({
       const results = {};
       
       for (const perm of filteredPermissions) {
-        if (perm.required && !permissions[perm.key]?.granted) {
+        // Request only if required or if it's an audio permission
+        const shouldRequest = perm.required || 
+                            perm.key === 'modify_audio_settings' || 
+                            perm.key === 'notification_policy';
+        
+        if (shouldRequest && !permissions[perm.key]?.granted) {
           const status = await requestPermission(perm.key, perm);
           results[perm.key] = status;
           
@@ -280,6 +338,20 @@ const PermissionManager = ({
     });
   }, [showAlerts, silentMode]);
 
+  // Open notification settings specifically
+  const openNotificationSettings = useCallback(() => {
+    if (Platform.OS === 'android') {
+      // Try to open notification settings
+      Linking.sendIntent('android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS')
+        .catch(() => {
+          // Fallback to general settings
+          openAppSettings();
+        });
+    } else {
+      openAppSettings();
+    }
+  }, [openAppSettings]);
+
   // Check if all required permissions are granted
   const areAllRequiredPermissionsGranted = useCallback(() => {
     return filteredPermissions
@@ -305,6 +377,74 @@ const PermissionManager = ({
   const getAllPermissionsStatus = useCallback(() => {
     return permissions;
   }, [permissions]);
+
+  // Get audio-related permissions status
+  const getAudioPermissionsStatus = useCallback(() => {
+    const audioPermissions = filteredPermissions.filter(
+      p => p.category === 'notification' || 
+           p.key === 'modify_audio_settings' || 
+           p.key === 'notification_policy'
+    );
+    
+    const status = {};
+    audioPermissions.forEach(perm => {
+      status[perm.key] = permissions[perm.key] || { status: 'unknown' };
+    });
+    
+    return status;
+  }, [filteredPermissions, permissions]);
+
+  // Check if all audio permissions are granted
+  const areAudioPermissionsGranted = useCallback(() => {
+    const audioPermissions = filteredPermissions.filter(
+      p => p.category === 'notification' || 
+           p.key === 'modify_audio_settings' || 
+           p.key === 'notification_policy'
+    );
+    
+    return audioPermissions.every(p => {
+      const perm = permissions[p.key];
+      return perm?.granted || perm?.autoGranted || !p.required;
+    });
+  }, [filteredPermissions, permissions]);
+
+  // Request only audio permissions
+  const requestAudioPermissions = useCallback(async () => {
+    try {
+      setLoading(true);
+      const audioPermissions = filteredPermissions.filter(
+        p => p.category === 'notification' || 
+             p.key === 'modify_audio_settings' || 
+             p.key === 'notification_policy'
+      );
+      
+      const results = {};
+      
+      for (const perm of audioPermissions) {
+        if (!permissions[perm.key]?.granted) {
+          const status = await requestPermission(perm.key, perm);
+          results[perm.key] = status;
+          
+          setPermissions(prev => ({
+            ...prev,
+            [perm.key]: {
+              ...perm,
+              status: status,
+              granted: status === 'granted',
+              autoGranted: perm.autoGranted === true,
+            }
+          }));
+        }
+      }
+      
+      return results;
+    } catch (error) {
+      setError(error.message);
+      return {};
+    } finally {
+      setLoading(false);
+    }
+  }, [filteredPermissions, permissions, requestPermission]);
 
   // Initialize permissions on mount
   useEffect(() => {
@@ -368,6 +508,108 @@ export const PermissionUtils = {
     Linking.openSettings().catch(() => {
       // No alert in utils
     });
+  },
+  
+  // Open notification settings
+  openNotificationSettings: () => {
+    if (Platform.OS === 'android') {
+      Linking.sendIntent('android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS')
+        .catch(() => {
+          Linking.openSettings().catch(() => {});
+        });
+    } else {
+      Linking.openSettings().catch(() => {});
+    }
+  },
+  
+  // Check audio permissions status
+  checkAudioPermissions: async () => {
+    if (Platform.OS !== 'android') return { granted: true };
+    
+    try {
+      const audioPermissions = {
+        modify_audio_settings: false,
+        notification_policy: false,
+      };
+      
+      // Check MODIFY_AUDIO_SETTINGS
+      try {
+        const hasModifyAudio = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.MODIFY_AUDIO_SETTINGS
+        );
+        audioPermissions.modify_audio_settings = hasModifyAudio;
+      } catch (error) {
+        audioPermissions.modify_audio_settings = false;
+      }
+      
+      // Check ACCESS_NOTIFICATION_POLICY
+      try {
+        const hasNotificationPolicy = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.ACCESS_NOTIFICATION_POLICY
+        );
+        audioPermissions.notification_policy = hasNotificationPolicy;
+      } catch (error) {
+        audioPermissions.notification_policy = false;
+      }
+      
+      return {
+        granted: audioPermissions.modify_audio_settings && audioPermissions.notification_policy,
+        ...audioPermissions
+      };
+    } catch (error) {
+      return { granted: false, error: error.message };
+    }
+  },
+  
+  // Request audio permissions
+  requestAudioPermissions: async () => {
+    if (Platform.OS !== 'android') return { granted: true };
+    
+    try {
+      const results = {
+        modify_audio_settings: false,
+        notification_policy: false,
+      };
+      
+      // Request MODIFY_AUDIO_SETTINGS
+      try {
+        const modifyAudioResult = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.MODIFY_AUDIO_SETTINGS,
+          {
+            title: 'Audio Settings Permission',
+            message: 'Allow app to modify audio settings for maximum notification volume?',
+            buttonPositive: 'Allow',
+            buttonNegative: 'Deny',
+          }
+        );
+        results.modify_audio_settings = modifyAudioResult === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (error) {
+        results.modify_audio_settings = false;
+      }
+      
+      // Request ACCESS_NOTIFICATION_POLICY
+      try {
+        const notificationPolicyResult = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_NOTIFICATION_POLICY,
+          {
+            title: 'Do Not Disturb Access',
+            message: 'Allow notifications even in Do Not Disturb mode for urgent bookings?',
+            buttonPositive: 'Allow',
+            buttonNegative: 'Deny',
+          }
+        );
+        results.notification_policy = notificationPolicyResult === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (error) {
+        results.notification_policy = false;
+      }
+      
+      return {
+        granted: results.modify_audio_settings && results.notification_policy,
+        ...results
+      };
+    } catch (error) {
+      return { granted: false, error: error.message };
+    }
   },
 };
 

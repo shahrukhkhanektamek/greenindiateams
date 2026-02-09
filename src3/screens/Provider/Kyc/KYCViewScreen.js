@@ -119,11 +119,11 @@ const KYCViewScreen = ({ navigation, route }) => {
     setRefreshing(true);
     try {
       await fetchKYCData();
-      Toast.show({
-        type: 'success',
-        text1: 'Refreshed',
-        text2: 'KYC data updated',
-      });
+      // Toast.show({
+      //   type: 'success',
+      //   text1: 'Refreshed',
+      //   text2: 'KYC data updated',
+      // });
     } catch (error) {
       Toast.show({
         type: 'error',

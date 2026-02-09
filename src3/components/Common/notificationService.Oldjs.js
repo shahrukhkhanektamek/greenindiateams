@@ -24,9 +24,6 @@ class NotificationService {
       alert: 'alert',
       default: 'default'
     };
-    
-    // Default sound duration in milliseconds (5 seconds)
-    this.DEFAULT_SOUND_DURATION = 5000;
   }
 
   // ============ INITIALIZATION ============
@@ -78,10 +75,10 @@ class NotificationService {
     console.log('🤖 Loading Android sounds...');
     
     const androidSoundConfig = {
-      bookingOtherZone: 'other_zone',
-      bookingSameZone: 'working_zone',
-      alert: 'alert',
-      default: 'notification'
+      bookingOtherZone: 'other_zone',  // raw/other_zone (no extension)
+      bookingSameZone: 'working_zone',        // raw/alert
+      alert: 'alert',                  // raw/alert
+      default: 'notification'               // raw/default 
     };
 
     Object.keys(androidSoundConfig).forEach(soundKey => {
@@ -197,6 +194,7 @@ class NotificationService {
         
         // Force volume on Android (optional)
         if (Platform.OS === 'android') {
+          // Some Android devices need additional volume control
           sound.setVolume(1.0, 1.0); // Left and right channels both max
         }
         
@@ -209,8 +207,8 @@ class NotificationService {
 
   // ============ SOUND PLAYBACK ============
 
-  // Play notification sound with automatic stop
-  playNotificationSound = (notificationType, customDuration) => {
+  // Play notification sound
+  playNotificationSound = (notificationType) => {
     try {
       if (!this.isSoundEnabled) {
         console.log('🔇 Sound is disabled');
@@ -235,26 +233,26 @@ class NotificationService {
         // Try default sound
         if (soundKey !== 'default' && this.sounds.default) {
           console.log('🔄 Trying default sound...');
-          this.playSound('default', customDuration || this.DEFAULT_SOUND_DURATION);
+          this.playSound('default');
         }
         return;
       }
 
-      // Play the sound with automatic stop
-      this.playSound(soundKey, customDuration || this.DEFAULT_SOUND_DURATION);
+      // Play the sound
+      this.playSound(soundKey);
       
     } catch (error) {
       console.error('❌ Error in playNotificationSound:', error);
     }
   }
 
-  // Play specific sound with timeout
-  playSound = (soundKey, durationMs = this.DEFAULT_SOUND_DURATION) => {
+  // Play specific sound
+  playSound = (soundKey) => {
     const sound = this.sounds[soundKey];
     if (!sound) return;
 
     try {
-      // Force volume to maximum before playing
+      // AGAIN force volume to maximum before playing
       sound.setVolume(1.0);
       
       // For Android, also try setting system volume related properties
@@ -263,19 +261,7 @@ class NotificationService {
       }
       
       sound.setCurrentTime(0);
-      
-      // Set timeout to stop sound after specified milliseconds
-      const stopTimeout = setTimeout(() => {
-        console.log(`⏱️ Auto-stopping ${soundKey} after ${durationMs}ms`);
-        this.stopSound(soundKey);
-      }, durationMs);
-      
       sound.play((success) => {
-        // Clear timeout if sound finishes naturally before timeout
-        if (stopTimeout) {
-          clearTimeout(stopTimeout);
-        }
-        
         if (success) {
           console.log(`✅ ${soundKey} sound played at MAX volume`);
         } else {
@@ -283,97 +269,46 @@ class NotificationService {
           // Try to play default sound as fallback
           if (soundKey !== 'default' && this.sounds.default) {
             console.log('🔄 Trying default sound...');
-            this.playSound('default', durationMs);
+            this.playSound('default');
           }
         }
-        
-        // Clear current playing reference
-        if (this.currentlyPlaying && this.currentlyPlaying.key === soundKey) {
-          this.currentlyPlaying = null;
-        }
+        this.currentlyPlaying = null;
       });
       
-      // Store current playing sound with timeout reference
-      this.currentlyPlaying = {
-        sound: sound,
-        key: soundKey,
-        timeout: stopTimeout,
-        startTime: Date.now(),
-        duration: durationMs
-      };
+      this.currentlyPlaying = sound;
       
-      // For iOS, handle audio session
+      // For iOS, we might need to handle audio session
       if (Platform.OS === 'ios') {
-        Sound.setCategory('Playback', true);
+        // iOS specific: Ensure audio plays even in silent mode
+        Sound.setCategory('Playback', true); // mixWithOthers = true
         Sound.setMode('Default');
         Sound.setActive(true);
       }
       
-      console.log(`🎵 Started ${soundKey} sound, will auto-stop in ${durationMs}ms`);
-      
     } catch (error) {
       console.error(`❌ Error playing ${soundKey}:`, error);
-      if (this.currentlyPlaying && this.currentlyPlaying.key === soundKey) {
-        this.currentlyPlaying = null;
-      }
-    }
-  }
-
-  // Stop specific sound
-  stopSound = (soundKey) => {
-    const sound = this.sounds[soundKey];
-    if (sound) {
-      try {
-        sound.stop();
-        sound.setCurrentTime(0);
-        console.log(`⏹️ Stopped ${soundKey} sound`);
-      } catch (error) {
-        console.error(`❌ Error stopping ${soundKey} sound:`, error);
-      }
-      
-      // Clear timeout if exists
-      if (this.currentlyPlaying && this.currentlyPlaying.key === soundKey) {
-        if (this.currentlyPlaying.timeout) {
-          clearTimeout(this.currentlyPlaying.timeout);
-        }
-        this.currentlyPlaying = null;
-      }
+      this.currentlyPlaying = null;
     }
   }
 
   // Stop current sound
   stopCurrentSound = () => {
     if (this.currentlyPlaying) {
-      const { sound, key, timeout } = this.currentlyPlaying;
-      
       try {
-        sound.stop();
-        sound.setCurrentTime(0);
-        console.log(`⏹️ Stopped current sound: ${key}`);
+        this.currentlyPlaying.stop();
+        this.currentlyPlaying.setCurrentTime(0);
+        console.log('⏹️ Stopped current sound');
       } catch (error) {
         console.error('❌ Error stopping sound:', error);
       }
-      
-      // Clear timeout
-      if (timeout) {
-        clearTimeout(timeout);
-      }
-      
       this.currentlyPlaying = null;
     }
   }
 
-  // Test specific sound with custom duration
-  testSound = (soundType = 'default', durationMs = this.DEFAULT_SOUND_DURATION) => {
-    console.log(`🧪 Testing sound: ${soundType} for ${durationMs}ms`);
-    const soundKey = this.soundTypes[soundType] || soundType;
-    
-    // Stop current sound if playing
-    if (this.currentlyPlaying) {
-      this.stopCurrentSound();
-    }
-    
-    this.playSound(soundKey, durationMs);
+  // Test specific sound
+  testSound = (soundType = 'default') => {
+    console.log(`🧪 Testing sound: ${soundType}`);
+    this.playNotificationSound(soundType);
   }
 
   // ============ NOTIFICATION MANAGEMENT ============
@@ -534,7 +469,7 @@ class NotificationService {
   }
 
   // Add notification
-  addNotification = (notification, playSound = true, soundDuration = this.DEFAULT_SOUND_DURATION) => {
+  addNotification = (notification, playSound = true) => {
     this.notifications.unshift(notification);
     
     if (!notification.isRead) {
@@ -548,13 +483,13 @@ class NotificationService {
     
     if (playSound && this.isSoundEnabled && !notification.fromPush) {
       setTimeout(() => {
-        this.playNotificationSound(notification.type, soundDuration);
+        this.playNotificationSound(notification.type);
       }, 100);
     }
   }
 
-  // Add custom notification with sound duration
-  addLocalNotification = (title, message, type = 'alert', data = {}, playSound = true, soundDuration = this.DEFAULT_SOUND_DURATION) => {
+  // Add custom notification
+  addLocalNotification = (title, message, type = 'alert', data = {}, playSound = true) => {
     const newNotification = {
       id: Date.now().toString(),
       title,
@@ -564,56 +499,47 @@ class NotificationService {
       isRead: false,
       data,
       fromPush: false,
-      timestamp: new Date().toISOString(),
-      soundDuration // Store sound duration with notification
+      timestamp: new Date().toISOString()
     };
     
-    this.addNotification(newNotification, playSound, soundDuration);
+    this.addNotification(newNotification, playSound);
   }
 
   // ============ NOTIFICATION TYPES ============
 
-  showBookingNotificationOtherZone = (bookingData, soundDuration = this.DEFAULT_SOUND_DURATION) => {
+  showBookingNotificationOtherZone = (bookingData) => {
     this.addLocalNotification(
       bookingData.title || 'New Booking - Other Zone',
       bookingData.message || `New booking from ${bookingData.customerName || 'Customer'}`,
       'bookingOtherZone',
-      bookingData,
-      true,
-      soundDuration
+      bookingData
     );
   }
 
-  showBookingNotificationSameZone = (bookingData, soundDuration = this.DEFAULT_SOUND_DURATION) => {
+  showBookingNotificationSameZone = (bookingData) => {
     this.addLocalNotification(
       bookingData.title || 'New Booking - Same Zone',
       bookingData.message || `New booking from ${bookingData.customerName || 'Customer'}`,
       'bookingSameZone',
-      bookingData,
-      true,
-      soundDuration
+      bookingData
     );
   }
 
-  showAlertNotification = (alertData, soundDuration = this.DEFAULT_SOUND_DURATION) => {
+  showAlertNotification = (alertData) => {
     this.addLocalNotification(
       alertData.title || 'Alert',
       alertData.message || 'Important notification',
       'alert',
-      alertData,
-      true,
-      soundDuration
+      alertData
     );
   }
 
-  showDefaultNotification = (title, message, data = {}, soundDuration = this.DEFAULT_SOUND_DURATION) => {
+  showDefaultNotification = (title, message, data = {}) => {
     this.addLocalNotification(
       title,
       message,
       'default',
-      data,
-      true,
-      soundDuration
+      data
     );
   }
 
@@ -744,18 +670,12 @@ class NotificationService {
       platform: Platform.OS,
       soundTypes: this.soundTypes,
       loadedSounds: loadedSounds,
-      totalSounds: Object.keys(this.sounds).length,
-      defaultSoundDuration: this.DEFAULT_SOUND_DURATION,
-      currentlyPlaying: this.currentlyPlaying ? {
-        key: this.currentlyPlaying.key,
-        playingFor: Date.now() - this.currentlyPlaying.startTime,
-        duration: this.currentlyPlaying.duration
-      } : null
+      totalSounds: Object.keys(this.sounds).length
     };
   }
 
-  // Test notification with custom duration
-  testNotification = (type = 'default', soundDuration = this.DEFAULT_SOUND_DURATION) => {
+  // Test notification
+  testNotification = (type = 'default') => {
     this.addLocalNotification(
       'Test Notification',
       `This is a test notification of type: ${type}`,
@@ -763,42 +683,9 @@ class NotificationService {
       { 
         test: true,
         timestamp: new Date().toISOString(),
-        randomId: Math.random().toString(36).substring(7),
-        soundDuration: soundDuration
-      },
-      true,
-      soundDuration
+        randomId: Math.random().toString(36).substring(7)
+      }
     );
-  }
-
-  // Set default sound duration
-  setDefaultSoundDuration = (durationMs) => {
-    if (durationMs > 0 && durationMs <= 30000) { // Max 30 seconds
-      this.DEFAULT_SOUND_DURATION = durationMs;
-      console.log(`⏱️ Default sound duration set to ${durationMs}ms`);
-      return true;
-    } else {
-      console.error(`❌ Invalid duration: ${durationMs}ms. Must be between 1-30000ms`);
-      return false;
-    }
-  }
-
-  // Get currently playing sound info
-  getCurrentlyPlayingInfo = () => {
-    if (!this.currentlyPlaying) {
-      return null;
-    }
-    
-    const elapsed = Date.now() - this.currentlyPlaying.startTime;
-    const remaining = Math.max(0, this.currentlyPlaying.duration - elapsed);
-    
-    return {
-      soundKey: this.currentlyPlaying.key,
-      elapsedTime: elapsed,
-      remainingTime: remaining,
-      totalDuration: this.currentlyPlaying.duration,
-      progress: (elapsed / this.currentlyPlaying.duration) * 100
-    };
   }
 
   // ============ UTILITIES ============
@@ -829,10 +716,7 @@ class NotificationService {
       unreadCount: this.unreadCount,
       listenersCount: this.listeners.length,
       soundEnabled: this.isSoundEnabled,
-      platform: Platform.OS,
-      defaultSoundDuration: this.DEFAULT_SOUND_DURATION,
-      isSoundPlaying: !!this.currentlyPlaying,
-      currentlyPlaying: this.getCurrentlyPlayingInfo()
+      platform: Platform.OS
     };
   }
 

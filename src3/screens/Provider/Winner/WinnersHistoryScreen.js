@@ -129,11 +129,11 @@ const WinnersHistoryScreen = ({ navigation }) => {
     setRefreshing(true);
     fetchWinnersHistory(selectedMonth, selectedYear).finally(() => {
       setRefreshing(false);
-      Toast.show({
-        type: 'success',
-        text1: 'Refreshed',
-        text2: 'Winners history updated',
-      });
+      // Toast.show({
+      //   type: 'success',
+      //   text1: 'Refreshed',
+      //   text2: 'Winners history updated',
+      // });
     });
   };
 

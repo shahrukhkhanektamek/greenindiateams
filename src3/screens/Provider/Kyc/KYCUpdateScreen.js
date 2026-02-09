@@ -11,6 +11,7 @@ import {
   Platform,
   Image,
   RefreshControl,
+  BackHandler,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as ImagePicker from 'react-native-image-picker';
@@ -29,6 +30,22 @@ const KYCUpdateScreen = ({ navigation, route }) => {
     UploadUrl,
     fetchProfile,
   } = useContext(AppContext);
+
+  const type = route?.params?.type;
+  useEffect(() => {
+    const backAction = () => {
+        if(type=='new')
+        {
+          BackHandler.exitApp()
+          return true;
+        }
+    };  
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );  
+    return () => backHandler.remove();
+  }, []);
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -146,76 +163,165 @@ const KYCUpdateScreen = ({ navigation, route }) => {
 
   const validateForm = () => {
     const newErrors = {};
+    let errorMessage = '';
+    let errorField = '';
 
     // Bank Details Validation
     if (!formData.bankName.trim()) {
       newErrors.bankName = 'Bank name is required';
+      if (!errorMessage) {
+        errorMessage = 'Bank name is required';
+        errorField = 'bankName';
+      }
     }
 
     if (!formData.branchName.trim()) {
       newErrors.branchName = 'Branch name is required';
+      if (!errorMessage) {
+        errorMessage = 'Branch name is required';
+        errorField = 'branchName';
+      }
+    }
+
+    if (!formData.accountHolderName.trim()) {
+      newErrors.accountHolderName = 'Account holder name is required';
+      if (!errorMessage) {
+        errorMessage = 'Account holder name is required';
+        errorField = 'accountHolderName';
+      }
     }
 
     if (!formData.accountNumber.trim()) {
       newErrors.accountNumber = 'Account number is required';
+      if (!errorMessage) {
+        errorMessage = 'Account number is required';
+        errorField = 'accountNumber';
+      }
     } else if (!/^\d{9,18}$/.test(formData.accountNumber)) {
       newErrors.accountNumber = 'Enter a valid account number (9-18 digits)';
+      if (!errorMessage) {
+        errorMessage = 'Enter a valid account number (9-18 digits)';
+        errorField = 'accountNumber';
+      }
     }
 
     if (!formData.confirmAccountNumber.trim()) {
       newErrors.confirmAccountNumber = 'Please confirm account number';
+      if (!errorMessage) {
+        errorMessage = 'Please confirm account number';
+        errorField = 'confirmAccountNumber';
+      }
     } else if (formData.accountNumber !== formData.confirmAccountNumber) {
       newErrors.confirmAccountNumber = 'Account numbers do not match';
+      if (!errorMessage) {
+        errorMessage = 'Account numbers do not match';
+        errorField = 'confirmAccountNumber';
+      }
     }
 
     if (!formData.ifscCode.trim()) {
       newErrors.ifscCode = 'IFSC code is required';
+      if (!errorMessage) {
+        errorMessage = 'IFSC code is required';
+        errorField = 'ifscCode';
+      }
     } else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifscCode.toUpperCase())) {
-      // newErrors.ifscCode = 'Enter a valid IFSC code';
+      newErrors.ifscCode = 'Enter a valid IFSC code';
+      if (!errorMessage) {
+        errorMessage = 'Enter a valid IFSC code';
+        errorField = 'ifscCode';
+      }
     }
 
     // PAN Card Validation
     if (!formData.panCardNumber.trim()) {
       newErrors.panCardNumber = 'PAN card number is required';
-    } else if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panCardNumber.toUpperCase())) {
-      // newErrors.panCardNumber = 'Enter a valid PAN card number';
+      if (!errorMessage) {
+        errorMessage = 'PAN card number is required';
+        errorField = 'panCardNumber';
+      }
     }
+    // else if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panCardNumber.toUpperCase())) {
+    //   newErrors.panCardNumber = 'Enter a valid PAN card number';
+    //   if (!errorMessage) {
+    //     errorMessage = 'Enter a valid PAN card number';
+    //     errorField = 'panCardNumber';
+    //   }
+    // }
 
     // Aadhar Card Validation
     if (!formData.aadharCardNumber.trim()) {
       newErrors.aadharCardNumber = 'Aadhar card number is required';
+      if (!errorMessage) {
+        errorMessage = 'Aadhar card number is required';
+        errorField = 'aadharCardNumber';
+      }
     } else if (!/^\d{12}$/.test(formData.aadharCardNumber)) {
       newErrors.aadharCardNumber = 'Enter a valid 12-digit Aadhar number';
+      if (!errorMessage) {
+        errorMessage = 'Enter a valid 12-digit Aadhar number';
+        errorField = 'aadharCardNumber';
+      }
     }
 
     // GST Number Validation (Optional but validate if entered)
     if (formData.gstNumber.trim() && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(formData.gstNumber.toUpperCase())) {
       newErrors.gstNumber = 'Enter a valid GST number';
+      if (!errorMessage) {
+        errorMessage = 'Enter a valid GST number';
+        errorField = 'gstNumber';
+      }
     }
 
     // Image Validation
     if (!formData.passbookOrCheque) {
       newErrors.passbookOrCheque = 'Passbook or Cheque image is required';
+      if (!errorMessage) {
+        errorMessage = 'Passbook or Cheque image is required';
+        errorField = 'passbookOrCheque';
+      }
     }
 
     if (!formData.panCardImage) {
       newErrors.panCardImage = 'PAN card image is required';
+      if (!errorMessage) {
+        errorMessage = 'PAN card image is required';
+        errorField = 'panCardImage';
+      }
     }
 
     if (!formData.aadharFrontImage) {
       newErrors.aadharFrontImage = 'Aadhar front image is required';
+      if (!errorMessage) {
+        errorMessage = 'Aadhar front image is required';
+        errorField = 'aadharFrontImage';
+      }
     }
 
     if (!formData.aadharBackImage) {
       newErrors.aadharBackImage = 'Aadhar back image is required';
+      if (!errorMessage) {
+        errorMessage = 'Aadhar back image is required';
+        errorField = 'aadharBackImage';
+      }
     }
 
+    // Shop image validation (commented in your code)
     // if (!formData.shopImage) {
     //   newErrors.shopImage = 'Shop/Workplace image is required';
+    //   if (!errorMessage) {
+    //     errorMessage = 'Shop/Workplace image is required';
+    //     errorField = 'shopImage';
+    //   }
     // }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    
+    return {
+      isValid: Object.keys(newErrors).length === 0,
+      message: errorMessage,
+      field: errorField
+    };
   };
 
   const handleImagePicker = async (field) => {
@@ -331,8 +437,18 @@ const KYCUpdateScreen = ({ navigation, route }) => {
   };
 
   const handleUpdateKYC = async () => {
-    if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fix the errors in the form');
+    const validation = validateForm();
+  
+    if (!validation.isValid) {
+      // Toast show karein
+      Toast.show({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: validation.message,
+        position: 'top',
+        visibilityTime: 4000,
+      });
+      
       return;
     }
 
@@ -406,7 +522,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
 
         await fetchProfile();
       
-        navigate('KYCStatus');
+        navigate('KYCStatus',{type:type});
       } else {
         Alert.alert('Error', response?.message || 'Failed to update KYC');
       }

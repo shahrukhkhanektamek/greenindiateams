@@ -92,11 +92,11 @@ const TargetScreen = ({ navigation }) => {
     setRefreshing(true);
     fetchTargetData().finally(() => {
       setRefreshing(false);
-      Toast.show({
-        type: 'success',
-        text1: 'Refreshed',
-        text2: 'Target data updated',
-      });
+      // Toast.show({
+      //   type: 'success',
+      //   text1: 'Refreshed',
+      //   text2: 'Target data updated',
+      // });
     });
   };
 

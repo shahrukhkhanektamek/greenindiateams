@@ -234,7 +234,7 @@ const handleZonePress = (zone) => {
     console.error('Error calculating center:', error);
     center = { latitude: 28.6139, longitude: 77.2090 }; // Default fallback
     Toast.show({
-      type: 'warning',
+      type: 'error',
       text1: 'Using Default Location',
       text2: 'Unable to calculate zone center',
     });

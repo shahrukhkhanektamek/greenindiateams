@@ -288,6 +288,8 @@ const requestLocationPermission = async () => {
       if(response.success === true) {
         const distance = response.data.distance;
         const distanceCheck = response.data.distanceCheck;
+        
+
         setDistanceToBooking(distance);
         
        
@@ -333,13 +335,32 @@ const requestLocationPermission = async () => {
     const isAtLocation = await verifyLocation();
   };
 
-  const formatDistance = (distance) => {
-    if (distance < 1) {
-      return `${Math.round(distance * 1000)} meters`;
+  const formatDistance = (distanceInMeters) => {
+    if (distanceInMeters < 1000) {
+      return `${distanceInMeters} meters`;
     } else {
-      return `${distance.toFixed(1)} km`;
+      return `${(distanceInMeters / 1000).toFixed(1)} km`;
     }
   };
+
+  function getDistanceBetweenLatLng(lat1, lon1, lat2, lon2) {
+    const R = 6371000; // Earth radius in meters
+    const toRad = (value) => (value * Math.PI) / 180;
+  
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+  
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+  
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  
+    return R * c; // meters
+  }
 
   const navigateToLocation = () => {
     const booking = bookingData?.booking;

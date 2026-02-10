@@ -654,24 +654,7 @@ const CompleteBookingScreen = () => {
                      paymentMode === 'online' && !onlinePaymentSuccess ? 'Complete Payment First' : 
                      'Complete Booking'}
                   </Text>
-                  
-                  {!isPartsPending() && paymentMode === 'online' && !onlinePaymentSuccess && (
-                    <Text style={clsx(styles.textWhite, styles.textSm, styles.textCenter, styles.mt1)}>
-                      Tap on Online Payment option to pay
-                    </Text>
-                  )}
-                  
-                  {!isPartsPending() && paymentMode === 'online' && onlinePaymentSuccess && (
-                    <Text style={clsx(styles.textWhite, styles.textSm, styles.textCenter, styles.mt1)}>
-                      Online Payment: ₹{onlineAmount} Received ✓
-                    </Text>
-                  )}
-                  
-                  {!isPartsPending() && paymentMode === 'cash' && (
-                    <Text style={clsx(styles.textWhite, styles.textSm, styles.textCenter, styles.mt1)}>
-                      Cash Payment: ₹{cashAmount} to Collect
-                    </Text>
-                  )}
+                                    
                 </>
               )}
             </TouchableOpacity>

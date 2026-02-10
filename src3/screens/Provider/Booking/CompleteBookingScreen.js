@@ -220,14 +220,14 @@ const CompleteBookingScreen = () => {
       }
       
       // Check if paid amount matches total amount
-      if (Math.abs(paidAmount - totalAmount) > 1) {
-        Toast.show({
-          type: 'error',
-          text1: 'Amount Mismatch',
-          text2: `Paid amount (₹${paidAmount}) should match total amount (₹${totalAmount})`,
-        });
-        return;
-      }
+      // if (Math.abs(paidAmount - totalAmount) > 1) {
+      //   Toast.show({
+      //     type: 'error',
+      //     text1: 'Amount Mismatch',
+      //     text2: `Paid amount (₹${paidAmount}) should match total amount (₹${totalAmount})`,
+      //   });
+      //   return;
+      // }
       
       setCompletingBooking(true); 
       

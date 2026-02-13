@@ -15,7 +15,7 @@ import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import Header from '../../../components/Common/Header';
 import { AppContext } from '../../../Context/AppContext';
-import { navigate } from '../../../navigation/navigationService';
+import { navigate, navigationRef } from '../../../navigation/navigationService';
 
 const EarningScreen = ({ navigation }) => {
   const {
@@ -357,20 +357,22 @@ const EarningScreen = ({ navigation }) => {
     
     return (
       <View style={clsx(styles.mb6)}>
-        <View style={clsx(
+        <TouchableOpacity style={clsx(
           styles.bgPrimary, 
           styles.p4, 
           styles.roundedLg, 
           styles.shadowSm,
           styles.mb4
-        )}>
-          <Text style={clsx(styles.textSm, styles.fontMedium, styles.textWhite, styles.mb1)}>
-            Total Earnings
-          </Text>
-          <Text style={clsx(styles.text3xl, styles.fontBold, styles.textWhite)}>
-            {formatCurrency(totals.totalEarningAmount)}
-          </Text>
-        </View>
+        )}
+        onPress={()=> navigate('EarningHistory')}
+        >
+            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textWhite, styles.mb1)}>
+              Total Earnings
+            </Text>
+            <Text style={clsx(styles.text3xl, styles.fontBold, styles.textWhite)}>
+              {formatCurrency(totals.totalEarningAmount)}
+            </Text>
+        </TouchableOpacity>
 
         <View style={clsx(styles.flexRow, styles.flexWrap, styles.justifyBetween)}>
           {/* Received Earnings */}

@@ -85,15 +85,46 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
     setLoading('sideBar', false)
   };
 
-  const handleLogout = () => {
-    setUser(null);
-    storage.delete('token');
-    storage.delete('user');
-    closeSidebar();
+  const handleLogout = async () => {
+
+
+    try {
+      const response = await postData({}, Urls.logout, 'GET');      
+      if (response?.success) {
+        
+        setUser(null);
+        storage.delete('token');
+        storage.delete('user');
+        closeSidebar();      
+        reset('ProviderOTPLogin')
+
+        // Toast.show({
+        //   type: 'success',
+        //   text1: response.message,
+        //   text2: `OTP has been sent to +91 ${phone}`
+        // });
+      } else {
+        // Handle API error response
+        // Toast.show({
+        //   type: 'error',
+        //   text1: 'Failed to Logout',
+        //   text2: response?.message || 'Please try again'
+        // });
+      }
+    } catch (error) {
+      // Toast.show({
+      //   type: 'error',
+      //   text1: 'Error',
+      //   text2: 'Failed to logout. Please try again.'
+      // });
+    } finally {
+      
+    }
+
+
 
 
     
-    reset('ProviderOTPLogin')
 
   };
 
@@ -268,7 +299,7 @@ const CustomSidebar = ({ state, isVisible, onClose }) => {
             {/* Logout Button */}
             <TouchableOpacity
               style={styles.logoutButton}
-              onPress={handleLogout}
+              onPress={() => handleLogout()}
               activeOpacity={0.7}
             >
               <View style={[styles.menuIcon, { backgroundColor: colors.errorLight }]}>

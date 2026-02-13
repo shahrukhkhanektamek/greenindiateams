@@ -165,8 +165,10 @@ const KYCUpdateScreen = ({ navigation, route }) => {
     const newErrors = {};
     let errorMessage = '';
     let errorField = '';
-
-    // Bank Details Validation
+  
+    // ===== BANK DETAILS (UI sequence ke according) =====
+    
+    // 1. Bank Name
     if (!formData.bankName.trim()) {
       newErrors.bankName = 'Bank name is required';
       if (!errorMessage) {
@@ -174,7 +176,8 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         errorField = 'bankName';
       }
     }
-
+  
+    // 2. Branch Name
     if (!formData.branchName.trim()) {
       newErrors.branchName = 'Branch name is required';
       if (!errorMessage) {
@@ -182,7 +185,8 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         errorField = 'branchName';
       }
     }
-
+  
+    // 3. Account Holder Name
     if (!formData.accountHolderName.trim()) {
       newErrors.accountHolderName = 'Account holder name is required';
       if (!errorMessage) {
@@ -190,7 +194,8 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         errorField = 'accountHolderName';
       }
     }
-
+  
+    // 4. Account Number
     if (!formData.accountNumber.trim()) {
       newErrors.accountNumber = 'Account number is required';
       if (!errorMessage) {
@@ -204,7 +209,8 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         errorField = 'accountNumber';
       }
     }
-
+  
+    // 5. Confirm Account Number
     if (!formData.confirmAccountNumber.trim()) {
       newErrors.confirmAccountNumber = 'Please confirm account number';
       if (!errorMessage) {
@@ -218,7 +224,8 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         errorField = 'confirmAccountNumber';
       }
     }
-
+  
+    // 6. IFSC Code
     if (!formData.ifscCode.trim()) {
       newErrors.ifscCode = 'IFSC code is required';
       if (!errorMessage) {
@@ -232,15 +239,34 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         errorField = 'ifscCode';
       }
     }
-
-    // PAN Card Validation
+  
+    // 7. Passbook/Cheque Image
+    if (!formData.passbookOrCheque) {
+      newErrors.passbookOrCheque = 'Passbook or Cheque image is required';
+      if (!errorMessage) {
+        errorMessage = 'Passbook or Cheque image is required';
+        errorField = 'passbookOrCheque';
+      }
+    }
+  
+    // ===== PAN CARD DETAILS =====
+    
+    // 8. PAN Card Number
     if (!formData.panCardNumber.trim()) {
       newErrors.panCardNumber = 'PAN card number is required';
       if (!errorMessage) {
         errorMessage = 'PAN card number is required';
         errorField = 'panCardNumber';
       }
+    } else if (formData.panCardNumber.trim().length !== 10) {
+      // ✅ Length check - PAN card must be exactly 10 characters
+      newErrors.panCardNumber = 'PAN card number must be exactly 10 characters';
+      if (!errorMessage) {
+        errorMessage = 'PAN card number must be exactly 10 characters';
+        errorField = 'panCardNumber';
+      }
     }
+    // PAN validation regex commented in your code, uncomment if needed
     // else if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panCardNumber.toUpperCase())) {
     //   newErrors.panCardNumber = 'Enter a valid PAN card number';
     //   if (!errorMessage) {
@@ -248,8 +274,19 @@ const KYCUpdateScreen = ({ navigation, route }) => {
     //     errorField = 'panCardNumber';
     //   }
     // }
-
-    // Aadhar Card Validation
+  
+    // 9. PAN Card Image
+    if (!formData.panCardImage) {
+      newErrors.panCardImage = 'PAN card image is required';
+      if (!errorMessage) {
+        errorMessage = 'PAN card image is required';
+        errorField = 'panCardImage';
+      }
+    }
+  
+    // ===== AADHAR CARD DETAILS =====
+    
+    // 10. Aadhar Card Number
     if (!formData.aadharCardNumber.trim()) {
       newErrors.aadharCardNumber = 'Aadhar card number is required';
       if (!errorMessage) {
@@ -263,33 +300,8 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         errorField = 'aadharCardNumber';
       }
     }
-
-    // GST Number Validation (Optional but validate if entered)
-    if (formData.gstNumber.trim() && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(formData.gstNumber.toUpperCase())) {
-      newErrors.gstNumber = 'Enter a valid GST number';
-      if (!errorMessage) {
-        errorMessage = 'Enter a valid GST number';
-        errorField = 'gstNumber';
-      }
-    }
-
-    // Image Validation
-    if (!formData.passbookOrCheque) {
-      newErrors.passbookOrCheque = 'Passbook or Cheque image is required';
-      if (!errorMessage) {
-        errorMessage = 'Passbook or Cheque image is required';
-        errorField = 'passbookOrCheque';
-      }
-    }
-
-    if (!formData.panCardImage) {
-      newErrors.panCardImage = 'PAN card image is required';
-      if (!errorMessage) {
-        errorMessage = 'PAN card image is required';
-        errorField = 'panCardImage';
-      }
-    }
-
+  
+    // 11. Aadhar Front Image
     if (!formData.aadharFrontImage) {
       newErrors.aadharFrontImage = 'Aadhar front image is required';
       if (!errorMessage) {
@@ -297,7 +309,8 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         errorField = 'aadharFrontImage';
       }
     }
-
+  
+    // 12. Aadhar Back Image
     if (!formData.aadharBackImage) {
       newErrors.aadharBackImage = 'Aadhar back image is required';
       if (!errorMessage) {
@@ -305,8 +318,21 @@ const KYCUpdateScreen = ({ navigation, route }) => {
         errorField = 'aadharBackImage';
       }
     }
-
-    // Shop image validation (commented in your code)
+  
+    // ===== GST DETAILS (Optional) =====
+    
+    // 13. GST Number (Optional but validate if entered)
+    if (formData.gstNumber.trim() && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(formData.gstNumber.toUpperCase())) {
+      newErrors.gstNumber = 'Enter a valid GST number';
+      if (!errorMessage) {
+        errorMessage = 'Enter a valid GST number';
+        errorField = 'gstNumber';
+      }
+    }
+  
+    // ===== SHOP/WORKPLACE IMAGE =====
+    
+    // 14. Shop Image (Optional in your code, uncomment if required)
     // if (!formData.shopImage) {
     //   newErrors.shopImage = 'Shop/Workplace image is required';
     //   if (!errorMessage) {
@@ -314,7 +340,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
     //     errorField = 'shopImage';
     //   }
     // }
-
+  
     setErrors(newErrors);
     
     return {
@@ -576,11 +602,11 @@ const KYCUpdateScreen = ({ navigation, route }) => {
           maxLength={maxLength}
           autoCapitalize={autoCapitalize}
         />
-        {errors[field] && (
+        {/* {errors[field] && (
           <Text style={clsx(styles.textSm, styles.textError, styles.mt1)}>
             {errors[field]}
           </Text>
-        )}
+        )} */}
       </View>
     );
   };
@@ -653,11 +679,11 @@ const KYCUpdateScreen = ({ navigation, route }) => {
           </View>
         )}
         
-        {errors[field] && (
+        {/* {errors[field] && (
           <Text style={clsx(styles.textSm, styles.textError, styles.mt1)}>
             {errors[field]}
           </Text>
-        )}
+        )} */}
       </View>
     );
   };

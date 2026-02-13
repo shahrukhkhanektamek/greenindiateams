@@ -70,6 +70,7 @@ const ProfileUpdateScreen = ({ route }) => {
     email: '',
     mobile: '',
     dob: '',
+    gender: '',
     experienceLevel: 'Fresher',
     companyName: '',
     yearOfExperience: '',
@@ -466,169 +467,181 @@ const ProfileUpdateScreen = ({ route }) => {
   };
 
   const validateForm = () => {
-  const newErrors = {};
-  let errorMessage = '';
-  let errorField = '';
-
-  if (!formData.name.trim()) {
-    newErrors.name = 'Name is required';
-    if (!errorMessage) {
-      errorMessage = 'Name is required';
-      errorField = 'name';
-    }
-  }
-
-  if (!formData.email.trim()) {
-    newErrors.email = 'Email is required';
-    if (!errorMessage) {
-      errorMessage = 'Email is required';
-      errorField = 'email';
-    }
-  } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-    newErrors.email = 'Enter a valid email address';
-    if (!errorMessage) {
-      errorMessage = 'Enter a valid email address';
-      errorField = 'email';
-    }
-  }
-
-  if (!formData.dob) {
-    newErrors.dob = 'Date of birth is required';
-    if (!errorMessage) {
-      errorMessage = 'Date of birth is required';
-      errorField = 'dob';
-    }
-  } else {
-    const today = new Date();
-    const birthDate = new Date(formData.dob);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    
-    if (age < 18) {
-      newErrors.dob = 'You must be at least 18 years old';
+    const newErrors = {};
+    let errorMessage = '';
+    let errorField = '';
+  
+    // 1. Service Category validation
+    if (formData.categoryIds.length === 0) {
+      newErrors.category = 'Service category is required';
       if (!errorMessage) {
-        errorMessage = 'You must be at least 18 years old';
+        errorMessage = 'Service category is required';
+        errorField = 'category';
+      }
+    }
+  
+    // 2. City validation
+    if (!formData.cityId) {
+      newErrors.city = 'City is required';
+      if (!errorMessage) {
+        errorMessage = 'City is required';
+        errorField = 'city';
+      }
+    }
+  
+    // 3. Name validation
+    if (!formData.name.trim()) {
+      newErrors.name = 'Name is required';
+      if (!errorMessage) {
+        errorMessage = 'Name is required';
+        errorField = 'name';
+      }
+    }
+  
+    // 4. Email validation
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+      if (!errorMessage) {
+        errorMessage = 'Email is required';
+        errorField = 'email';
+      }
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Enter a valid email address';
+      if (!errorMessage) {
+        errorMessage = 'Enter a valid email address';
+        errorField = 'email';
+      }
+    }
+  
+    // 5. Date of Birth validation + age check
+    if (!formData.dob) {
+      newErrors.dob = 'Date of birth is required';
+      if (!errorMessage) {
+        errorMessage = 'Date of birth is required';
         errorField = 'dob';
       }
-    }
-  }
-
-  // Validate category selection
-  if (formData.categoryIds.length === 0) {
-    newErrors.category = 'Service category is required';
-    if (!errorMessage) {
-      errorMessage = 'Service category is required';
-      errorField = 'category';
-    }
-  }
-
-  // Validate city selection
-  if (!formData.cityId) {
-    newErrors.city = 'City is required';
-    if (!errorMessage) {
-      errorMessage = 'City is required';
-      errorField = 'city';
-    }
-  }
-
-  // Validate at least one reference
-  if (!formData.referenceName1.trim() && !formData.referenceName2.trim()) {
-    newErrors.references = 'At least one reference is required';
-    if (!errorMessage) {
-      errorMessage = 'At least one reference is required';
-      errorField = 'references';
-    }
-  }
-
-  // Validate reference mobile numbers if names are provided
-  if (formData.referenceName1.trim() && !formData.referenceMobile1.trim()) {
-    newErrors.referenceMobile1 = 'Reference mobile number is required';
-    if (!errorMessage) {
-      errorMessage = 'Reference 1 mobile number is required';
-      errorField = 'referenceMobile1';
-    }
-  } else if (formData.referenceMobile1 && !/^\d{10}$/.test(formData.referenceMobile1)) {
-    newErrors.referenceMobile1 = 'Enter a valid 10-digit mobile number';
-    if (!errorMessage) {
-      errorMessage = 'Enter a valid 10-digit mobile number for Reference 1';
-      errorField = 'referenceMobile1';
-    }
-  }
-
-  if (formData.referenceName2.trim() && !formData.referenceMobile2.trim()) {
-    newErrors.referenceMobile2 = 'Reference mobile number is required';
-    if (!errorMessage) {
-      errorMessage = 'Reference 2 mobile number is required';
-      errorField = 'referenceMobile2';
-    }
-  } else if (formData.referenceMobile2 && !/^\d{10}$/.test(formData.referenceMobile2)) {
-    newErrors.referenceMobile2 = 'Enter a valid 10-digit mobile number';
-    if (!errorMessage) {
-      errorMessage = 'Enter a valid 10-digit mobile number for Reference 2';
-      errorField = 'referenceMobile2';
-    }
-  }
-
-  // Validate experience fields if Experience is selected
-  if (formData.experienceLevel === 'Experience') {
-    if (!formData.yearOfExperience) {
-      newErrors.yearOfExperience = 'Years of experience is required';
-      if (!errorMessage) {
-        errorMessage = 'Years of experience is required';
-        errorField = 'yearOfExperience';
+    } else {
+      const today = new Date();
+      const birthDate = new Date(formData.dob);
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      
+      if (age < 18) {
+        newErrors.dob = 'You must be at least 18 years old';
+        if (!errorMessage) {
+          errorMessage = 'You must be at least 18 years old';
+          errorField = 'dob';
+        }
       }
     }
-    if (!formData.companyName.trim()) {
-      newErrors.companyName = 'Company name is required';
-      if (!errorMessage) {
-        errorMessage = 'Company name is required';
-        errorField = 'companyName';
-      }
-    }
-  }
-
-  // Validate permanent address
-  if (!formData.permanentAddress.trim()) {
-    newErrors.permanentAddress = 'Permanent address is required';
-    if (!errorMessage) {
-      errorMessage = 'Permanent address is required';
-      errorField = 'permanentAddress';
-    }
-  } else if (formData.permanentAddress.trim().length < 10) {
-    newErrors.permanentAddress = 'Permanent address must be at least 10 characters';
-    if (!errorMessage) {
-      errorMessage = 'Permanent address must be at least 10 characters';
-      errorField = 'permanentAddress';
-    }
-  }
-
-  // Validate current address
-  if (!formData.currentAddress.trim()) {
-    newErrors.currentAddress = 'Current address is required';
-    if (!errorMessage) {
-      errorMessage = 'Current address is required';
-      errorField = 'currentAddress';
-    }
-  } else if (formData.currentAddress.trim().length < 10) {
-    newErrors.currentAddress = 'Current address must be at least 10 characters';
-    if (!errorMessage) {
-      errorMessage = 'Current address must be at least 10 characters';
-      errorField = 'currentAddress';
-    }
-  }
-
-
-  setErrors(newErrors);
   
-  return {
-    isValid: Object.keys(newErrors).length === 0,
-    message: errorMessage,
-    field: errorField
+    // 6. Gender validation
+    if (!formData.gender) {
+      newErrors.gender = 'Gender is required';
+      if (!errorMessage) {
+        errorMessage = 'Gender is required';
+        errorField = 'gender';
+      }
+    }
+  
+    // 7. Experience fields validation (if Experience is selected)
+    if (formData.experienceLevel === 'Experience') {
+      if (!formData.yearOfExperience) {
+        newErrors.yearOfExperience = 'Years of experience is required';
+        if (!errorMessage) {
+          errorMessage = 'Years of experience is required';
+          errorField = 'yearOfExperience';
+        }
+      }
+      if (!formData.companyName.trim()) {
+        newErrors.companyName = 'Company name is required';
+        if (!errorMessage) {
+          errorMessage = 'Company name is required';
+          errorField = 'companyName';
+        }
+      }
+    }
+  
+    // 8. Permanent Address validation
+    if (!formData.permanentAddress.trim()) {
+      newErrors.permanentAddress = 'Permanent address is required';
+      if (!errorMessage) {
+        errorMessage = 'Permanent address is required';
+        errorField = 'permanentAddress';
+      }
+    } else if (formData.permanentAddress.trim().length < 10) {
+      newErrors.permanentAddress = 'Permanent address must be at least 10 characters';
+      if (!errorMessage) {
+        errorMessage = 'Permanent address must be at least 10 characters';
+        errorField = 'permanentAddress';
+      }
+    }
+  
+    // 9. Current Address validation
+    if (!formData.currentAddress.trim()) {
+      newErrors.currentAddress = 'Current address is required';
+      if (!errorMessage) {
+        errorMessage = 'Current address is required';
+        errorField = 'currentAddress';
+      }
+    } else if (formData.currentAddress.trim().length < 10) {
+      newErrors.currentAddress = 'Current address must be at least 10 characters';
+      if (!errorMessage) {
+        errorMessage = 'Current address must be at least 10 characters';
+        errorField = 'currentAddress';
+      }
+    }
+  
+    // 10. References validation - at least one required
+    if (!formData.referenceName1.trim() && !formData.referenceName2.trim()) {
+      newErrors.references = 'At least one reference is required';
+      if (!errorMessage) {
+        errorMessage = 'At least one reference is required';
+        errorField = 'references';
+      }
+    }
+  
+    // 11. Reference 1 mobile validation
+    if (formData.referenceName1.trim() && !formData.referenceMobile1.trim()) {
+      newErrors.referenceMobile1 = 'Reference mobile number is required';
+      if (!errorMessage) {
+        errorMessage = 'Reference 1 mobile number is required';
+        errorField = 'referenceMobile1';
+      }
+    } else if (formData.referenceMobile1 && !/^\d{10}$/.test(formData.referenceMobile1)) {
+      newErrors.referenceMobile1 = 'Enter a valid 10-digit mobile number';
+      if (!errorMessage) {
+        errorMessage = 'Enter a valid 10-digit mobile number for Reference 1';
+        errorField = 'referenceMobile1';
+      }
+    }
+  
+    // 12. Reference 2 mobile validation
+    if (formData.referenceName2.trim() && !formData.referenceMobile2.trim()) {
+      newErrors.referenceMobile2 = 'Reference mobile number is required';
+      if (!errorMessage) {
+        errorMessage = 'Reference 2 mobile number is required';
+        errorField = 'referenceMobile2';
+      }
+    } else if (formData.referenceMobile2 && !/^\d{10}$/.test(formData.referenceMobile2)) {
+      newErrors.referenceMobile2 = 'Enter a valid 10-digit mobile number';
+      if (!errorMessage) {
+        errorMessage = 'Enter a valid 10-digit mobile number for Reference 2';
+        errorField = 'referenceMobile2';
+      }
+    }
+  
+    setErrors(newErrors);
+    
+    return {
+      isValid: Object.keys(newErrors).length === 0,
+      message: errorMessage,
+      field: errorField
+    };
   };
-};
  
   const handleDateChange = (event, selectedDate) => {
     setShowDatePicker(false);
@@ -720,6 +733,7 @@ const ProfileUpdateScreen = ({ route }) => {
       formDataToSend.append('referenceName2', formData.referenceName2);
       formDataToSend.append('referenceMobile2', formData.referenceMobile2);
       formDataToSend.append('userId', formData.userId);
+      formDataToSend.append('gender', formData.gender);
       
       // Add categoryIds
       formData.categoryIds.forEach((categoryId, index) => {
@@ -809,11 +823,11 @@ const ProfileUpdateScreen = ({ route }) => {
           secureTextEntry={secureTextEntry}
           maxLength={maxLength}
         />
-        {errors[field] && (
+        {/* {errors[field] && (
           <Text style={clsx(styles.textSm, styles.textError, styles.mt1)}>
             {errors[field]}
           </Text>
-        )}
+        )} */}
       </View>
     );
   };
@@ -1365,19 +1379,19 @@ const ProfileUpdateScreen = ({ route }) => {
 
           {/* Service Category */}
           {renderSingleCategorySelection()}
-          {errors.category && (
+          {/* {errors.category && (
             <Text style={clsx(styles.textSm, styles.textError, styles.mt1)}>
               {errors.category}
             </Text>
-          )}
+          )} */}
 
           {/* City Selection */}
           {renderSingleCitySelection()}
-          {errors.city && (
+          {/* {errors.city && (
             <Text style={clsx(styles.textSm, styles.textError, styles.mt1)}>
               {errors.city}
             </Text>
-          )}
+          )} */}
 
           {renderInputField('Full Name', 'name', 'Enter your full name')}
 
@@ -1405,11 +1419,11 @@ const ProfileUpdateScreen = ({ route }) => {
               </Text>
               <Icon name="calendar-today" size={20} color={colors.textMuted} />
             </TouchableOpacity>
-            {errors.dob && (
+            {/* {errors.dob && (
               <Text style={clsx(styles.textSm, styles.textError, styles.mt1)}>
                 {errors.dob}
               </Text>
-            )}
+            )} */}
           </View>
 
           {showDatePicker && (
@@ -1464,6 +1478,50 @@ const ProfileUpdateScreen = ({ route }) => {
             </View>
           </View>
 
+          <View style={clsx(styles.mb4)}>
+            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
+              Gender
+            </Text>
+            <View style={clsx(styles.flexRow, styles.flexWrap)}>
+              {['Male', 'Female', 'Other'].map((genderOption) => (
+                <TouchableOpacity
+                  key={genderOption}
+                  style={clsx(
+                    styles.px4,
+                    styles.py2,
+                    styles.mr2,
+                    styles.mb2,
+                    styles.roundedFull,
+                    formData.gender === genderOption ?
+                      styles.bgPrimary :
+                      styles.bgGray
+                  )}
+                  onPress={() => {
+                    setFormData({ ...formData, gender: genderOption });
+                    if (errors.gender) {
+                      setErrors({ ...errors, gender: '' });
+                    }
+                  }}
+                >
+                  <Text style={clsx(
+                    styles.textSm,
+                    styles.fontMedium,
+                    formData.gender === genderOption ?
+                      styles.textWhite :
+                      styles.textBlack
+                  )}>
+                    {genderOption}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {/* {errors.gender && (
+              <Text style={clsx(styles.textSm, styles.textError, styles.mt1)}>
+                {errors.gender}
+              </Text>
+            )} */}
+          </View>
+
           {/* Experience Fields */}
           {showExperienceFields && (
             <View style={clsx(styles.mb4)}>
@@ -1509,11 +1567,11 @@ const ProfileUpdateScreen = ({ route }) => {
                       </TouchableOpacity>
                     ))}
                   </View>
-                  {errors.yearOfExperience && (
+                  {/* {errors.yearOfExperience && (
                     <Text style={clsx(styles.textSm, styles.textError, styles.mt1)}>
                       {errors.yearOfExperience}
                     </Text>
-                  )}
+                  )} */}
                 </View>
                 
                 <View style={clsx(styles.flex1)}>
@@ -1577,11 +1635,11 @@ const ProfileUpdateScreen = ({ route }) => {
             References (At least one required)
           </Text>
 
-          {errors.references && (
+          {/* {errors.references && (
             <Text style={clsx(styles.textSm, styles.textError, styles.mb2)}>
               {errors.references}
             </Text>
-          )}
+          )} */}
 
           <View style={clsx(styles.mb4)}>
             <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
@@ -1623,11 +1681,11 @@ const ProfileUpdateScreen = ({ route }) => {
                 maxLength={10}
               />
             </View>
-            {errors.referenceMobile1 && (
+            {/* {errors.referenceMobile1 && (
               <Text style={clsx(styles.textSm, styles.textError)}>
                 {errors.referenceMobile1}
               </Text>
-            )}
+            )} */}
           </View>
 
           <View style={clsx(styles.mb6)}>
@@ -1670,11 +1728,11 @@ const ProfileUpdateScreen = ({ route }) => {
                 maxLength={10}
               />
             </View>
-            {errors.referenceMobile2 && (
+            {/* {errors.referenceMobile2 && (
               <Text style={clsx(styles.textSm, styles.textError)}>
                 {errors.referenceMobile2}
               </Text>
-            )}
+            )} */}
           </View>
         </View>
 

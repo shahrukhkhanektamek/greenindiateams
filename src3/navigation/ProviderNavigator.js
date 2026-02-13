@@ -9,6 +9,7 @@ import MainLayout from '../screens/Common/MainLayout'; // MainLayout import karo
 import DashboardScreen from '../screens/Provider/DashboardScreen';
 import BookingListScreen from '../screens/Provider/Booking/BookingListScreen';
 import BookingDetailScreen from '../screens/Provider/Booking/BookingDetailScreen';
+import BookingDetailShowScreen from '../screens/Provider/Booking/BookingDetailShowScreen';
 import StartServiceScreen from '../screens/Provider/Booking/StartServiceScreen';
 import OTPVerificationScreen from '../screens/Provider/Booking/OTPVerificationScreen';
 import SelfieCaptureScreen from '../screens/Provider/Booking/SelfieCaptureScreen';
@@ -33,6 +34,7 @@ import TodayJobsScreen from '../screens/Provider/TodayJobsScreen';
 import JobDetailsScreen from '../screens/Provider/JobDetailsScreen';
 
 import EarningsScreen from '../screens/Provider/Earning/EarningScreen'; 
+import EarningHistoryScreen from '../screens/Provider/Earning/EarningHistoryScreen'; 
 import EarningDetailsScreen  from '../screens/Provider/Earning/EarningDetailsScreen';
 import BankTransferListScreen  from '../screens/Provider/Earning/BankTransferListScreen';
 
@@ -92,6 +94,12 @@ const TodayJobsWithLayout = (props) => (
 const EarningsWithLayout = (props) => (
   <MainLayout>
     <EarningsScreen {...props} />
+  </MainLayout>
+);
+// Earnings with MainLayout
+const EarningHistoryWithLayout = (props) => (
+  <MainLayout>
+    <EarningHistoryScreen {...props} />
   </MainLayout>
 );
 
@@ -207,6 +215,9 @@ const ToolsWithLayout = (props) => (
 // Booking Detail without Layout
 const BookingDetailWithoutLayout = (props) => (
   <BookingDetailScreen {...props} />
+);
+const BookingDetailShowWithoutLayout = (props) => (
+  <BookingDetailShowScreen {...props} />
 );
 
 // OTP Verification without Layout
@@ -448,6 +459,10 @@ function ProviderNavigator() {
             name="BookingDetail" 
             component={BookingDetailWithoutLayout}
           /> 
+          <Stack.Screen 
+            name="BookingDetailShow" 
+            component={BookingDetailShowWithoutLayout}
+          /> 
 
           {/* Modal booking screens without Layout */}
           <Stack.Screen 
@@ -579,6 +594,10 @@ function ProviderNavigator() {
           <Stack.Screen 
             name="Earnings" 
             component={EarningsWithLayout}
+          />
+          <Stack.Screen 
+            name="EarningHistory" 
+            component={EarningHistoryWithLayout}
           />
           
           <Stack.Screen 

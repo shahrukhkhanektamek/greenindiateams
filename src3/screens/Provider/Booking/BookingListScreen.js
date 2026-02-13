@@ -546,9 +546,13 @@ const BookingListScreen = ({ navigation }) => {
     );
   };
 
-  // renderBookingCard function को इस तरह बदलें:
+  
   const renderBookingCard = ({ item: booking }) => {
     const isActionLoading = actionLoading[booking.id];
+    
+    // Check if booking has warranty - booking.originalData mein isWaranty check karo
+    // const hasWarranty = booking.originalData?.isWaranty === 1;
+    const hasWarranty = true;
     
     // Function to handle card press
     const handleCardPress = () => {
@@ -563,10 +567,7 @@ const BookingListScreen = ({ navigation }) => {
               text: 'Accept', 
               style: 'default',
               onPress: () => {
-                // Accept the booking
                 handleStatusUpdate(booking.id, 'accept', booking.originalData);
-                // Then navigate to detail
-                // navigation.navigate('BookingDetail', { booking: booking.originalData });
               }
             }
           ]
@@ -585,7 +586,12 @@ const BookingListScreen = ({ navigation }) => {
           styles.p4,
           styles.mb3,
           styles.shadowSm,
-          isActionLoading && styles.opacity50
+          isActionLoading && styles.opacity50,
+          // Warranty card ke liye border left add karo
+          hasWarranty && {
+            borderLeftWidth: 4,
+            borderLeftColor: colors.warning,
+          }
         )}
         onPress={handleCardPress}
         disabled={isActionLoading}
@@ -606,23 +612,50 @@ const BookingListScreen = ({ navigation }) => {
               </Text>
             </View>
           </View>
-          <View style={clsx(
-            styles.px3,
-            styles.py1,
-            styles.roundedFull,
-            { backgroundColor: getStatusBgColor(booking.status) }
-          )}>
-            <Text style={clsx(
-              styles.textXs,
-              styles.fontMedium,
-              { color: getStatusColor(booking.status) }
-            )} numberOfLines={1}>
-              {getStatusLabel(booking.status)}
-            </Text>
+          
+          {/* Status aur Warranty badge ek saath */}
+          <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+            {/* 🔥 WARRANTY BADGE - AGAR WARRANTY HAI TO YEH DIKHEGA */}
+            {hasWarranty && (
+              <View style={clsx(
+                styles.flexRow,
+                styles.itemsCenter,
+                styles.px2,
+                styles.py1,
+                styles.mr2,
+                styles.roundedFull,
+                { backgroundColor: colors.warning + '20' }
+              )}>
+                <Icon name="verified" size={14} color={colors.warning} />
+                <Text style={clsx(
+                  styles.textXs,
+                  styles.fontMedium,
+                  styles.ml1,
+                  { color: colors.warning }
+                )}>
+                  Warranty
+                </Text>
+              </View>
+            )}
+            
+            <View style={clsx(
+              styles.px3,
+              styles.py1,
+              styles.roundedFull,
+              { backgroundColor: getStatusBgColor(booking.status) }
+            )}>
+              <Text style={clsx(
+                styles.textXs,
+                styles.fontMedium,
+                { color: getStatusColor(booking.status) }
+              )} numberOfLines={1}>
+                {getStatusLabel(booking.status)}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Customer Details */}
+        {/* Customer Details - same rahega */}
         <View style={clsx(styles.mb3)}>
           <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
             <Icon name="person" size={16} color={colors.textMuted} style={clsx(styles.mr2)} />
@@ -630,13 +663,6 @@ const BookingListScreen = ({ navigation }) => {
               {booking.customerName}
             </Text>
           </View>
-
-          {/* <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
-            <Icon name="phone" size={16} color={colors.textMuted} style={clsx(styles.mr2)} />
-            <Text style={clsx(styles.textSm, styles.textBlack, styles.flex1)} numberOfLines={1}>
-              {booking.mobile}
-            </Text>
-          </View> */}
 
           {booking.date && (
             <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
@@ -655,18 +681,12 @@ const BookingListScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Bottom Section - Amount & Action Info */}
+        {/* Bottom Section - same rahega */}
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
           <View>
-            {/* <Text style={clsx(styles.textSm, styles.textMuted, styles.mb1)}>
-              Total Amount
-            </Text>
-            <Text style={clsx(styles.textXl, styles.fontBold, styles.textPrimary)}>
-              ₹{booking.amount}
-            </Text> */}
+            {/* Amount section agar dikhana hai to */}
           </View>
           
-          {/* Status based instruction */}
           {booking.status === 'new' ? (
             <View style={clsx(
               styles.flexRow,
@@ -681,25 +701,7 @@ const BookingListScreen = ({ navigation }) => {
                 Tap to Accept
               </Text>
             </View>
-          ) : (
-            <>
-              {/* <View style={clsx(
-                styles.flexRow,
-                styles.itemsCenter,
-                styles.px3,
-                styles.py2,
-                styles.border,
-                styles.borderPrimary,
-                styles.bgWhite,
-                styles.roundedFull
-              )}>
-                <Text style={clsx(styles.textPrimary, styles.fontMedium, styles.mr1)}>
-                  View Details
-                </Text>
-                <Icon name="chevron-right" size={16} color={colors.primary} />
-              </View> */}
-              </>
-          )}
+          ) : null}
         </View>
       </TouchableOpacity>
     );

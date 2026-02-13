@@ -33,24 +33,26 @@ const CompleteBookingScreen = () => {
   const [onlinePaymentSuccess, setOnlinePaymentSuccess] = useState(false);
   const [onlinePaymentData, setOnlinePaymentData] = useState(null);
   
-  // Parts related states
+  // Parts related states - using API values directly
   const [partsApprovalStatus, setPartsApprovalStatus] = useState(null);
   const [additionalParts, setAdditionalParts] = useState([]);
+  const [bookingItems, setBookingItems] = useState([]);
   const [partsAmount, setPartsAmount] = useState(0);
   const [originalServiceAmount, setOriginalServiceAmount] = useState(0);
+  const [gstAmount, setGstAmount] = useState(0);
   const [grandTotal, setGrandTotal] = useState(0);
 
   useEffect(() => {
     initializePaymentData();
-    loadPartsData();
-  }, [formattedData]);
+    loadDataFromAPI();
+  }, [bookingData]);
 
   const initializePaymentData = () => {
-    if (!formattedData) return;
+    if (!bookingData?.booking) return;
     
-    const totalAmount = calculateTotalAmount();
+    const totalAmount = bookingData.booking.payableAmount || 0;
     
-    if (formattedData.paymentStatus === 'Paid') {
+    if (bookingData.booking.paymentStatus === 1) {
       // Already paid online
       setPaymentMode('online');
       setOnlineAmount(totalAmount.toString());
@@ -62,43 +64,49 @@ const CompleteBookingScreen = () => {
     }
   };
 
-  const loadPartsData = () => {
+  const loadDataFromAPI = () => {
     try {
       if (bookingData) {
-        // Check parts approval status
-        const status = bookingData.status;
+        // Check parts approval status from bookingData.status
+        const status = bookingData.status || '';
         if (status.includes('partstatus')) {
           setPartsApprovalStatus(status);
         }
         
-        // Get additional parts from booking
-        let partsTotal = 0;
+        // Get booking items directly from API
+        if (bookingData.booking?.bookingItems && bookingData.booking.bookingItems.length > 0) {
+          setBookingItems(bookingData.booking.bookingItems);
+        }
+        setPartsAmount(bookingData?.booking?.additionalPartAmount);
+        // Get additional parts directly from bookingData.parts
         if (bookingData.parts && bookingData.parts.length > 0) {
           setAdditionalParts(bookingData.parts);
           
-          // Calculate parts amount
-          bookingData.parts.forEach(part => {
-            partsTotal += (part.unitPrice || 0) * (part.quantity || 1);
-          });
-          setPartsAmount(partsTotal);
+          // Calculate parts amount from the parts array (using price field directly)
+          // let partsTotal = 0;
+          // bookingData.parts.forEach(part => {
+          //   const price = parseFloat(part.unitPrice) || 0;
+          //   partsTotal += price;
+          // });
+          // setPartsAmount(partsTotal);
+        } else {
+          // If no parts, use additionalPartAmount from booking
+          // setPartsAmount(bookingData.booking?.additionalPartAmount || 0);
         }
         
-        // Calculate original service amount
-        const bookingItems = bookingData.booking?.bookingItems || [];
-        let originalAmt = 0;
-        // bookingItems.forEach(item => {
-        //   const itemPrice = item.salePrice || 0;
-        //   const itemQuantity = item.quantity || 1;
-        //   originalAmt += itemPrice * itemQuantity;
-        // });
-        originalAmt = (bookingData?.booking?.payableAmount || 0) - (bookingData?.booking?.additionalPartAmount || 0);
-        setOriginalServiceAmount(originalAmt);
-        
-        // Set grand total
-        setGrandTotal(originalAmt + partsTotal);
+        // Set amounts directly from API
+        if(bookingData?.booking?.amount > bookingData?.booking?.additionalPartAmount)
+          {
+            setOriginalServiceAmount(bookingData.booking?.amount-bookingData.booking?.additionalPartAmount);
+          }
+          else{  
+            setOriginalServiceAmount(bookingData.booking?.additionalPartAmount - bookingData.booking?.amount);
+          }
+        setGstAmount(bookingData.booking?.gstAmount || 0);
+        setGrandTotal(bookingData.booking?.payableAmount || 0);
       }
     } catch (error) {
-      console.error('Error loading parts data:', error);
+      console.error('Error loading data from API:', error);
     }
   };
 
@@ -107,12 +115,13 @@ const CompleteBookingScreen = () => {
   };
 
   const calculateTotalAmount = () => {
-    return grandTotal || formattedData?.originalBookingAmount || 0;
+    // Use payableAmount directly from API
+    return bookingData?.booking?.payableAmount || grandTotal || 0;
   };
 
   const calculateDueAmount = () => {
     const total = calculateTotalAmount();
-    if (formattedData?.paymentStatus === 'Paid') {
+    if (bookingData?.booking?.paymentStatus === 1) {
       return 0;
     }
     return total;
@@ -123,11 +132,6 @@ const CompleteBookingScreen = () => {
   };
 
   const handleOnlinePaymentSuccess = (paymentData) => {
-    // console.log('Online payment success:', paymentData);
-    // setOnlinePaymentSuccess(true);
-    // setOnlinePaymentData(paymentData);
-    // setOnlineAmount(paymentData.amount.toString());
-
     navigation.navigate('BookingDone', {
       bookingData: bookingData,
       formattedData: formattedData,
@@ -219,16 +223,6 @@ const CompleteBookingScreen = () => {
         razorpayOrderId = onlinePaymentData?.orderId || '';
       }
       
-      // Check if paid amount matches total amount
-      // if (Math.abs(paidAmount - totalAmount) > 1) {
-      //   Toast.show({
-      //     type: 'error',
-      //     text1: 'Amount Mismatch',
-      //     text2: `Paid amount (₹${paidAmount}) should match total amount (₹${totalAmount})`,
-      //   });
-      //   return;
-      // }
-      
       setCompletingBooking(true); 
       
       const data = {
@@ -243,9 +237,9 @@ const CompleteBookingScreen = () => {
           serviceItemId: part.serviceItemId,
           rateId: part.rateId,
           description: part.description,
-          unitPrice: part.unitPrice,
-          quantity: part.quantity,
-          totalPrice: part.unitPrice * part.quantity
+          unitPrice: parseFloat(part.unitPrice) || 0,
+          quantity: parseInt(part.quantity) || 1,
+          totalPrice: parseFloat(part.price) || 0
         })),
         totalAmount: totalAmount,
         paidAmount: paidAmount,
@@ -253,7 +247,8 @@ const CompleteBookingScreen = () => {
         partsIncluded: additionalParts.length > 0,
         partsAmount: partsAmount,
         originalServiceAmount: originalServiceAmount,
-        originalPaymentType: formattedData?.paymentStatus === 'Paid' ? 'online' : 'cod'
+        gstAmount: gstAmount,
+        originalPaymentType: bookingData?.booking?.paymentStatus === 1 ? 'online' : 'cod'
       };
 
       const response = await postData(
@@ -270,7 +265,7 @@ const CompleteBookingScreen = () => {
         });
         
         navigation.goBack();
-        handleOnlinePaymentSuccess()
+        handleOnlinePaymentSuccess();
         setTimeout(() => {
           if (loadBookingDetails) {
             loadBookingDetails();
@@ -294,6 +289,88 @@ const CompleteBookingScreen = () => {
     } finally {
       setCompletingBooking(false);
     }
+  };
+
+  const renderBookingItems = () => {
+    if (!bookingItems || bookingItems.length === 0) return null;
+    
+    return (
+      <View style={clsx(styles.mb4, styles.p3, styles.bgGray50, styles.roundedLg)}>
+        <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
+          Service Items
+        </Text>
+        
+        {bookingItems.map((item, index) => (
+          <View key={index} style={clsx(
+            styles.flexRow,
+            styles.justifyBetween,
+            styles.itemsCenter,
+            styles.mb2,
+            styles.p2,
+            styles.bgWhite,
+            styles.rounded
+          )}>
+            <View style={clsx(styles.flex1)}>
+              <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack)}>
+                {item.service?.name || `Item ${index + 1}`}
+              </Text>
+              <Text style={clsx(styles.textXs, styles.textMuted)}>
+                Qty: {item.quantity || 1} × ₹{item.salePrice || 0}
+              </Text>
+            </View>
+            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
+              ₹{(item.salePrice || 0) * (item.quantity || 1)}
+            </Text>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  const renderPartsDetails = () => {
+    // if (!additionalParts || additionalParts.length === 0) return null;
+    
+    return (
+      <View style={clsx(styles.mb4, styles.p3, styles.bgGray50, styles.roundedLg)}>
+        <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
+          Additional Parts
+        </Text>
+        
+        {additionalParts.map((part, index) => ( 
+          <View key={index} style={clsx(
+            styles.flexRow,
+            styles.justifyBetween,
+            styles.itemsCenter,
+            styles.mb2,
+            styles.p2,
+            styles.bgWhite,
+            styles.rounded
+          )}>
+            <View style={clsx(styles.flex1)}>
+              <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack)}>
+                {part.description}
+              </Text>
+              <Text style={clsx(styles.textXs, styles.textMuted)}>
+                {part.groupTitle} | Qty: {part.quantity} × ₹{part.unitPrice}
+                {/* {part.discount > 0 && ` | Discount: ₹${part.discount}`} */}
+              </Text>
+            </View>
+            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
+              ₹{part.unitPrice*part.quantity || 0}
+            </Text>
+          </View>
+        ))}
+        
+        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mt2, styles.pt2, styles.borderTop, styles.borderGray300)}>
+          <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+            Total Parts Amount:
+          </Text>
+          <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
+            ₹{partsAmount}
+          </Text>
+        </View>
+      </View>
+    );
   };
 
   const renderPaymentModeSelection = () => {
@@ -335,7 +412,7 @@ const CompleteBookingScreen = () => {
             )}>
               Cash
             </Text>
-            {formattedData?.paymentStatus !== 'Paid' && (
+            {bookingData?.booking?.paymentStatus !== 1 && (
               <Text style={clsx(styles.textXs, styles.textMuted, styles.textCenter, styles.mt1)}>
                 COD Booking
               </Text>
@@ -371,7 +448,7 @@ const CompleteBookingScreen = () => {
             )}>
               Online
             </Text>
-            {formattedData?.paymentStatus === 'Paid' ? (
+            {bookingData?.booking?.paymentStatus === 1 ? (
               <Text style={clsx(styles.textXs, styles.textMuted, styles.textCenter, styles.mt1)}>
                 Pre-paid
               </Text>
@@ -382,8 +459,6 @@ const CompleteBookingScreen = () => {
             )}
           </TouchableOpacity>
         </View>
-        
-        
         
         {/* Payment Status for Online */}
         {paymentMode === 'online' && (
@@ -441,7 +516,7 @@ const CompleteBookingScreen = () => {
 
   const renderPaymentSummary = () => {
     const totalAmount = calculateTotalAmount();
-    const originalPaymentType = formattedData?.paymentStatus === 'Paid' ? 'Online (Pre-paid)' : 'COD';
+    const originalPaymentType = bookingData?.booking?.paymentStatus === 1 ? 'Online (Pre-paid)' : 'COD';
     
     return (
       <View style={clsx(styles.mb6, styles.p4, styles.bgGray50, styles.roundedLg)}>
@@ -467,6 +542,15 @@ const CompleteBookingScreen = () => {
               ₹{originalServiceAmount}
             </Text>
           </View>
+
+          {gstAmount > 0 && (
+            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
+              <Text style={clsx(styles.textBase, styles.textBlack)}>Taxs & Fees:</Text>
+              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textMuted)}>
+                ₹{gstAmount}
+              </Text>
+            </View>
+          )}
           
           {partsAmount > 0 && (
             <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
@@ -476,6 +560,8 @@ const CompleteBookingScreen = () => {
               </Text>
             </View>
           )}
+          
+          
           
           <View style={clsx(styles.borderTop, styles.borderLight, styles.pt3, styles.mt3)}>
             <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
@@ -554,51 +640,6 @@ const CompleteBookingScreen = () => {
     );
   };
 
-  const renderPartsDetails = () => {
-    if (additionalParts.length === 0) return null;
-    
-    return (
-      <View style={clsx(styles.mb4, styles.p3, styles.bgGray50, styles.roundedLg)}>
-        <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
-          Additional Parts
-        </Text>
-        
-        {additionalParts.map((part, index) => (
-          <View key={index} style={clsx(
-            styles.flexRow,
-            styles.justifyBetween,
-            styles.itemsCenter,
-            styles.mb1,
-            styles.p2,
-            styles.bgWhite,
-            styles.rounded
-          )}>
-            <View style={clsx(styles.flex1)}>
-              <Text style={clsx(styles.textSm, styles.textBlack)}>
-                • {part.description}
-              </Text>
-              <Text style={clsx(styles.textXs, styles.textMuted)}>
-                Qty: {part.quantity} × ₹{part.unitPrice}
-              </Text>
-            </View>
-            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
-              ₹{(part.unitPrice || 0) * (part.quantity || 1)}
-            </Text>
-          </View>
-        ))}
-        
-        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mt2, styles.pt2, styles.borderTop, styles.borderGray300)}>
-          <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-            Total Parts Amount:
-          </Text>
-          <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
-            ₹{partsAmount}
-          </Text>
-        </View>
-      </View>
-    );
-  };
-
   return (
     <View style={clsx(styles.flex1, styles.bgWhite)}>
       
@@ -614,6 +655,14 @@ const CompleteBookingScreen = () => {
             Complete Booking
           </Text>
         </View>
+        <View>
+            <Text style={clsx(styles.textWhite, styles.textBase, styles.opacity75)}>
+              Booking ID
+            </Text>
+            <Text style={clsx(styles.textWhite, styles.textLg, styles.fontBold)}>
+              {formattedData.bookingId}
+            </Text>
+          </View>
       </View>
 
       <KeyboardAvoidingView
@@ -629,6 +678,7 @@ const CompleteBookingScreen = () => {
           <View style={clsx(styles.p6)}>
             
             {partsApprovalStatus && renderPartsStatus()}
+            {renderBookingItems()}
             {renderPartsDetails()}
             {renderPaymentSummary()}
             {calculateDueAmount() > 0 && renderPaymentModeSelection()}
@@ -654,7 +704,6 @@ const CompleteBookingScreen = () => {
                      paymentMode === 'online' && !onlinePaymentSuccess ? 'Complete Payment First' : 
                      'Complete Booking'}
                   </Text>
-                                    
                 </>
               )}
             </TouchableOpacity>

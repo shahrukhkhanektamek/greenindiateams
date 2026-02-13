@@ -17,6 +17,7 @@ import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import { AppContext } from '../../../Context/AppContext';
 import MovableButton from '../../../components/Common/MovableButton';
+import { navigate } from '../../../navigation/navigationService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -37,10 +38,11 @@ const BookingDetailScreen = ({ navigation, route }) => {
   const [showUploadButton, setShowUploadButton] = useState(false);
   
   const [partsAmount, setPartsAmount] = useState(0);
-  const [originalAmount, setOriginalAmount] = useState(0);
-  const [additionalParts, setAdditionalParts] = useState([]);
-  
+  const [originalAmount, setOriginalAmount] = useState(0);  
   const [showPartsModal, setShowPartsModal] = useState(false);
+  const [isWaranty, setisWaranty] = useState(0);
+  const [warantyOldId, setwarantyOldId] = useState(0);
+
   
   // Timer state for parts approval
   const [approvalTimeLeft, setApprovalTimeLeft] = useState(300); // 5 minutes in seconds
@@ -78,6 +80,14 @@ const BookingDetailScreen = ({ navigation, route }) => {
         setBookingData(data);
         
         // Process booking items media
+
+        setisWaranty(data?.isWaranty || 0);
+        setwarantyOldId(data?.warantyOldId || 0);
+
+        setisWaranty(1);
+        setwarantyOldId(data?._id);
+
+
         const bookingItems = data.booking?.bookingItems || [];
         const newItemMediaData = {};
         const newItemMediaStates = {};
@@ -117,23 +127,23 @@ const BookingDetailScreen = ({ navigation, route }) => {
         setItemMediaStates(newItemMediaStates);
         
         calculateOriginalAmount(data);
-        
+          setPartsAmount(data?.booking?.additionalPartAmount);
         // Set additional parts from the new parts array
-        if (data.parts && data.parts.length > 0) {
-          setAdditionalParts(data.parts);
-          let partsTotal = 0;
-          data.parts.forEach(part => {
-            partsTotal += parseFloat(part.price || 0);
-          });
-          setPartsAmount(partsTotal);
-        } else if (data.additionalParts && data.additionalParts.length > 0) {
-          setAdditionalParts(data.additionalParts);
-          let partsTotal = 0;
-          data.additionalParts.forEach(part => {
-            partsTotal += (part.price || 0) * (part.quantity || 1);
-          });
-          setPartsAmount(partsTotal);
-        }
+        // if (data.parts && data.parts.length > 0) {
+        //   setAdditionalParts(data.parts);
+        //   let partsTotal = 0;
+        //   data.parts.forEach(part => {
+        //     partsTotal += parseFloat(part.unitPrice || 0);
+        //   });
+        //   setPartsAmount(partsTotal);
+        // } else if (data.additionalParts && data.additionalParts.length > 0) {
+        //   setAdditionalParts(data.additionalParts);
+        //   let partsTotal = 0;
+        //   data.additionalParts.forEach(part => {
+        //     partsTotal += (part.unitPrice || 0) * (part.quantity || 1);
+        //   });
+        //   setPartsAmount(partsTotal);
+        // }
         
         // Check for captured media to show upload button
         checkAndShowUploadButton();
@@ -165,12 +175,20 @@ const BookingDetailScreen = ({ navigation, route }) => {
       const booking = data.booking || {};
       const bookingItems = booking.bookingItems || [];
       
+      // let total = booking?.amount || 0 - booking?.additionalPartAmount || 0;
       let total = 0;
-      bookingItems.forEach(item => {
-        const itemPrice = item.salePrice || 0;
-        const itemQuantity = item.quantity || 1;
-        total += itemPrice * itemQuantity;
-      });
+      if(booking?.amount > booking?.additionalPartAmount)
+      {
+        total = booking?.amount - booking?.additionalPartAmount;
+      }
+      else{
+        total = booking?.additionalPartAmount-booking?.amount;        
+      }
+      // bookingItems.forEach(item => {
+      //   const itemPrice = item.salePrice || 0;
+      //   const itemQuantity = item.quantity || 1;
+      //   total += itemPrice * itemQuantity;
+      // });
       
       setOriginalAmount(total);
     } catch (error) {
@@ -252,7 +270,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
       loadBookingDetails,
     });
   };
-
+  
   const formatBookingData = (data) => {
     if (!data) return null;
 
@@ -301,7 +319,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
       });
     }
 
-    console.log('sellll', `${UploadUrl}${data.selfie}`);
+
     return {
       id: data._id,
       bookingId: booking.bookingId || `BK${data._id.slice(-6)}`,
@@ -315,11 +333,12 @@ const BookingDetailScreen = ({ navigation, route }) => {
       status: data.status,
       amount: totalAmount,
       serviceDetails: bookingItems.map(item => 
-        `${item.quantity}x ${item.service?.name} - ₹${item.salePrice}`
+        `${item.quantity}x ${item.service?.name} - ₹${item.salePrice*item.quantity}`
       ).join('\n'),
       paymentStatus: booking.paymentStatus === 1 ? 'Paid' : 'Pending',
       paymentMethod: booking.paymentMode === 'online' ? 'Online Payment' : 'Cash on Delivery',
       originalBookingAmount: booking.amount || 0,
+      payableAmount: booking.payableAmount || 0,
       originalData: data,
       // New fields from the response
       selfie: data.selfie ? `${UploadUrl}${data.selfie}` : null,
@@ -517,6 +536,9 @@ const BookingDetailScreen = ({ navigation, route }) => {
     
     return true;
   };
+
+
+  
   
   const isItemRequiredAfterMediaUploaded = (itemId) => {
     const item = bookingData?.booking?.bookingItems?.find(item => item._id === itemId);
@@ -1022,6 +1044,70 @@ const BookingDetailScreen = ({ navigation, route }) => {
       formattedData,
       loadBookingDetails,
     });
+  };
+
+
+  const renderWarrantyCard = () => {
+    // Agar warranty nahi hai to kuch mat dikhao
+    if (isWaranty !== 1) return null;
+    
+    return (
+      <View style={clsx(styles.px4, styles.mt4)}>
+        <View style={clsx(
+          styles.bgWhite,
+          styles.roundedLg,
+          styles.p4,
+          styles.shadowSm,
+          styles.borderLeftWidth4,
+          { borderLeftColor: colors.warning }
+        )}>
+          {/* Warranty Header */}
+          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
+            <View style={[clsx(styles.roundedFull, styles.p2, styles.mr3), 
+              { backgroundColor: colors.warning + '20' }
+            ]}>
+              <Icon name="verified" size={24} color={colors.warning} />
+            </View>
+            <View style={clsx(styles.flex1)}>
+              <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
+                Warranty Service
+              </Text>
+              <Text style={clsx(styles.textSm, styles.textMuted)}>
+                This booking is under warranty
+              </Text>
+            </View>
+          </View>
+
+          {/* View Original Booking Button */}
+          <TouchableOpacity
+            style={clsx(
+              styles.flexRow,
+              styles.itemsCenter,
+              styles.justifyCenter,
+              styles.p3,
+              styles.bgWarningLight,
+              styles.roundedLg,
+              styles.border,
+              styles.borderWarning,
+              styles.mt2
+            )}
+            onPress={() => {
+              // Navigate to old booking details
+              navigation.navigate('BookingDetailShow', {
+                bookingId: warantyOldId,
+                fromWarranty: true
+              });
+            }}
+          >
+            <Icon name="history" size={20} color={colors.warning} style={clsx(styles.mr2)} />
+            <Text style={clsx(styles.textWarning, styles.fontBold, styles.textBase)}>
+              View Original Booking
+            </Text>
+            <Icon name="chevron-right" size={20} color={colors.warning} style={clsx(styles.ml2)} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   };
 
   // RENDER MEDIA SECTION FOR EACH ITEM
@@ -1610,22 +1696,12 @@ const BookingDetailScreen = ({ navigation, route }) => {
                       <Text style={clsx(styles.textSm, styles.textMuted)}>
                         Qty: {part.quantity || 1}
                       </Text>
-                      {part.unitPrice && (
-                        <Text style={clsx(styles.textSm, styles.textMuted, styles.ml3)}>
-                          ₹{part.unitPrice}/unit
-                        </Text>
-                      )}
                     </View>
                   </View>
                   <View style={clsx(styles.itemsEnd)}>
                     <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
-                      ₹{part.price || 0}
+                      ₹{part.unitPrice*part.quantity || 0}
                     </Text>
-                    {part.discount && parseFloat(part.discount) > 0 && (
-                      <Text style={clsx(styles.textSm, styles.textSuccess)}>
-                        -₹{part.discount} off
-                      </Text>
-                    )}
                   </View>
                 </View>
               ))}
@@ -1795,46 +1871,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
             </View>
           )}
           
-          {/* Parts List */}
-          {bookingData?.parts && bookingData.parts.length > 0 && (
-            <View style={clsx(styles.mb4)}>
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
-                Additional Parts:
-              </Text>
-              {bookingData.parts.map((part, index) => (
-                <View key={index} style={clsx(
-                  styles.flexRow,
-                  styles.justifyBetween,
-                  styles.itemsCenter,
-                  styles.p3,
-                  styles.bgGray50,
-                  styles.rounded,
-                  styles.mb2
-                )}>
-                  <View style={clsx(styles.flex1)}>
-                    <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-                      {part.description || 'Part'}
-                    </Text>
-                    {part.groupTitle && (
-                      <Text style={clsx(styles.textSm, styles.textMuted)}>
-                        {part.groupTitle}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={clsx(styles.itemsEnd)}>
-                    <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
-                      ₹{part.price || 0}
-                    </Text>
-                    {part.quantity && (
-                      <Text style={clsx(styles.textSm, styles.textMuted)}>
-                        Qty: {part.quantity}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
         </View>
       </View>
     );
@@ -1842,6 +1878,9 @@ const BookingDetailScreen = ({ navigation, route }) => {
 
   // RENDER PARTS INFO IN SERVICE CARD
   const renderPartsInfoInServiceCard = () => {
+
+    if(formattedData.status !== 'complete') return null;
+
     const parts = bookingData?.parts || [];
     if (parts.length === 0) return null;
     
@@ -1867,7 +1906,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
               {part.description || 'Part'} {part.quantity ? `(×${part.quantity})` : ''}
             </Text>
             <Text style={clsx(styles.textBase, styles.fontMedium, styles.textPrimary)}>
-              ₹{part.price || 0}
+              ₹{part.unitPrice*part.quantity || 0}
             </Text>
           </View>
         ))}
@@ -1875,7 +1914,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mt2, styles.pt2, styles.borderTop, styles.borderLight)}>
           <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>Parts Total:</Text>
           <Text style={clsx(styles.textLg, styles.fontBold, styles.textSuccess)}>
-            ₹{partsAmount}
+            ₹{partsAmount.toFixed(2)}
           </Text>
         </View>
       </View>
@@ -2054,49 +2093,54 @@ const BookingDetailScreen = ({ navigation, route }) => {
 
   // RENDER PAYMENT DETAILS
   const renderPaymentDetails = () => {
-    if (formattedData?.status !== 'complete') return null;
+    // if (formattedData?.status !== 'complete') return null;
     
     return (
       <View style={clsx(styles.px4, styles.mt4)}>
         <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
           Payment Details
         </Text>
+
+         {renderPartsInfoInServiceCard()}
         
         <View style={clsx(
           styles.bgWhite,
           styles.roundedLg,
           styles.p4,
-          styles.shadowSm
+          styles.shadowSm,
+          styles.mt2
         )}>
           <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
             <Text style={clsx(styles.textBase, styles.textMuted)}>Service Amount:</Text>
-            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>₹{originalAmount}</Text>
+            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>₹{originalAmount.toFixed(2)}</Text>
           </View>
+
+          {formattedData.gstAmount > 0 && (
+            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
+              <Text style={clsx(styles.textBase, styles.textMuted)}>Taxes and fees:</Text>
+              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>₹{formattedData.gstAmount.toFixed(2)}</Text>
+            </View>
+          )}
           
           {partsAmount > 0 && (
             <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
               <Text style={clsx(styles.textBase, styles.textMuted)}>Parts Amount:</Text>
-              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>₹{partsAmount}</Text>
+              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>₹{partsAmount.toFixed(2)}</Text>
             </View>
           )}
           
-          {formattedData.gstAmount > 0 && (
-            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
-              <Text style={clsx(styles.textBase, styles.textMuted)}>Taxs and fees:</Text>
-              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>₹{formattedData.gstAmount}</Text>
-            </View>
-          )}
+         
           
           {formattedData.discountAmount > 0 && (
             <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
               <Text style={clsx(styles.textBase, styles.textMuted)}>Discount:</Text>
-              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textSuccess)}>-₹{formattedData.discountAmount}</Text>
+              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textSuccess)}>-₹{formattedData.discountAmount.toFixed(2)}</Text>
             </View>
           )}
           
           <View style={clsx(styles.flexRow, styles.justifyBetween, styles.pt2, styles.mt2, styles.borderTop, styles.borderLight)}>
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>Total:</Text>
-            <Text style={clsx(styles.textXl, styles.fontBold, styles.textPrimary)}>₹{formattedData.amount}</Text>
+            <Text style={clsx(styles.textXl, styles.fontBold, styles.textPrimary)}>₹{formattedData.payableAmount.toFixed(2)}</Text>
           </View>
           
           <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mt3, styles.p3, styles.bgInfoLight, styles.rounded)}>
@@ -2109,7 +2153,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
           {formattedData.cashCollectedAmount > 0 && (
             <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mt2, styles.p3, styles.bgSuccessLight, styles.rounded)}>
               <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>Cash Collected:</Text>
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textSuccess)}>₹{formattedData.cashCollectedAmount}</Text>
+              <Text style={clsx(styles.textBase, styles.fontBold, styles.textSuccess)}>₹{formattedData.cashCollectedAmount.toFixed(2)}</Text>
             </View>
           )}
         </View>
@@ -2274,6 +2318,8 @@ const BookingDetailScreen = ({ navigation, route }) => {
           </View>
         </View>
 
+        {renderWarrantyCard()}
+
         {/* Service Card */}
         <View style={clsx(styles.px4, styles.pt4, styles.mt4)}>
           <View style={clsx(
@@ -2292,14 +2338,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
                 <Text style={clsx(styles.text2xl, styles.fontBold, styles.textBlack)}>
                   {formattedData.service}
                 </Text>
-                <Text style={clsx(styles.textBase, styles.textPrimary, styles.fontMedium)}>
-                  ₹{originalAmount + partsAmount}
-                  {partsAmount > 0 && (
-                    <Text style={clsx(styles.textSm, styles.textMuted)}>
-                      {' '}(Service: ₹{originalAmount} + Parts: ₹{partsAmount})
-                    </Text>
-                  )}
-                </Text>
               </View>
             </View>
             
@@ -2316,7 +2354,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
             )}
 
             {/* Parts Info */}
-            {renderPartsInfoInServiceCard()}
+           
 
             {/* Media Status Summary - Only show for ongoing or parts approval */}
             {(formattedData.status === 'ongoing' || isPartsApprovalInProgress()) && (
@@ -2473,12 +2511,13 @@ const BookingDetailScreen = ({ navigation, route }) => {
         )}
 
         {/* Serviceman Selfie */}
-        {renderSelfieSection()}
+        {/* {renderSelfieSection()} */}
 
         {/* Service Timeline for Completed Bookings */}
         {renderServiceTimeline()}
 
         {/* Payment Details for Completed Bookings */}
+        
         {renderPaymentDetails()}
 
         <View style={clsx(styles.h24)} />
@@ -2503,6 +2542,30 @@ const BookingDetailScreen = ({ navigation, route }) => {
           right: 0,
         }
       ]}>
+        {formattedData.status === 'complete' ? (
+          <View style={clsx(styles.flexRow, styles.wFull)}>
+            <TouchableOpacity
+              style={clsx(
+                styles.flexRow,
+                styles.itemsCenter,
+                styles.justifyCenter,
+                styles.px4,
+                styles.py3,
+                styles.bgSuccess,
+                styles.roundedLg,
+                styles.ml2,
+                styles.flex1,
+                !canCompleteBooking && styles.opacity50
+              )}
+              onPress={() => navigate('BookingDetailShow', {bookingId:bookingData?._id})}
+            >
+              <Icon name="check-circle" size={20} color={colors.white} style={clsx(styles.mr2)} />
+              <Text style={clsx(styles.textWhite, styles.fontMedium)}>
+                View Full Detail
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ):(null)}
         {formattedData.status === 'accept' || formattedData.status === 'new' ? (
           <ActionButton
             icon="play-arrow"

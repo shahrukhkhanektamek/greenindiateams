@@ -27,6 +27,8 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const StartServiceScreen = ({ navigation, route }) => {
   const { bookingData } = route.params || {};
+
+  console.log(bookingData)
   
   const { Toast, Urls, postData } = useContext(AppContext);
 
@@ -1470,10 +1472,10 @@ const requestLocationPermission = async () => {
                 <Text style={clsx(styles.textWhite, styles.textXl, styles.fontBold)}>
                   Start Service {automaticMode && '(Auto)'}
                 </Text>
-                <Text style={clsx(styles.textWhite, styles.textSm, styles.opacity75)}>
-                  Complete verification to start service
-                </Text>
               </View>
+              <Text style={clsx(styles.textWhite, styles.textXl, styles.fontBold)}>
+                {bookingData.booking.bookingId}
+              </Text>  
             </View>
           </View>
 

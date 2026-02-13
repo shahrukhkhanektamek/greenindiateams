@@ -16,7 +16,7 @@ import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import { AppContext } from '../../../Context/AppContext';
 
-// Memoized RateItem Component
+// Memoized RateItem Component with Brand Selection
 const RateItem = memo(({ 
   rate, 
   serviceItemId, 
@@ -28,7 +28,10 @@ const RateItem = memo(({
   handlePartSelect,
   openQuantityModal,
   handleQuantityChange,
-  removePart
+  removePart,
+  brands,
+  selectedBrandId,
+  onBrandSelect
 }) => {
   const key = `${rate._id}_${serviceItemId}`;
   const price = parseFloat(rate.serviceCharge?.price || 0);
@@ -190,7 +193,7 @@ const RateItem = memo(({
   );
 });
 
-// Memoized RateGroupSection
+// Memoized RateGroupSection with Brand Selection
 const RateGroupSection = memo(({ 
   group, 
   serviceItemId, 
@@ -201,7 +204,10 @@ const RateGroupSection = memo(({
   handleQuantityChange,
   removePart,
   addingPartId,
-  buttonPressedId
+  buttonPressedId,
+  brands,
+  selectedBrands,
+  onBrandSelect
 }) => {
   if (!group.rates || group.rates.length === 0) {
     return null;
@@ -217,22 +223,62 @@ const RateGroupSection = memo(({
         const key = `${rate._id}_${serviceItemId}`;
         const isSelected = !!selectedParts[key];
         const quantity = quantities[key] || 1;
+        const selectedBrandId = selectedBrands[key];
         
         return (
-          <RateItem
-            key={`${rate._id}_${index}`}
-            rate={rate}
-            serviceItemId={serviceItemId}
-            groupTitle={group.title}
-            isSelected={isSelected}
-            quantity={quantity}
-            addingPartId={addingPartId}
-            buttonPressedId={buttonPressedId}
-            handlePartSelect={handlePartSelect}
-            openQuantityModal={openQuantityModal}
-            handleQuantityChange={handleQuantityChange}
-            removePart={removePart}
-          />
+          <View key={`${rate._id}_${index}`}>
+            <RateItem
+              rate={rate}
+              serviceItemId={serviceItemId}
+              groupTitle={group.title}
+              isSelected={isSelected}
+              quantity={quantity}
+              addingPartId={addingPartId}
+              buttonPressedId={buttonPressedId}
+              handlePartSelect={handlePartSelect}
+              openQuantityModal={openQuantityModal}
+              handleQuantityChange={handleQuantityChange}
+              removePart={removePart}
+              brands={brands}
+              selectedBrandId={selectedBrandId}
+              onBrandSelect={onBrandSelect}
+            />
+            
+            {/* Brand Selection Dropdown - Only show when part is selected */}
+            {isSelected && brands && brands.length > 0 && (
+              <View style={clsx(styles.mb3, styles.ml4, styles.p2, styles.bgGray100, styles.rounded)}>
+                <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack, styles.mb2)}>
+                  Select Brand:
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={clsx(styles.flexRow, styles.gap2)}>
+                    {brands.map((brand) => (
+                      <TouchableOpacity
+                        key={brand._id}
+                        onPress={() => onBrandSelect(key, brand._id, brand.name)}
+                        style={clsx(
+                          styles.px3,
+                          styles.py2,
+                          styles.roundedFull,
+                          styles.border,
+                          selectedBrandId === brand._id ? styles.bgPrimary : styles.bgWhite,
+                          selectedBrandId === brand._id ? styles.borderPrimary : styles.borderGray300
+                        )}
+                      >
+                        <Text style={clsx(
+                          styles.textSm,
+                          styles.fontMedium,
+                          selectedBrandId === brand._id ? styles.textWhite : styles.textBlack
+                        )}>
+                          {brand.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
+              </View>
+            )}
+          </View>
         );
       })}
     </View>
@@ -255,7 +301,10 @@ const ServiceItemTabContent = memo(({
   handleQuantityChange,
   removePart,
   addingPartId,
-  buttonPressedId
+  buttonPressedId,
+  brands,
+  selectedBrands,
+  onBrandSelect
 }) => {
   if (!serviceItem) return null;
   
@@ -341,6 +390,7 @@ const ServiceItemTabContent = memo(({
           {selectedPartsForService.map((part, index) => {
             const quantity = quantities[part.key] || 1;
             const partTotal = part.unitPrice * quantity;
+            const brandName = part.brandName || 'Brand not selected';
             return (
               <View key={part.key} style={clsx(
                 styles.flexRow,
@@ -390,6 +440,9 @@ const ServiceItemTabContent = memo(({
               removePart={removePart}
               addingPartId={addingPartId}
               buttonPressedId={buttonPressedId}
+              brands={brands}
+              selectedBrands={selectedBrands}
+              onBrandSelect={onBrandSelect}
             />
           ))}
         </ScrollView>
@@ -426,6 +479,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
   const [filteredRateGroups, setFilteredRateGroups] = useState([]);
   const [selectedParts, setSelectedParts] = useState({});
   const [quantities, setQuantities] = useState({});
+  const [selectedBrands, setSelectedBrands] = useState({}); // New state for brand selection
   const [totalAmount, setTotalAmount] = useState(0);
   const [originalAmount, setOriginalAmount] = useState(0);
   const [partsAmount, setPartsAmount] = useState(0);
@@ -439,6 +493,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
   const [tempQuantities, setTempQuantities] = useState({});
   const [activeTab, setActiveTab] = useState(0);
   const [localSearchText, setLocalSearchText] = useState('');
+  const [brands, setBrands] = useState([]); // New state for brands
 
   const searchTimeoutRef = useRef(null);
   const searchInputRefs = useRef({});
@@ -486,6 +541,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
   useEffect(() => {
     calculateInitialAmounts();
     fetchRateGroups();
+    fetchBrands(); // Fetch brands
     
     return () => {
       if (searchTimeoutRef.current) {
@@ -503,6 +559,19 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       setFilteredRateGroups(rateGroups);
     }
   }, [rateGroups]);
+
+  // New function to fetch brands
+  const fetchBrands = async () => {
+    try {
+      const response = await postData({}, `${Urls.brand}`, 'GET');
+      
+      if (response?.success && response.data) {
+        setBrands(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching brands:', error);
+    }
+  };
 
   const fetchRateGroups = async () => { 
     try {
@@ -633,6 +702,29 @@ const PartsSelectionScreen = ({ navigation, route }) => {
     }
   };
 
+  // New function to handle brand selection
+  const handleBrandSelect = (partKey, brandId, brandName) => {
+    setSelectedBrands(prev => ({
+      ...prev,
+      [partKey]: brandId
+    }));
+    
+    // Update the selected part with brand information
+    setSelectedParts(prev => {
+      if (prev[partKey]) {
+        return {
+          ...prev,
+          [partKey]: {
+            ...prev[partKey],
+            brandId: brandId,
+            brandName: brandName
+          }
+        };
+      }
+      return prev;
+    });
+  };
+
   const handleQuantityChange = (partKey, increment) => {
     const currentQty = quantities[partKey] || 1;
     const newQty = currentQty + increment;
@@ -669,6 +761,13 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       const newQuantities = { ...prev };
       delete newQuantities[partKey];
       return newQuantities;
+    });
+    
+    // Also remove brand selection for this part
+    setSelectedBrands(prev => {
+      const newSelectedBrands = { ...prev };
+      delete newSelectedBrands[partKey];
+      return newSelectedBrands;
     });
     
     // Toast.show({
@@ -804,6 +903,8 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       
       const partsData = Object.values(selectedParts).map(part => {
         const quantity = quantities[part.key] || 1;
+        const brandId = selectedBrands[part.key] || null; // Get brand ID if selected
+        
         return {
           serviceItemId: part.serviceItemId,
           serviceId: part.serviceId,
@@ -815,7 +916,8 @@ const PartsSelectionScreen = ({ navigation, route }) => {
           price: part.price || part.originalPrice || 0,
           labourCharge: part.labourCharge,
           totalPrice: part.unitPrice * quantity,
-          groupTitle: part.groupTitle
+          groupTitle: part.groupTitle,
+          brandId: brandId // Add brandId to the payload
         };
       });
 
@@ -1135,6 +1237,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
                 const quantity = quantities[part.key] || 1;
                 const partTotal = part.unitPrice * quantity;
                 const serviceItem = serviceItems.find(s => s.id === part.serviceItemId);
+                const brandName = part.brandName || 'Brand not selected';
                 return (
                   <View key={part.key} style={clsx(
                     styles.flexRow,
@@ -1155,6 +1258,9 @@ const PartsSelectionScreen = ({ navigation, route }) => {
                           {serviceItem?.name || 'Service'}
                         </Text>
                       </View>
+                      <Text style={clsx(styles.textXs, styles.textPrimary, styles.mt1)}>
+                        Brand: {brandName}
+                      </Text>
                     </View>
                     <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
                       ₹{partTotal}
@@ -1270,6 +1376,9 @@ const PartsSelectionScreen = ({ navigation, route }) => {
                   removePart={removePart}
                   addingPartId={addingPartId}
                   buttonPressedId={buttonPressedId}
+                  brands={brands}
+                  selectedBrands={selectedBrands}
+                  onBrandSelect={handleBrandSelect}
                 />
               )}
             </View>

@@ -15,13 +15,18 @@ import { colors } from '../../../styles/colors';
 import { AppContext } from '../../../Context/AppContext';
 
 const BookingDetailShowScreen = ({ navigation, route }) => {
-  const bookingId = route.params.booking._id;
+  const bookingId = route.params.bookingId;
   
   const { Toast, Urls, postData, UploadUrl, imageCheck } = useContext(AppContext);
 
   const [refreshing, setRefreshing] = useState(false);
   const [bookingData, setBookingData] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const [partsAmount, setPartsAmount] = useState(0);
+  const [originalServiceAmount, setOriginalServiceAmount] = useState(0);
+  const [gstAmount, setGstAmount] = useState(0);
+  const [grandTotal, setGrandTotal] = useState(0);
 
   useEffect(() => {
     loadBookingDetails();
@@ -42,9 +47,30 @@ const BookingDetailShowScreen = ({ navigation, route }) => {
         `${Urls.getBookingDetail}/${bookingId}`,
         'GET'
       );
-
+  
       if (response?.success && response.data) {
-        setBookingData(response.data);
+        const data = response.data; // ✅ response data ko variable me lo
+        setBookingData(data);
+  
+        // ✅ Directly data object se values lo, bookingData state se nahi
+        const booking = data.booking || {};
+        
+        // Parts Amount
+        setPartsAmount(booking.additionalPartAmount || 0);
+        
+        // Original Service Amount
+        if(booking.amount > booking.additionalPartAmount) {
+          setOriginalServiceAmount(booking.amount - (booking.additionalPartAmount || 0));
+        } else {
+          setOriginalServiceAmount((booking.additionalPartAmount || 0) - booking.amount);
+        }
+        
+        // GST Amount
+        setGstAmount(booking.gstAmount || 0);
+        
+        // Grand Total
+        setGrandTotal(booking.payableAmount || 0);
+  
       } else {
         Toast.show({
           type: 'error',
@@ -190,7 +216,7 @@ const BookingDetailShowScreen = ({ navigation, route }) => {
     if (!data) return null;
 
     const user = data.user || {};
-    const profileImage = user.profileImage ? `${UploadUrl}/${user.profileImage}` : null;
+    const profileImage = user.profileImage ? `${UploadUrl}${user.profileImage}` : null;
 
     return (
       <View style={clsx(styles.px4, styles.mt4)}>
@@ -425,11 +451,11 @@ const BookingDetailShowScreen = ({ navigation, route }) => {
                       <TouchableOpacity
                         key={media._id || idx}
                         style={clsx(styles.mr2)}
-                        onPress={() => Linking.openURL(`${UploadUrl}/${media.media}`)}
+                        onPress={() => Linking.openURL(`${UploadUrl}${media.media}`)}
                       >
                         {media.mediaType === 'image' ? (
                           <Image
-                            source={{ uri: `${UploadUrl}/${media.media}` }}
+                            source={{ uri: `${UploadUrl}${media.media}` }}
                             style={{ width: 100, height: 100, borderRadius: 8 }}
                           />
                         ) : (
@@ -462,11 +488,11 @@ const BookingDetailShowScreen = ({ navigation, route }) => {
                       <TouchableOpacity
                         key={media._id || idx}
                         style={clsx(styles.mr2)}
-                        onPress={() => Linking.openURL(`${UploadUrl}/${media.media}`)}
+                        onPress={() => Linking.openURL(`${UploadUrl}${media.media}`)}
                       >
                         {media.mediaType === 'image' ? (
                           <Image
-                            source={{ uri: `${UploadUrl}/${media.media}` }}
+                            source={{ uri: `${UploadUrl}${media.media}` }}
                             style={{ width: 100, height: 100, borderRadius: 8 }}
                           />
                         ) : (
@@ -570,22 +596,13 @@ const BookingDetailShowScreen = ({ navigation, route }) => {
                         <Text style={clsx(styles.textSm, styles.textMuted)}>
                           Qty: {part.quantity || 1}
                         </Text>
-                        {part.unitPrice && (
-                          <Text style={clsx(styles.textSm, styles.textMuted, styles.ml3)}>
-                            ₹{part.unitPrice}/unit
-                          </Text>
-                        )}
                       </View>
                     </View>
                     <View style={clsx(styles.itemsEnd)}>
                       <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
-                        ₹{part.price || 0}
+                        ₹{part.unitPrice*part.quantity || 0}
                       </Text>
-                      {part.discount && parseFloat(part.discount) > 0 && (
-                        <Text style={clsx(styles.textSm, styles.textSuccess)}>
-                          -₹{part.discount} off
-                        </Text>
-                      )}
+                      
                     </View>
                   </View>
                 ))}
@@ -607,7 +624,7 @@ const BookingDetailShowScreen = ({ navigation, route }) => {
               Total Parts Amount
             </Text>
             <Text style={clsx(styles.textXl, styles.fontBold, styles.textPrimary)}>
-              ₹{parts.reduce((sum, part) => sum + parseFloat(part.price || 0), 0)}
+              ₹{parseFloat(partsAmount, 0).toFixed(2)}
             </Text>
           </View>
         </View>
@@ -622,10 +639,10 @@ const BookingDetailShowScreen = ({ navigation, route }) => {
     const booking = data.booking || {};
     
     const paymentDetails = [
-      { label: 'Service Amount', value: booking.amount || 0 },
-      { label: 'Parts Amount', value: booking.additionalPartAmount || 0 },
-      { label: 'GST', value: booking.gstAmount || 0, note: `(${booking.gstPercent || 0}%)` },
-      { label: 'Discount', value: - (booking.discountAmount || 0), highlight: true },
+      { label: 'Service Amount', value: originalServiceAmount || 0 },
+      { label: 'Taxes & Fees', value: booking.gstAmount || 0, note: `(${booking.gstPercent || 0}%)` },
+      { label: 'Parts Amount', value: (partsAmount || 0), highlight: true },
+      { label: 'Discount', value: (booking.discountAmount || 0), highlight: true },
     ].filter(item => item.value !== 0);
 
     if (paymentDetails.length === 0 && !booking.payableAmount) return null;
@@ -657,7 +674,7 @@ const BookingDetailShowScreen = ({ navigation, route }) => {
                 styles.fontMedium,
                 item.highlight && item.value < 0 ? styles.textSuccess : styles.textBlack
               )}>
-                {item.value < 0 ? `- ₹${Math.abs(item.value)}` : `₹${item.value}`}
+                {item.value < 0 ? `- ₹${Math.abs(parseFloat(item.value, 2)).toFixed(2)}` : `₹${parseFloat(item.value, 2).toFixed(2)}`}
               </Text>
             </View>
           ))}
@@ -675,7 +692,7 @@ const BookingDetailShowScreen = ({ navigation, route }) => {
               Total Payable
             </Text>
             <Text style={clsx(styles.text2xl, styles.fontBold, styles.textPrimary)}>
-              ₹{booking.payableAmount || booking.amount || 0}
+              ₹{parseFloat(booking.payableAmount || 0, 2).toFixed(2)}
             </Text>
           </View>
 
@@ -726,7 +743,7 @@ const BookingDetailShowScreen = ({ navigation, route }) => {
                 Cash Collected
               </Text>
               <Text style={clsx(styles.textLg, styles.fontBold, styles.textSuccess)}>
-                ₹{booking.cashColletedAmount}
+                ₹{parseFloat(booking.cashColletedAmount, 2).toFixed(2)}
               </Text>
             </View>
           )}
@@ -753,7 +770,7 @@ const BookingDetailShowScreen = ({ navigation, route }) => {
           styles.itemsCenter
         )}>
           <Image
-            source={{ uri: `${UploadUrl}/${data.selfie}` }}
+            source={{ uri: `${UploadUrl}${data.selfie}` }}
             style={{ width: 200, height: 200, borderRadius: 12 }}
             resizeMode="cover"
           />

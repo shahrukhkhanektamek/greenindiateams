@@ -388,6 +388,7 @@ const BookingListScreen = ({ navigation }) => {
       case 'accept': return colors.primary;
       case 'new': return colors.info;
       case 'assign': return colors.warning;
+      case 'hold': return colors.warning;
       case 'ongoing': return colors.info;
       case 'cancel': return colors.error;
       case 'reject': return colors.error;
@@ -405,6 +406,7 @@ const BookingListScreen = ({ navigation }) => {
       case 'accept': return colors.primary + '20';
       case 'new': return colors.info + '20';
       case 'assign': return colors.warning + '20';
+      case 'hold': return colors.warning + '20';
       case 'ongoing': return colors.info + '20';
       case 'cancel': return colors.error + '20';
       case 'reject': return colors.error + '20';
@@ -551,8 +553,8 @@ const BookingListScreen = ({ navigation }) => {
     const isActionLoading = actionLoading[booking.id];
     
     // Check if booking has warranty - booking.originalData mein isWaranty check karo
-    // const hasWarranty = booking.originalData?.isWaranty === 1;
-    const hasWarranty = true;
+    const hasWarranty = booking.originalData?.isWarranty === 1;
+    // const hasWarranty = true;
     
     // Function to handle card press
     const handleCardPress = () => {

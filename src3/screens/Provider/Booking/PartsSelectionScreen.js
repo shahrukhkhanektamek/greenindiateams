@@ -31,7 +31,9 @@ const RateItem = memo(({
   removePart,
   brands,
   selectedBrandId,
-  onBrandSelect
+  onBrandSelect,
+  showBrandSelector,
+  setShowBrandSelector
 }) => {
   const key = `${rate._id}_${serviceItemId}`;
   const price = parseFloat(rate.serviceCharge?.price || 0);
@@ -41,6 +43,7 @@ const RateItem = memo(({
   const itemTotalPrice = unitPrice * quantity;
   const isAdding = addingPartId === key;
   const isButtonPressed = buttonPressedId === key;
+  const showBrandForThis = showBrandSelector === key;
   
   return (
     <View style={clsx(
@@ -140,7 +143,7 @@ const RateItem = memo(({
             </TouchableOpacity>
           </View>
           
-          {/* <TouchableOpacity
+          <TouchableOpacity
             onPress={() => removePart(key)}
             style={clsx(
               styles.w8,
@@ -153,7 +156,7 @@ const RateItem = memo(({
             )}
           >
             <Icon name="delete" size={16} color={colors.white} />
-          </TouchableOpacity> */}
+          </TouchableOpacity>
         </View>
       ) : (
         <TouchableOpacity
@@ -189,6 +192,109 @@ const RateItem = memo(({
           )}
         </TouchableOpacity>
       )}
+
+      {/* Brand Selection Modal/Dropdown - Show when Add is pressed and brands exist */}
+      {showBrandForThis && brands && brands.length > 0 && (
+        <Modal
+          visible={showBrandForThis}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowBrandSelector(null)}
+        >
+          <TouchableOpacity 
+            style={clsx(styles.flex1, styles.bgBlack50, styles.justifyCenter, styles.itemsCenter, styles.p4)}
+            activeOpacity={1}
+            onPress={() => setShowBrandSelector(null)}
+          >
+            <View style={clsx(styles.bgWhite, styles.roundedLg, styles.p4, styles.wFull, styles.maxWSm)}>
+              <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
+                Select Brand for {rate.description}
+              </Text>
+              
+              {/* Changed from horizontal to vertical ScrollView */}
+              <ScrollView 
+                vertical
+                showsVerticalScrollIndicator={true}
+                style={clsx(styles.mb4, styles.maxH64)} // Added max height
+              >
+                <View style={clsx(styles.gap2)}>
+                  {brands.map((brand) => (
+                    <TouchableOpacity
+                      key={brand._id}
+                      onPress={() => onBrandSelect(key, brand._id, brand.name)}
+                      style={clsx(
+                        styles.px4,
+                        styles.py3,
+                        styles.roundedLg, // Changed from roundedFull to roundedLg for better vertical look
+                        styles.border,
+                        selectedBrandId === brand._id ? styles.bgPrimary : styles.bgWhite,
+                        selectedBrandId === brand._id ? styles.borderPrimary : styles.borderGray300,
+                        styles.wFull, // Full width
+                        styles.itemsCenter,
+                        styles.mb2 // Margin bottom between items
+                      )}
+                    >
+                      <Text style={clsx(
+                        styles.textBase,
+                        styles.fontMedium,
+                        selectedBrandId === brand._id ? styles.textWhite : styles.textBlack
+                      )}>
+                        {brand.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+
+              <View style={clsx(styles.flexRow, styles.gap2)}>
+                <TouchableOpacity
+                  onPress={() => setShowBrandSelector(null)}
+                  style={clsx(
+                    styles.flex1,
+                    styles.bgGray200,
+                    styles.py3,
+                    styles.roundedLg,
+                    styles.itemsCenter
+                  )}
+                >
+                  <Text style={clsx(styles.textBlack, styles.fontMedium)}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  onPress={() => {
+                    if (selectedBrandId) {
+                      // Brand is selected, now actually add the part
+                      handlePartSelect(rate, serviceItemId, groupTitle, true);
+                      setShowBrandSelector(null);
+                    } else {
+                      Alert.alert(
+                        'Brand Required',
+                        'Please select a brand before adding this part.',
+                        [{ text: 'OK' }]
+                      );
+                    }
+                  }}
+                  style={clsx(
+                    styles.flex1,
+                    styles.bgSuccess,
+                    styles.py3,
+                    styles.roundedLg,
+                    styles.itemsCenter,
+                    !selectedBrandId && styles.opacity50
+                  )}
+                  disabled={!selectedBrandId}
+                >
+                  <Text style={clsx(styles.textWhite, styles.fontMedium)}>
+                    Confirm & Add
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
     </View>
   );
 });
@@ -207,7 +313,9 @@ const RateGroupSection = memo(({
   buttonPressedId,
   brands,
   selectedBrands,
-  onBrandSelect
+  onBrandSelect,
+  showBrandSelector,
+  setShowBrandSelector
 }) => {
   if (!group.rates || group.rates.length === 0) {
     return null;
@@ -242,40 +350,32 @@ const RateGroupSection = memo(({
               brands={brands}
               selectedBrandId={selectedBrandId}
               onBrandSelect={onBrandSelect}
+              showBrandSelector={showBrandSelector}
+              setShowBrandSelector={setShowBrandSelector}
             />
             
-            {/* Brand Selection Dropdown - Only show when part is selected */}
+            {/* Show brand selection in summary when part is selected */}
             {isSelected && brands && brands.length > 0 && (
               <View style={clsx(styles.mb3, styles.ml4, styles.p2, styles.bgGray100, styles.rounded)}>
-                <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack, styles.mb2)}>
-                  Select Brand:
-                </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={clsx(styles.flexRow, styles.gap2)}>
-                    {brands.map((brand) => (
-                      <TouchableOpacity
-                        key={brand._id}
-                        onPress={() => onBrandSelect(key, brand._id, brand.name)}
-                        style={clsx(
-                          styles.px3,
-                          styles.py2,
-                          styles.roundedFull,
-                          styles.border,
-                          selectedBrandId === brand._id ? styles.bgPrimary : styles.bgWhite,
-                          selectedBrandId === brand._id ? styles.borderPrimary : styles.borderGray300
-                        )}
-                      >
-                        <Text style={clsx(
-                          styles.textSm,
-                          styles.fontMedium,
-                          selectedBrandId === brand._id ? styles.textWhite : styles.textBlack
-                        )}>
-                          {brand.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
+                <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween)}>
+                  <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack)}>
+                    Selected Brand: 
+                  </Text>
+                  <Text style={clsx(
+                    styles.textSm, 
+                    styles.fontBold, 
+                    selectedBrandId ? styles.textPrimary : styles.textDanger
+                  )}>
+                    {selectedBrandId 
+                      ? brands.find(b => b._id === selectedBrandId)?.name || 'Brand selected' 
+                      : 'Brand not selected'}
+                  </Text>
+                </View>
+                {!selectedBrandId && (
+                  <Text style={clsx(styles.textXs, styles.textDanger, styles.mt1)}>
+                    ⚠️ Please select a brand for this part
+                  </Text>
+                )}
               </View>
             )}
           </View>
@@ -304,7 +404,9 @@ const ServiceItemTabContent = memo(({
   buttonPressedId,
   brands,
   selectedBrands,
-  onBrandSelect
+  onBrandSelect,
+  showBrandSelector,
+  setShowBrandSelector
 }) => {
   if (!serviceItem) return null;
   
@@ -381,34 +483,6 @@ const ServiceItemTabContent = memo(({
         </View>
       </View>
       
-      {/* Selected Parts Summary for this Service */}
-      {selectedPartsForService.length > 0 && (
-        <View style={clsx(styles.mb3, styles.p3, styles.bgSuccessLight, styles.roundedLg)}>
-          <Text style={clsx(styles.textBase, styles.fontMedium, styles.textSuccess, styles.mb2)}>
-            Selected Parts for {serviceItem.name} ({selectedPartsForService.length})
-          </Text>
-          {selectedPartsForService.map((part, index) => {
-            const quantity = quantities[part.key] || 1;
-            const partTotal = part.unitPrice * quantity;
-            const brandName = part.brandName || 'Brand not selected';
-            return (
-              <View key={part.key} style={clsx(
-                styles.flexRow,
-                styles.justifyBetween,
-                styles.itemsCenter,
-                styles.mb1
-              )}>
-                <Text style={clsx(styles.textSm, styles.textSuccessDark)} numberOfLines={1}>
-                  {index + 1}. {part.description}
-                </Text>
-                <Text style={clsx(styles.textSm, styles.fontMedium, styles.textSuccessDark)}>
-                  ₹{partTotal}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      )}
       
       {/* Available Parts */}
       <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
@@ -443,6 +517,8 @@ const ServiceItemTabContent = memo(({
               brands={brands}
               selectedBrands={selectedBrands}
               onBrandSelect={onBrandSelect}
+              showBrandSelector={showBrandSelector}
+              setShowBrandSelector={setShowBrandSelector}
             />
           ))}
         </ScrollView>
@@ -479,7 +555,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
   const [filteredRateGroups, setFilteredRateGroups] = useState([]);
   const [selectedParts, setSelectedParts] = useState({});
   const [quantities, setQuantities] = useState({});
-  const [selectedBrands, setSelectedBrands] = useState({}); // New state for brand selection
+  const [selectedBrands, setSelectedBrands] = useState({});
   const [totalAmount, setTotalAmount] = useState(0);
   const [originalAmount, setOriginalAmount] = useState(0);
   const [partsAmount, setPartsAmount] = useState(0);
@@ -493,24 +569,21 @@ const PartsSelectionScreen = ({ navigation, route }) => {
   const [tempQuantities, setTempQuantities] = useState({});
   const [activeTab, setActiveTab] = useState(0);
   const [localSearchText, setLocalSearchText] = useState('');
-  const [brands, setBrands] = useState([]); // New state for brands
+  const [brands, setBrands] = useState([]);
+  const [showBrandSelector, setShowBrandSelector] = useState(null);
+  const [existingParts, setExistingParts] = useState([]);
 
   const searchTimeoutRef = useRef(null);
   const searchInputRefs = useRef({});
   const flatListRef = useRef(null);
 
-  // Memoized initial amounts calculation
+  // Calculate initial amounts
   const calculateInitialAmounts = useCallback(() => {
     try {
       const bookingItems = bookingData?.booking?.bookingItems || [];
       let originalAmt = 0;
       
-      // bookingItems.forEach(item => {
-      //   const itemPrice = item.salePrice || 0;
-      //   const itemQuantity = item.quantity || 1;
-      //   originalAmt += itemPrice * itemQuantity;
-      // });
-      originalAmt = bookingData?.booking?.payableAmount;
+      originalAmt = bookingData?.booking?.payableAmount || 0;
       
       setOriginalAmount(originalAmt);
       setTotalAmount(originalAmt);
@@ -541,7 +614,12 @@ const PartsSelectionScreen = ({ navigation, route }) => {
   useEffect(() => {
     calculateInitialAmounts();
     fetchRateGroups();
-    fetchBrands(); // Fetch brands
+    fetchBrands();
+    
+    // Load existing parts from bookingData
+    if (bookingData?.parts && bookingData.parts.length > 0) {
+      setExistingParts(bookingData.parts);
+    }
     
     return () => {
       if (searchTimeoutRef.current) {
@@ -550,17 +628,95 @@ const PartsSelectionScreen = ({ navigation, route }) => {
     };
   }, []);
 
+  // Load existing parts when rateGroups and brands are loaded
+  useEffect(() => {
+    if (existingParts.length > 0 && rateGroups.length > 0 && brands.length > 0) {
+      loadExistingPartsIntoState();
+    }
+  }, [existingParts, rateGroups, brands]);
+
+  // Calculate total amounts whenever selectedParts or quantities change
   useEffect(() => {
     calculateTotalAmounts();
   }, [selectedParts, quantities]);
 
+  // Filter rate groups when rateGroups change
   useEffect(() => {
     if (rateGroups.length > 0) {
       setFilteredRateGroups(rateGroups);
     }
   }, [rateGroups]);
 
-  // New function to fetch brands
+  // Function to load existing parts into state
+  const loadExistingPartsIntoState = useCallback(() => {
+    const newSelectedParts = {};
+    const newQuantities = {};
+    const newSelectedBrands = {};
+    
+    existingParts.forEach(part => {
+      // Find the rate in rateGroups to get the rate ID
+      let rateId = part.rateId;
+      if (!rateId) {
+        // If rateId is null, try to find by description
+        for (const group of rateGroups) {
+          const found = group.rates?.find(r => 
+            r.description === part.description && 
+            r.unitPrice == part.unitPrice
+          );
+          if (found) {
+            rateId = found._id;
+            break;
+          }
+        }
+      }
+      
+      // If still no rateId, use part._id as fallback
+      const key = `${rateId || part._id}_${part.serviceItemId}`;
+      
+      // Get brand info
+      let brandId = part.brandId;
+      let brandName = null;
+      
+      if (brandId && typeof brandId === 'object') {
+        brandName = brandId.name;
+        brandId = brandId._id;
+      } else if (brandId && typeof brandId === 'string') {
+        // Find brand name from brands list
+        const brand = brands.find(b => b._id === brandId);
+        if (brand) {
+          brandName = brand.name;
+        }
+      }
+      
+      newSelectedParts[key] = {
+        key: key,
+        rateId: rateId,
+        description: part.description,
+        unitPrice: parseFloat(part.unitPrice || 0),
+        originalPrice: parseFloat(part.price || 0),
+        labourCharge: parseFloat(part.labourCharge || 0),
+        discountPrice: parseFloat(part.discount || 0),
+        serviceItemId: part.serviceItemId,
+        serviceId: null,
+        serviceItemName: null,
+        groupTitle: part.groupTitle,
+        brandId: brandId,
+        brandName: brandName,
+        isExisting: true // Mark as existing part
+      };
+      
+      newQuantities[key] = parseInt(part.quantity || 1);
+      
+      if (brandId) {
+        newSelectedBrands[key] = brandId;
+      }
+    });
+    
+    setSelectedParts(prev => ({...prev, ...newSelectedParts}));
+    setQuantities(prev => ({...prev, ...newQuantities}));
+    setSelectedBrands(prev => ({...prev, ...newSelectedBrands}));
+  }, [existingParts, rateGroups, brands]);
+
   const fetchBrands = async () => {
     try {
       const response = await postData({}, `${Urls.brand}`, 'GET');
@@ -610,12 +766,6 @@ const PartsSelectionScreen = ({ navigation, route }) => {
         if (data.rateGroups && data.rateGroups.length > 0) {
           setRateGroups(data.rateGroups);
           setFilteredRateGroups(data.rateGroups);
-        } else {
-          // Toast.show({
-          //   type: 'info',
-          //   text1: 'No Parts Found',
-          //   text2: 'No rate groups available for this service',
-          // });
         }
       } else {
         Toast.show({
@@ -648,61 +798,72 @@ const PartsSelectionScreen = ({ navigation, route }) => {
     setGrandTotal(originalAmount + partsTotal);
   };
 
-  const handlePartSelect = async (rate, serviceItemId, groupTitle) => {
+  const handlePartSelect = async (rate, serviceItemId, groupTitle, bypassBrandCheck = false) => {
     const key = `${rate._id}_${serviceItemId}`;
+    
+    // If part is already selected, open quantity modal
+    if (selectedParts[key]) {
+      openQuantityModal(rate, serviceItemId, groupTitle);
+      return;
+    }
+    
+    // Check if brands exist and if we need to show brand selector
+    if (!bypassBrandCheck && brands && brands.length > 0) {
+      // Check if brand is already selected for this key
+      if (!selectedBrands[key]) {
+        // No brand selected, show brand selector modal
+        setShowBrandSelector(key);
+        return;
+      }
+    }
     
     setButtonPressedId(key);
     
     await new Promise(resolve => setTimeout(resolve, 200));
     
-    if (selectedParts[key]) {
-      openQuantityModal(rate, serviceItemId, groupTitle);
-    } else {
-      setAddingPartId(key);
-      
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      const unitPrice = parseFloat(rate.unitPrice || 0);
-      const price = parseFloat(rate.serviceCharge?.price || 0);
-      const labourCharge = parseFloat(rate.serviceCharge?.labourCharge || 0);
-      const discountPrice = parseFloat(rate.serviceCharge?.discountPrice || 0);
-      
-      const serviceItem = serviceItems.find(s => s.id === serviceItemId);
-      
-      setSelectedParts(prev => ({
-        ...prev,
-        [key]: {
-          key: key,
-          rateId: rate._id,
-          description: rate.description,
-          unitPrice: unitPrice,
-          originalPrice: price,
-          labourCharge: labourCharge,
-          discountPrice: discountPrice,
-          serviceItemId: serviceItem?.id,
-          serviceId: serviceItem?.serviceId,
-          serviceItemName: serviceItem?.name,
-          groupTitle: groupTitle
-        }
-      }));
-      
-      setQuantities(prev => ({
-        ...prev,
-        [key]: 1
-      }));
-      
-      setAddingPartId(null);
-      setButtonPressedId(null);
-      
-      // Toast.show({
-      //   type: 'success',
-      //   text1: 'Added',
-      //   text2: 'Part added with quantity 1',
-      // });
-    }
+    setAddingPartId(key);
+    
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    const unitPrice = parseFloat(rate.unitPrice || 0);
+    const price = parseFloat(rate.serviceCharge?.price || 0);
+    const labourCharge = parseFloat(rate.serviceCharge?.labourCharge || 0);
+    const discountPrice = parseFloat(rate.serviceCharge?.discountPrice || 0);
+    
+    const serviceItem = serviceItems.find(s => s.id === serviceItemId);
+    
+    // Get the brand ID if selected
+    const brandId = selectedBrands[key];
+    const brandName = brandId ? brands.find(b => b._id === brandId)?.name : null;
+    
+    setSelectedParts(prev => ({
+      ...prev,
+      [key]: {
+        key: key,
+        rateId: rate._id,
+        description: rate.description,
+        unitPrice: unitPrice,
+        originalPrice: price,
+        labourCharge: labourCharge,
+        discountPrice: discountPrice,
+        serviceItemId: serviceItem?.id,
+        serviceId: serviceItem?.serviceId,
+        serviceItemName: serviceItem?.name,
+        groupTitle: groupTitle,
+        brandId: brandId,
+        brandName: brandName
+      }
+    }));
+    
+    setQuantities(prev => ({
+      ...prev,
+      [key]: 1
+    }));
+    
+    setAddingPartId(null);
+    setButtonPressedId(null);
   };
 
-  // New function to handle brand selection
   const handleBrandSelect = (partKey, brandId, brandName) => {
     setSelectedBrands(prev => ({
       ...prev,
@@ -738,43 +899,41 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       ...prev,
       [partKey]: newQty
     }));
-    
-    // Toast.show({
-    //   type: 'info',
-    //   text1: 'Updated',
-    //   text2: `Quantity updated to ${newQty}`,
-    // });
   };
 
   const removePart = (partKey) => {
     if (!selectedParts[partKey]) return;
     
-    const part = selectedParts[partKey];
-    
-    setSelectedParts(prev => {
-      const newSelectedParts = { ...prev };
-      delete newSelectedParts[partKey];
-      return newSelectedParts;
-    });
-    
-    setQuantities(prev => {
-      const newQuantities = { ...prev };
-      delete newQuantities[partKey];
-      return newQuantities;
-    });
-    
-    // Also remove brand selection for this part
-    setSelectedBrands(prev => {
-      const newSelectedBrands = { ...prev };
-      delete newSelectedBrands[partKey];
-      return newSelectedBrands;
-    });
-    
-    // Toast.show({
-    //   type: 'success',
-    //   text1: 'Removed',
-    //   text2: `${part.description} removed`,
-    // });
+    Alert.alert(
+      'Remove Part',
+      'Are you sure you want to remove this part?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            setSelectedParts(prev => {
+              const newSelectedParts = { ...prev };
+              delete newSelectedParts[partKey];
+              return newSelectedParts;
+            });
+            
+            setQuantities(prev => {
+              const newQuantities = { ...prev };
+              delete newQuantities[partKey];
+              return newQuantities;
+            });
+            
+            setSelectedBrands(prev => {
+              const newSelectedBrands = { ...prev };
+              delete newSelectedBrands[partKey];
+              return newSelectedBrands;
+            });
+          }
+        }
+      ]
+    );
   };
 
   const openQuantityModal = (rate, serviceItemId, groupTitle) => {
@@ -785,6 +944,8 @@ const PartsSelectionScreen = ({ navigation, route }) => {
     const discountPrice = parseFloat(rate.serviceCharge?.discountPrice || 0);
     
     const serviceItem = serviceItems.find(s => s.id === serviceItemId);
+    const brandId = selectedBrands[key];
+    const brandName = brandId ? brands.find(b => b._id === brandId)?.name : null;
     
     setSelectedPartForQuantity({
       key: key,
@@ -797,7 +958,9 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       serviceItemId: serviceItem?.id,
       serviceId: serviceItem?.serviceId,
       serviceItemName: serviceItem?.name,
-      groupTitle: groupTitle
+      groupTitle: groupTitle,
+      brandId: brandId,
+      brandName: brandName
     });
     setShowQuantityModal(true);
   };
@@ -807,11 +970,6 @@ const PartsSelectionScreen = ({ navigation, route }) => {
     
     if (quantity < 1) {
       removePart(selectedPartForQuantity.key);
-      // Toast.show({
-      //   type: 'info',
-      //   text1: 'Removed',
-      //   text2: 'Quantity set to 0, part removed',
-      // });
     } else {
       setQuantities(prev => ({
         ...prev,
@@ -824,38 +982,27 @@ const PartsSelectionScreen = ({ navigation, route }) => {
           [selectedPartForQuantity.key]: selectedPartForQuantity
         }));
       }
-      
-      // Toast.show({
-      //   type: 'success',
-      //   text1: 'Updated',
-      //   text2: `Quantity updated to ${quantity}`,
-      // });
     }
     
     setShowQuantityModal(false);
     setSelectedPartForQuantity(null);
   };
 
-  // Optimized search handler with debouncing
+  // Search handlers
   const handleSearchChange = useCallback((serviceItemId, text) => {
-    // Update search query immediately for UI
     setSearchQueries(prev => ({
       ...prev,
       [serviceItemId]: text
     }));
     
-    // Set local search text
     setLocalSearchText(text);
     
-    // Clear previous timeout
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
     
-    // Set searching state
     setSearchingServiceId(serviceItemId);
     
-    // Debounce the actual search
     searchTimeoutRef.current = setTimeout(() => {
       filterRatesBySearch(serviceItemId, text);
     }, 300);
@@ -898,12 +1045,24 @@ const PartsSelectionScreen = ({ navigation, route }) => {
   };
 
   const submitPartsForApproval = async () => {
+    // Check if all selected parts have brands
+    const partsWithoutBrand = Object.values(selectedParts).filter(part => !part.brandId);
+    
+    if (partsWithoutBrand.length > 0) {
+      Alert.alert(
+        'Brand Required',
+        `Please select a brand for ${partsWithoutBrand.length} part(s) before submitting.`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
     try {
       setSubmitting(true);
       
       const partsData = Object.values(selectedParts).map(part => {
         const quantity = quantities[part.key] || 1;
-        const brandId = selectedBrands[part.key] || null; // Get brand ID if selected
+        const brandId = part.brandId;
         
         return {
           serviceItemId: part.serviceItemId,
@@ -917,7 +1076,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
           labourCharge: part.labourCharge,
           totalPrice: part.unitPrice * quantity,
           groupTitle: part.groupTitle,
-          brandId: brandId // Add brandId to the payload
+          brandId: brandId
         };
       });
 
@@ -938,11 +1097,11 @@ const PartsSelectionScreen = ({ navigation, route }) => {
       );
 
       if (response?.success) {
-        // Toast.show({
-        //   type: 'success',
-        //   text1: 'Success',
-        //   text2: 'Parts submitted for approval',
-        // });
+        Toast.show({
+          type: 'success',
+          text1: 'Success',
+          text2: 'Parts submitted successfully',
+        });
         
         if (loadBookingDetails) {
           loadBookingDetails();
@@ -991,6 +1150,12 @@ const PartsSelectionScreen = ({ navigation, route }) => {
               <Text style={clsx(styles.textSm, styles.textMuted, styles.mb1)}>
                 Category: {selectedPartForQuantity.groupTitle}
               </Text>
+              
+              {selectedPartForQuantity.brandName && (
+                <Text style={clsx(styles.textSm, styles.textPrimary, styles.mb2)}>
+                  Brand: {selectedPartForQuantity.brandName}
+                </Text>
+              )}
               
               <View style={clsx(styles.mb2)}>
                 <Text style={clsx(styles.textSm, styles.textMuted)}>
@@ -1083,11 +1248,6 @@ const PartsSelectionScreen = ({ navigation, route }) => {
                 <TouchableOpacity
                   onPress={() => {
                     handleQuantitySubmit(0);
-                    // Toast.show({
-                    //   type: 'info',
-                    //   text1: 'Removed',
-                    //   text2: 'Part removed (quantity set to 0)',
-                    // });
                   }}
                   style={clsx(
                     styles.bgDangerLight,
@@ -1148,7 +1308,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
     </Modal>
   );
 
-  // Memoized main render
+  // Memoized render functions
   const renderServiceItemTabs = useMemo(() => {
     if (serviceItems.length <= 1) return null;
     
@@ -1205,6 +1365,7 @@ const PartsSelectionScreen = ({ navigation, route }) => {
 
   const renderAmountSummary = useMemo(() => {
     const allSelectedParts = Object.values(selectedParts);
+    const partsWithoutBrand = allSelectedParts.filter(part => !part.brandId);
     
     return (
       <View style={clsx(
@@ -1237,7 +1398,9 @@ const PartsSelectionScreen = ({ navigation, route }) => {
                 const quantity = quantities[part.key] || 1;
                 const partTotal = part.unitPrice * quantity;
                 const serviceItem = serviceItems.find(s => s.id === part.serviceItemId);
-                const brandName = part.brandName || 'Brand not selected';
+                const hasBrand = !!part.brandId;
+                const brandName = part.brandName || '⚠️ Brand not selected';
+                
                 return (
                   <View key={part.key} style={clsx(
                     styles.flexRow,
@@ -1258,8 +1421,12 @@ const PartsSelectionScreen = ({ navigation, route }) => {
                           {serviceItem?.name || 'Service'}
                         </Text>
                       </View>
-                      <Text style={clsx(styles.textXs, styles.textPrimary, styles.mt1)}>
-                        Brand: {brandName}
+                      <Text style={clsx(
+                        styles.textXs, 
+                        hasBrand ? styles.textPrimary : styles.textDanger,
+                        styles.mt1
+                      )}>
+                        {hasBrand ? `Brand: ${brandName}` : '⚠️ Brand required'}
                       </Text>
                     </View>
                     <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
@@ -1268,6 +1435,14 @@ const PartsSelectionScreen = ({ navigation, route }) => {
                   </View>
                 );
               })}
+            </View>
+          )}
+          
+          {partsWithoutBrand.length > 0 && (
+            <View style={clsx(styles.mb2, styles.p2, styles.bgDangerLight, styles.rounded)}>
+              <Text style={clsx(styles.textSm, styles.textDanger, styles.fontMedium)}>
+                ⚠️ {partsWithoutBrand.length} part(s) require brand selection
+              </Text>
             </View>
           )}
           
@@ -1379,6 +1554,8 @@ const PartsSelectionScreen = ({ navigation, route }) => {
                   brands={brands}
                   selectedBrands={selectedBrands}
                   onBrandSelect={handleBrandSelect}
+                  showBrandSelector={showBrandSelector}
+                  setShowBrandSelector={setShowBrandSelector}
                 />
               )}
             </View>

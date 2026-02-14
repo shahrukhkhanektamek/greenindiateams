@@ -877,7 +877,7 @@ const DashboardScreen = ({ navigation }) => {
           {todayBookings.length > 0 ? (
             todayBookings.slice(0, 3).map((job) => {
               var originalData2 = job.originalData;
-              // console.log('job',originalData2)
+              // console.log('job',job)
               // Function to handle card press
               const handleCardPress = () => {
                 if (job.status === 'new') {
@@ -983,12 +983,12 @@ const DashboardScreen = ({ navigation }) => {
                       </View>
                     )}
 
-                    {/* <View style={clsx(styles.flexRow, styles.itemsStart, styles.mb2)}>
+                    <View style={clsx(styles.flexRow, styles.itemsStart, styles.mb2)}>
                       <Icon name="location-on" size={16} color={colors.textMuted} style={clsx(styles.mr2, styles.mt1)} />
                       <Text style={clsx(styles.textSm, styles.textBlack, styles.flex1)} numberOfLines={2}>
-                        {job.address}
+                        {originalData2?.address?.houseNumber} 
                       </Text>
-                    </View> */}
+                    </View>
                   </View>
 
                   {/* Bottom Section - Amount & Action Info */}

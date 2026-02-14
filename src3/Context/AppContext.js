@@ -24,15 +24,20 @@ const RAZORPAY_WEBHOOK_SECRET='QUQ4d5ICOpQB4aD9WpF0BLlW'
  
 // API URLs configuration - Consider moving to environment variables
 const BASE_URLS = {
-  // development: "http://192.168.1.25:8080/",
+  development: "http://192.168.1.25:8080/",
   production: "https://oyekabadwale.com/",
   // production: "http://145.223.18.56:3001/",  
   
   // development: "http://192.168.1.10:8080/",
-  development: "http://192.168.1.61:8080/", 
+  // development: "http://192.168.1.61:8080/", 
   // production: "https://api.example.com/" 
 };
+const BASE_socketUrl = {
+  development: 'http://192.168.1.25:3000',
+  // production: "http://145.223.18.56:3001/",    
+};
 const UploadUrl = BASE_URLS[ENVIRONMENT];
+const socketUrl = BASE_socketUrl[ENVIRONMENT];
 
 export const AppProvider = ({ children }) => {
   const mainUrl = BASE_URLS[ENVIRONMENT];
@@ -124,6 +129,7 @@ export const AppProvider = ({ children }) => {
       bookingAccept: `${serviceManUrl}booking/accept`,
       bookingReject: `${serviceManUrl}booking/reject`,
       getBookingDetail: `${serviceManUrl}booking`,
+      holdBooking: `${serviceManUrl}booking/hold`,
       sendOtp: `${serviceManUrl}booking/booking-start-otp`,
       verifyOtpAndStart: `${serviceManUrl}booking/booking-start-otp-verify`,
       getDistence: `${serviceManUrl}nearby`,
@@ -689,6 +695,7 @@ export const AppProvider = ({ children }) => {
     priceFormat,
     imageCheck,
     UploadUrl,
+    socketUrl,
     rzorepay_key,
     fetchProfile,
     setrootScreen,
@@ -726,7 +733,8 @@ export const AppProvider = ({ children }) => {
     storage,
     mainUrl,
     setLoading,
-    UploadUrl
+    UploadUrl,
+    socketUrl
   ]); 
 
  

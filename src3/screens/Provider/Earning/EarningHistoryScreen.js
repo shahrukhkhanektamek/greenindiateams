@@ -186,21 +186,7 @@ const EarningHistoryScreen = ({ navigation }) => {
   };
 
   const renderHeader = () => {
-    if (!summary) return null;
-
-    return (
-      <View style={clsx(styles.mb4)}>
-        {/* Section Title */}
-        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mt2, styles.mb3)}>
-          <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
-            Transaction History
-          </Text>
-          <Text style={clsx(styles.textSm, styles.textMuted)}>
-            {summary.totalRecords} entries
-          </Text>
-        </View>
-      </View>
-    );
+     return null;
   };
 
   const renderBookingItems = (items) => {

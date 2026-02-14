@@ -453,7 +453,7 @@ const ProviderProfileScreen = ({ navigation, route }) => {
               </Text> */}
             </View>
 
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={clsx(
                 styles.flexRow,
                 styles.itemsCenter,
@@ -470,7 +470,7 @@ const ProviderProfileScreen = ({ navigation, route }) => {
               <Text style={clsx(styles.textPrimary, styles.fontMedium, styles.ml1)}>
                 Edit Profile
               </Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
         </View>
 

@@ -35,13 +35,13 @@ const ProfileUpdateScreen = ({ route }) => {
   } = useContext(AppContext);
 
   const type = route?.params?.type;
+  
   useEffect(() => {
     const backAction = () => {
-        if(type=='new')
-        {
-          BackHandler.exitApp()
-          return true;
-        }
+      if (type == 'new') {
+        BackHandler.exitApp();
+        return true;
+      }
     };
 
     const backHandler = BackHandler.addEventListener(
@@ -50,7 +50,7 @@ const ProfileUpdateScreen = ({ route }) => {
     );
 
     return () => backHandler.remove();
-  }, []);
+  }, [type]);
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -62,7 +62,11 @@ const ProfileUpdateScreen = ({ route }) => {
   const [citySearchQuery, setCitySearchQuery] = useState('');
   const [allCategories, setAllCategories] = useState([]);
   const [allCities, setAllCities] = useState([]);
+  const [expandedCategories, setExpandedCategories] = useState({});
   const [showExperienceFields, setShowExperienceFields] = useState(false);
+  
+  // Track selected main categories separately for UI
+  const [selectedMainCategories, setSelectedMainCategories] = useState([]);
 
   // Initial profile data
   const initialProfileData = {
@@ -82,7 +86,7 @@ const ProfileUpdateScreen = ({ route }) => {
     referenceName2: '',
     referenceMobile2: '',
     userId: '',
-    categoryIds: [],
+    categoryIds: [], // Stores both category and subcategory IDs
     cityId: '',
     profileImage: null,
   };
@@ -96,7 +100,10 @@ const ProfileUpdateScreen = ({ route }) => {
 
   // Filter categories based on search
   const filteredCategories = allCategories.filter(category =>
-    category.name.toLowerCase().includes(searchQuery.toLowerCase())
+    category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (category.subcategories || []).some(sub => 
+      sub.name.toLowerCase().includes(searchQuery.toLowerCase())
+    )
   );
 
   // Filter cities based on search
@@ -116,7 +123,13 @@ const ProfileUpdateScreen = ({ route }) => {
       name: category.name,
       image: category.image,
       icon: category.icon,
-      subcategories: category.subcategories || [],
+      subcategories: (category.subcategories || []).map(sub => ({
+        _id: sub._id,
+        id: sub._id,
+        name: sub.name,
+        categoryId: category._id,
+        categoryName: category.name
+      })),
     }));
   };
 
@@ -133,6 +146,206 @@ const ProfileUpdateScreen = ({ route }) => {
       state: city.state || '',
       country: city.country || '',
     }));
+  };
+
+  // Toggle category expansion
+  const toggleCategory = (categoryId) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [categoryId]: !prev[categoryId]
+    }));
+  };
+
+  // Check if a main category is selected (based on its subcategories or itself)
+  const isMainCategorySelected = (categoryId) => {
+    return selectedMainCategories.includes(categoryId);
+  };
+
+  // Check if a subcategory is selected
+  const isSubcategorySelected = (subcategoryId) => {
+    return formData.categoryIds.includes(subcategoryId);
+  };
+
+  // Check if all subcategories of a category are selected
+  const areAllSubcategoriesSelected = (category) => {
+    if (!category.subcategories || category.subcategories.length === 0) return false;
+    return category.subcategories.every(sub => formData.categoryIds.includes(sub._id));
+  };
+
+  // Check if some subcategories are selected
+  const areSomeSubcategoriesSelected = (category) => {
+    if (!category.subcategories || category.subcategories.length === 0) return false;
+    return category.subcategories.some(sub => formData.categoryIds.includes(sub._id)) && 
+           !areAllSubcategoriesSelected(category);
+  };
+
+  // Handle subcategory selection - THIS IS THE KEY FIX
+  const handleSubcategorySelect = (subcategoryId, categoryId, categoryName) => {
+    const newCategoryIds = [...formData.categoryIds];
+    const subcategoryIndex = newCategoryIds.indexOf(subcategoryId);
+    
+    if (subcategoryIndex > -1) {
+      // Remove subcategory
+      newCategoryIds.splice(subcategoryIndex, 1);
+      
+      // Check if this was the last subcategory of this category
+      const category = allCategories.find(c => c._id === categoryId);
+      if (category) {
+        const remainingSubsFromThisCat = newCategoryIds.filter(id => 
+          category.subcategories.some(sub => sub._id === id)
+        );
+        
+        // If no subcategories remain from this category, remove the main category from selectedMainCategories
+        if (remainingSubsFromThisCat.length === 0) {
+          setSelectedMainCategories(prev => prev.filter(id => id !== categoryId));
+        }
+      }
+    } else {
+      // Add subcategory
+      newCategoryIds.push(subcategoryId);
+      
+      // Auto-select the main category if not already selected
+      if (!selectedMainCategories.includes(categoryId)) {
+        setSelectedMainCategories(prev => [...prev, categoryId]);
+      }
+      
+      // Also ensure main category ID is in categoryIds if we want to store it
+      // Comment this out if you DON'T want to store main category IDs
+      if (!newCategoryIds.includes(categoryId)) {
+        newCategoryIds.push(categoryId);
+      }
+    }
+    
+    setFormData({ ...formData, categoryIds: newCategoryIds });
+  };
+
+  // Handle main category selection (manual toggle)
+  const handleMainCategorySelect = (categoryId, category) => {
+    const isSelected = selectedMainCategories.includes(categoryId);
+    let newCategoryIds = [...formData.categoryIds];
+    let newSelectedMainCategories;
+    
+    if (isSelected) {
+      // Deselect main category and all its subcategories
+      newSelectedMainCategories = selectedMainCategories.filter(id => id !== categoryId);
+      
+      // Remove main category and all its subcategories from categoryIds
+      newCategoryIds = newCategoryIds.filter(id => 
+        id !== categoryId && !category.subcategories.some(sub => sub._id === id)
+      );
+    } else {
+      // Select main category and all its subcategories
+      newSelectedMainCategories = [...selectedMainCategories, categoryId];
+      
+      // Add main category if not present
+      if (!newCategoryIds.includes(categoryId)) {
+        newCategoryIds.push(categoryId);
+      }
+      
+      // Add all subcategories
+      category.subcategories.forEach(sub => {
+        if (!newCategoryIds.includes(sub._id)) {
+          newCategoryIds.push(sub._id);
+        }
+      });
+    }
+    
+    setSelectedMainCategories(newSelectedMainCategories);
+    setFormData({ ...formData, categoryIds: newCategoryIds });
+  };
+
+  // Handle select/deselect all subcategories
+  const handleSelectAllSubcategories = (categoryId, subcategories) => {
+    const category = allCategories.find(c => c._id === categoryId);
+    if (!category) return;
+    
+    const newCategoryIds = [...formData.categoryIds];
+    const subcategoryIds = subcategories.map(sub => sub._id);
+    
+    // Check if all subcategories are selected
+    const allSelected = subcategoryIds.every(id => newCategoryIds.includes(id));
+    
+    if (allSelected) {
+      // Deselect all subcategories
+      const filteredIds = newCategoryIds.filter(id => !subcategoryIds.includes(id));
+      
+      // Also remove main category if no subcategories remain
+      setSelectedMainCategories(prev => prev.filter(id => id !== categoryId));
+      
+      // Remove main category as well
+      const finalIds = filteredIds.filter(id => id !== categoryId);
+      setFormData({ ...formData, categoryIds: finalIds });
+    } else {
+      // Select all subcategories
+      const idsToAdd = subcategoryIds.filter(id => !newCategoryIds.includes(id));
+      
+      // Ensure main category is selected
+      if (!selectedMainCategories.includes(categoryId)) {
+        setSelectedMainCategories(prev => [...prev, categoryId]);
+      }
+      
+      // Add main category if not present
+      if (!newCategoryIds.includes(categoryId)) {
+        newCategoryIds.push(categoryId);
+      }
+      
+      // Add all subcategories
+      setFormData({ 
+        ...formData, 
+        categoryIds: [...newCategoryIds, ...idsToAdd] 
+      });
+    }
+  };
+
+  // Update selectedMainCategories whenever categoryIds changes (for initial load)
+  useEffect(() => {
+    if (allCategories.length > 0 && formData.categoryIds.length > 0) {
+      // Find which main categories should be selected based on subcategories
+      const mainsToSelect = [];
+      
+      allCategories.forEach(category => {
+        // Check if any subcategory of this category is selected
+        const hasSelectedSubcategory = category.subcategories.some(sub => 
+          formData.categoryIds.includes(sub._id)
+        );
+        
+        // Check if main category itself is selected
+        const isMainSelected = formData.categoryIds.includes(category._id);
+        
+        if (hasSelectedSubcategory || isMainSelected) {
+          mainsToSelect.push(category._id);
+        }
+      });
+      
+      setSelectedMainCategories(mainsToSelect);
+    }
+  }, [allCategories, formData.categoryIds]);
+
+  const handleCitySelect = (cityId) => {
+    setFormData({ ...formData, cityId });
+    setShowCitiesModal(false);
+  };
+
+  const handleExperienceLevelChange = (level) => {
+    const updatedFormData = { ...formData, experienceLevel: level };
+    
+    if (level === 'Fresher') {
+      updatedFormData.yearOfExperience = '';
+      updatedFormData.monthOfExperience = '';
+      updatedFormData.companyName = '';
+      setShowExperienceFields(false);
+    } else {
+      setShowExperienceFields(true);
+    }
+    
+    setFormData(updatedFormData);
+    
+    if (errors.yearOfExperience) {
+      setErrors({ ...errors, yearOfExperience: '' });
+    }
+    if (errors.companyName) {
+      setErrors({ ...errors, companyName: '' });
+    }
   };
 
   // Fetch categories data
@@ -157,6 +370,14 @@ const ProfileUpdateScreen = ({ route }) => {
         }
         
         setAllCategories(categories);
+        
+        // Initialize expanded state for all categories
+        const initialExpanded = {};
+        categories.forEach(cat => {
+          initialExpanded[cat._id] = false;
+        });
+        setExpandedCategories(initialExpanded);
+        
         return true;
       } else {
         Toast.show({
@@ -236,24 +457,25 @@ const ProfileUpdateScreen = ({ route }) => {
           dob = new Date(apiData.dob);
         }
         
-        // Handle categoryIds
+        // Handle categoryIds (including subcategories)
         let categoryIds = [];
+        
         if (apiData.categoryIds && apiData.categoryIds.length > 0) {
           if (Array.isArray(apiData.categoryIds)) {
-            categoryIds = [apiData.categoryIds[0]];
+            categoryIds = apiData.categoryIds;
           } else if (typeof apiData.categoryIds === 'string') {
             try {
               const parsed = JSON.parse(apiData.categoryIds);
-              categoryIds = Array.isArray(parsed) && parsed.length > 0 ? [parsed[0]] : [];
+              categoryIds = Array.isArray(parsed) ? parsed : [];
             } catch (e) {
               const split = apiData.categoryIds.split(',').map(id => id.trim());
-              categoryIds = split.length > 0 ? [split[0]] : [];
+              categoryIds = split;
             }
           }
         } else if (apiData.category_id) {
           categoryIds = [apiData.category_id];
-        } else if (apiData.categories && Array.isArray(apiData.categories) && apiData.categories.length > 0) {
-          categoryIds = [apiData.categories[0]._id || apiData.categories[0].id];
+        } else if (apiData.categories && Array.isArray(apiData.categories)) {
+          categoryIds = apiData.categories.map(cat => cat._id || cat.id);
         }
         
         // Handle cityId
@@ -303,6 +525,7 @@ const ProfileUpdateScreen = ({ route }) => {
           email: apiData.email || '',
           mobile: apiData.mobile || apiData.phone || '',
           dob: dob || '',
+          gender: apiData.gender || '',
           experienceLevel: experienceLevel,
           companyName: companyName,
           yearOfExperience: yearOfExperience,
@@ -366,11 +589,6 @@ const ProfileUpdateScreen = ({ route }) => {
       await fetchCategories();
       await fetchCities();
       await fetchProfileData();
-      // Toast.show({
-      //   type: 'success',
-      //   text1: 'Profile data refreshed',
-      //   text2: 'Latest data loaded successfully',
-      // });
     } catch (error) {
       Toast.show({
         type: 'error',
@@ -473,9 +691,9 @@ const ProfileUpdateScreen = ({ route }) => {
   
     // 1. Service Category validation
     if (formData.categoryIds.length === 0) {
-      newErrors.category = 'Service category is required';
+      newErrors.category = 'At least one service category is required';
       if (!errorMessage) {
-        errorMessage = 'Service category is required';
+        errorMessage = 'Please select at least one service category';
         errorField = 'category';
       }
     }
@@ -484,7 +702,7 @@ const ProfileUpdateScreen = ({ route }) => {
     if (!formData.cityId) {
       newErrors.city = 'City is required';
       if (!errorMessage) {
-        errorMessage = 'City is required';
+        errorMessage = 'Please select your city';
         errorField = 'city';
       }
     }
@@ -493,7 +711,7 @@ const ProfileUpdateScreen = ({ route }) => {
     if (!formData.name.trim()) {
       newErrors.name = 'Name is required';
       if (!errorMessage) {
-        errorMessage = 'Name is required';
+        errorMessage = 'Please enter your full name';
         errorField = 'name';
       }
     }
@@ -502,13 +720,13 @@ const ProfileUpdateScreen = ({ route }) => {
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
       if (!errorMessage) {
-        errorMessage = 'Email is required';
+        errorMessage = 'Please enter your email address';
         errorField = 'email';
       }
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Enter a valid email address';
       if (!errorMessage) {
-        errorMessage = 'Enter a valid email address';
+        errorMessage = 'Please enter a valid email address';
         errorField = 'email';
       }
     }
@@ -517,7 +735,7 @@ const ProfileUpdateScreen = ({ route }) => {
     if (!formData.dob) {
       newErrors.dob = 'Date of birth is required';
       if (!errorMessage) {
-        errorMessage = 'Date of birth is required';
+        errorMessage = 'Please select your date of birth';
         errorField = 'dob';
       }
     } else {
@@ -542,7 +760,7 @@ const ProfileUpdateScreen = ({ route }) => {
     if (!formData.gender) {
       newErrors.gender = 'Gender is required';
       if (!errorMessage) {
-        errorMessage = 'Gender is required';
+        errorMessage = 'Please select your gender';
         errorField = 'gender';
       }
     }
@@ -552,14 +770,14 @@ const ProfileUpdateScreen = ({ route }) => {
       if (!formData.yearOfExperience) {
         newErrors.yearOfExperience = 'Years of experience is required';
         if (!errorMessage) {
-          errorMessage = 'Years of experience is required';
+          errorMessage = 'Please select years of experience';
           errorField = 'yearOfExperience';
         }
       }
       if (!formData.companyName.trim()) {
         newErrors.companyName = 'Company name is required';
         if (!errorMessage) {
-          errorMessage = 'Company name is required';
+          errorMessage = 'Please enter your company name';
           errorField = 'companyName';
         }
       }
@@ -569,7 +787,7 @@ const ProfileUpdateScreen = ({ route }) => {
     if (!formData.permanentAddress.trim()) {
       newErrors.permanentAddress = 'Permanent address is required';
       if (!errorMessage) {
-        errorMessage = 'Permanent address is required';
+        errorMessage = 'Please enter your permanent address';
         errorField = 'permanentAddress';
       }
     } else if (formData.permanentAddress.trim().length < 10) {
@@ -584,7 +802,7 @@ const ProfileUpdateScreen = ({ route }) => {
     if (!formData.currentAddress.trim()) {
       newErrors.currentAddress = 'Current address is required';
       if (!errorMessage) {
-        errorMessage = 'Current address is required';
+        errorMessage = 'Please enter your current address';
         errorField = 'currentAddress';
       }
     } else if (formData.currentAddress.trim().length < 10) {
@@ -599,7 +817,7 @@ const ProfileUpdateScreen = ({ route }) => {
     if (!formData.referenceName1.trim() && !formData.referenceName2.trim()) {
       newErrors.references = 'At least one reference is required';
       if (!errorMessage) {
-        errorMessage = 'At least one reference is required';
+        errorMessage = 'Please add at least one reference';
         errorField = 'references';
       }
     }
@@ -608,13 +826,13 @@ const ProfileUpdateScreen = ({ route }) => {
     if (formData.referenceName1.trim() && !formData.referenceMobile1.trim()) {
       newErrors.referenceMobile1 = 'Reference mobile number is required';
       if (!errorMessage) {
-        errorMessage = 'Reference 1 mobile number is required';
+        errorMessage = 'Please enter mobile number for Reference 1';
         errorField = 'referenceMobile1';
       }
     } else if (formData.referenceMobile1 && !/^\d{10}$/.test(formData.referenceMobile1)) {
       newErrors.referenceMobile1 = 'Enter a valid 10-digit mobile number';
       if (!errorMessage) {
-        errorMessage = 'Enter a valid 10-digit mobile number for Reference 1';
+        errorMessage = 'Please enter a valid 10-digit mobile number for Reference 1';
         errorField = 'referenceMobile1';
       }
     }
@@ -623,13 +841,13 @@ const ProfileUpdateScreen = ({ route }) => {
     if (formData.referenceName2.trim() && !formData.referenceMobile2.trim()) {
       newErrors.referenceMobile2 = 'Reference mobile number is required';
       if (!errorMessage) {
-        errorMessage = 'Reference 2 mobile number is required';
+        errorMessage = 'Please enter mobile number for Reference 2';
         errorField = 'referenceMobile2';
       }
     } else if (formData.referenceMobile2 && !/^\d{10}$/.test(formData.referenceMobile2)) {
       newErrors.referenceMobile2 = 'Enter a valid 10-digit mobile number';
       if (!errorMessage) {
-        errorMessage = 'Enter a valid 10-digit mobile number for Reference 2';
+        errorMessage = 'Please enter a valid 10-digit mobile number for Reference 2';
         errorField = 'referenceMobile2';
       }
     }
@@ -650,43 +868,10 @@ const ProfileUpdateScreen = ({ route }) => {
     }
   };
 
-  const handleCategorySelect = (categoryId) => {
-    setFormData({ ...formData, categoryIds: [categoryId] });
-    setShowCategoriesModal(false);
-  };
-
-  const handleCitySelect = (cityId) => {
-    setFormData({ ...formData, cityId });
-    setShowCitiesModal(false);
-  };
-
-  const handleExperienceLevelChange = (level) => {
-    const updatedFormData = { ...formData, experienceLevel: level };
-    
-    if (level === 'Fresher') {
-      updatedFormData.yearOfExperience = '';
-      updatedFormData.monthOfExperience = '';
-      updatedFormData.companyName = '';
-      setShowExperienceFields(false);
-    } else {
-      setShowExperienceFields(true);
-    }
-    
-    setFormData(updatedFormData);
-    
-    if (errors.yearOfExperience) {
-      setErrors({ ...errors, yearOfExperience: '' });
-    }
-    if (errors.companyName) {
-      setErrors({ ...errors, companyName: '' });
-    }
-  };
-
   const handleUpdateProfile = async () => {
     const validation = validateForm();
   
     if (!validation.isValid) {
-      // Toast show karein
       Toast.show({
         type: 'error',
         text1: 'Validation Error',
@@ -694,10 +879,6 @@ const ProfileUpdateScreen = ({ route }) => {
         position: 'top',
         visibilityTime: 4000,
       });
-      
-      // Optionally, error field par scroll karein
-      // Agar aap scroll functionality add karna chahte hain to neeche ka code use karein
-      // scrollToErrorField(validation.field);
       
       return;
     }
@@ -715,6 +896,7 @@ const ProfileUpdateScreen = ({ route }) => {
         formDataToSend.append('dob', formData.dob.toISOString().split('T')[0]);
       }
       
+      formDataToSend.append('gender', formData.gender);
       formDataToSend.append('experienceLevel', formData.experienceLevel);
       formDataToSend.append('companyName', formData.companyName);
       
@@ -733,9 +915,8 @@ const ProfileUpdateScreen = ({ route }) => {
       formDataToSend.append('referenceName2', formData.referenceName2);
       formDataToSend.append('referenceMobile2', formData.referenceMobile2);
       formDataToSend.append('userId', formData.userId);
-      formDataToSend.append('gender', formData.gender);
       
-      // Add categoryIds
+      // Add categoryIds (including both categories and subcategories)
       formData.categoryIds.forEach((categoryId, index) => {
         formDataToSend.append(`categoryIds[${index}]`, categoryId);
       });
@@ -771,8 +952,8 @@ const ProfileUpdateScreen = ({ route }) => {
           text1: response.message || 'Profile updated successfully',
         });
 
-        if(!user.kyc) {
-          navigate('KycScreen',{type:type});
+        if (!user.kyc) {
+          navigate('KycScreen', { type: type });
         } else {
           goBack();
         }
@@ -823,20 +1004,33 @@ const ProfileUpdateScreen = ({ route }) => {
           secureTextEntry={secureTextEntry}
           maxLength={maxLength}
         />
-        {/* {errors[field] && (
-          <Text style={clsx(styles.textSm, styles.textError, styles.mt1)}>
-            {errors[field]}
-          </Text>
-        )} */}
       </View>
     );
   };
 
-  // Get selected category name for display
-  const getSelectedCategoryName = () => {
-    if (formData.categoryIds.length === 0) return null;
-    const selectedCategory = allCategories.find(category => category._id === formData.categoryIds[0]);
-    return selectedCategory ? selectedCategory.name : null;
+  // Get selected items summary for display
+  const getSelectedItemsSummary = () => {
+    if (formData.categoryIds.length === 0) {
+      return { text: 'No categories selected', count: 0 };
+    }
+    
+    let mainCount = 0;
+    let subCount = 0;
+    
+    // Only count categories that are actually main categories
+    formData.categoryIds.forEach(id => {
+      const isMain = allCategories.some(cat => cat._id === id);
+      if (isMain) {
+        mainCount++;
+      } else {
+        subCount++;
+      }
+    });
+    
+    return {
+      text: `${mainCount} ${mainCount === 1 ? 'category' : 'categories'}, ${subCount} ${subCount === 1 ? 'subcategory' : 'subcategories'}`,
+      count: formData.categoryIds.length
+    };
   };
 
   // Get selected city name for display
@@ -846,14 +1040,31 @@ const ProfileUpdateScreen = ({ route }) => {
     return selectedCity ? selectedCity.name : null;
   };
 
-  // Render single category selection
-  const renderSingleCategorySelection = () => {
-    const selectedCategoryName = getSelectedCategoryName();
+  // Get selection stats for a category
+  const getCategoryStats = (category) => {
+    const selectedSubs = category.subcategories?.filter(sub => 
+      formData.categoryIds.includes(sub._id)
+    ) || [];
+    
+    const isMainSelected = selectedMainCategories.includes(category._id);
+    
+    return {
+      totalSubs: category.subcategories?.length || 0,
+      selectedSubs: selectedSubs.length,
+      isMainSelected,
+      allSelected: selectedSubs.length === category.subcategories?.length,
+      someSelected: selectedSubs.length > 0 && selectedSubs.length < category.subcategories?.length
+    };
+  };
+
+  // Render category selection with improved UI
+  const renderCategorySelection = () => {
+    const summary = getSelectedItemsSummary();
 
     return (
       <View style={clsx(styles.mb4)}>
         <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
-          Service Category
+          Service Categories & Subcategories <Text style={clsx(styles.textError)}>*</Text>
         </Text>
         
         <TouchableOpacity
@@ -862,181 +1073,60 @@ const ProfileUpdateScreen = ({ route }) => {
             styles.flexRow,
             styles.justifyBetween,
             styles.itemsCenter,
-            styles.p2,
-            { minHeight: 50 }
+            styles.p3,
+            errors.category && styles.borderError,
+            { minHeight: 60 }
           )}
           onPress={() => setShowCategoriesModal(true)}
           activeOpacity={0.7}
         >
-          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.flex1)}>
-            {selectedCategoryName ? (
-              <View style={clsx(
-                styles.bgPrimaryLight,
-                styles.px2,
-                styles.py1,
-                styles.rounded,
-                styles.flexRow,
-                styles.itemsCenter
-              )}>
-                <Text style={clsx(styles.textBase, styles.textWhite)}>
-                  {selectedCategoryName}
+          <View style={clsx(styles.flex1)}>
+            {formData.categoryIds.length > 0 ? (
+              <>
+                <View style={clsx(styles.flexRow, styles.itemsCenter, styles.flexWrap)}>
+                  <View style={clsx(styles.bgPrimaryLight, styles.rounded, styles.px2, styles.py1, styles.mr2)}>
+                    <Text style={clsx(styles.textSm, styles.textWhite, styles.fontBold)}>
+                      {summary.count} Selected
+                    </Text>
+                  </View>
+                  {selectedMainCategories.length > 0 && (
+                    <Text style={clsx(styles.textSm, styles.textPrimary)}>
+                      {selectedMainCategories.length} {selectedMainCategories.length === 1 ? 'category' : 'categories'}
+                    </Text>
+                  )}
+                </View>
+                <Text style={clsx(styles.textSm, styles.textMuted, styles.mt1)} numberOfLines={1}>
+                  {summary.text}
                 </Text>
-                <TouchableOpacity
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    setFormData({ ...formData, categoryIds: [] });
-                  }}
-                  style={clsx(styles.ml2)}
-                >
-                  <Icon name="close" size={14} color={colors.white} />
-                </TouchableOpacity>
-              </View>
+              </>
             ) : (
               <Text style={clsx(styles.textBase, styles.textMuted)}>
-                Select service category...
+                Tap to select categories and subcategories...
               </Text>
             )}
           </View>
-          <Icon name="arrow-drop-down" size={24} color={colors.textMuted} />
-        </TouchableOpacity>
-
-        {/* Categories Modal */}
-        <Modal
-          visible={showCategoriesModal}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setShowCategoriesModal(false)}
-        >
-          <View style={[
-            clsx(styles.flex1, styles.justifyCenter, styles.itemsCenter),
-            { backgroundColor: 'rgba(0,0,0,0.5)' }
-          ]}>
-            <View style={[
-              clsx(styles.bgWhite, styles.roundedLg, styles.w11_12),
-              { maxHeight: '80%' }
-            ]}>
-              <View style={clsx(
-                styles.bgPrimary,
-                styles.p4,
-                styles.roundedTLg,
-                styles.roundedTRg,
-                styles.flexRow,
-                styles.justifyBetween,
-                styles.itemsCenter
-              )}>
-                <Text style={clsx(styles.textLg, styles.fontBold, styles.textWhite)}>
-                  Select Service Category
-                </Text>
-                <TouchableOpacity onPress={() => setShowCategoriesModal(false)}>
-                  <Icon name="close" size={24} color={colors.white} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={clsx(styles.p4)}>
-                <View style={clsx(
-                  styles.flexRow,
-                  styles.itemsCenter,
-                  styles.bgGrayLight,
-                  styles.rounded,
-                  styles.px3,
-                  styles.py2
-                )}>
-                  <Icon name="search" size={20} color={colors.textMuted} />
-                  <TextInput
-                    style={clsx(styles.flex1, styles.ml2, styles.textBase)}
-                    placeholder="Search categories..."
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    placeholderTextColor={colors.textMuted}
-                    autoFocus={true}
-                  />
-                  {searchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearchQuery('')}>
-                      <Icon name="clear" size={20} color={colors.textMuted} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-
-              <FlatList
-                keyboardShouldPersistTaps="handled"
-                data={filteredCategories}
-                keyExtractor={(item) => item._id}
-                style={clsx(styles.px4)}
-                contentContainerStyle={clsx(styles.pb4)}
-                showsVerticalScrollIndicator={false}
-                renderItem={({ item }) => {
-                  const isSelected = formData.categoryIds.includes(item._id);
-                  return (
-                    <TouchableOpacity
-                      style={clsx(
-                        styles.flexRow,
-                        styles.itemsCenter,
-                        styles.py3,
-                        styles.borderB,
-                        styles.borderGrayLight
-                      )}
-                      onPress={() => handleCategorySelect(item._id)}
-                    >
-                      <View style={clsx(
-                        styles.w6,
-                        styles.h6,
-                        styles.roundedFull,
-                        styles.border2,
-                        styles.mr3,
-                        isSelected ? clsx(styles.bgPrimary, styles.borderPrimary) : clsx(styles.borderGray)
-                      )}>
-                        {isSelected && (
-                          <Icon name="check" size={16} color={colors.white} />
-                        )}
-                      </View>
-                      <Text style={clsx(
-                        styles.textBase,
-                        styles.fontMedium,
-                        isSelected ? styles.textPrimary : styles.textBlack
-                      )}>
-                        {item.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
+          <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+            {formData.categoryIds.length > 0 && (
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setFormData({ ...formData, categoryIds: [] });
+                  setSelectedMainCategories([]);
                 }}
-                ListEmptyComponent={
-                  <View style={clsx(styles.py6, styles.itemsCenter)}>
-                    <Icon name="search-off" size={40} color={colors.textMuted} />
-                    <Text style={clsx(styles.textBase, styles.textMuted, styles.mt2)}>
-                      No categories found
-                    </Text>
-                  </View>
-                }
-              />
-
-              <View style={clsx(
-                styles.flexRow,
-                styles.justifyEnd,
-                styles.p4,
-                styles.borderT,
-                styles.borderGrayLight
-              )}>
-                <TouchableOpacity
-                  style={clsx(styles.bgGray, styles.px4, styles.py2, styles.rounded, styles.mr2)}
-                  onPress={() => setShowCategoriesModal(false)}
-                >
-                  <Text style={clsx(styles.textBase, styles.textBlack, styles.fontMedium)}>
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={clsx(styles.bgPrimary, styles.px4, styles.py2, styles.rounded)}
-                  onPress={() => setShowCategoriesModal(false)}
-                >
-                  <Text style={clsx(styles.textBase, styles.textWhite, styles.fontMedium)}>
-                    Select
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+                style={clsx(styles.mr2)}
+              >
+                <Icon name="close" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            )}
+            <Icon name="arrow-drop-down" size={28} color={colors.primary} />
           </View>
-        </Modal>
+        </TouchableOpacity>
+        
+        {errors.category && (
+          <Text style={clsx(styles.textSm, styles.textError, styles.mt1)}>
+            {errors.category}
+          </Text>
+        )}
       </View>
     );
   };
@@ -1048,7 +1138,7 @@ const ProfileUpdateScreen = ({ route }) => {
     return (
       <View style={clsx(styles.mb4)}>
         <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
-          City
+          City <Text style={clsx(styles.textError)}>*</Text>
         </Text>
         
         <TouchableOpacity
@@ -1057,188 +1147,46 @@ const ProfileUpdateScreen = ({ route }) => {
             styles.flexRow,
             styles.justifyBetween,
             styles.itemsCenter,
-            styles.p2,
-            { minHeight: 50 }
+            styles.p3,
+            errors.city && styles.borderError,
+            { minHeight: 60 }
           )}
           onPress={() => setShowCitiesModal(true)}
           activeOpacity={0.7}
         >
           <View style={clsx(styles.flexRow, styles.itemsCenter, styles.flex1)}>
             {selectedCityName ? (
-              <View style={clsx(
-                styles.bgPrimaryLight,
-                styles.px2,
-                styles.py1,
-                styles.rounded,
-                styles.flexRow,
-                styles.itemsCenter
-              )}>
-                <Text style={clsx(styles.textBase, styles.textWhite)}>
+              <>
+                <Icon name="location-on" size={20} color={colors.primary} style={clsx(styles.mr2)} />
+                <Text style={clsx(styles.textBase, styles.textBlack, styles.fontMedium)}>
                   {selectedCityName}
                 </Text>
-                <TouchableOpacity
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    setFormData({ ...formData, cityId: '' });
-                  }}
-                  style={clsx(styles.ml2)}
-                >
-                  <Icon name="close" size={14} color={colors.white} />
-                </TouchableOpacity>
-              </View>
+              </>
             ) : (
               <Text style={clsx(styles.textBase, styles.textMuted)}>
-                Select city...
+                Select your city...
               </Text>
             )}
           </View>
-          <Icon name="arrow-drop-down" size={24} color={colors.textMuted} />
+          {selectedCityName ? (
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation();
+                setFormData({ ...formData, cityId: '' });
+              }}
+              style={clsx(styles.mr2)}
+            >
+              <Icon name="close" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          ) : null}
+          <Icon name="arrow-drop-down" size={28} color={colors.primary} />
         </TouchableOpacity>
-
-        {/* Cities Modal */}
-        <Modal
-          visible={showCitiesModal}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setShowCitiesModal(false)}
-        >
-          <View style={[
-            clsx(styles.flex1, styles.justifyCenter, styles.itemsCenter),
-            { backgroundColor: 'rgba(0,0,0,0.5)' }
-          ]}>
-            <View style={[
-              clsx(styles.bgWhite, styles.roundedLg, styles.w11_12),
-              { maxHeight: '80%' }
-            ]}>
-              <View style={clsx(
-                styles.bgPrimary,
-                styles.p4,
-                styles.roundedTLg,
-                styles.roundedTRg,
-                styles.flexRow,
-                styles.justifyBetween,
-                styles.itemsCenter
-              )}>
-                <Text style={clsx(styles.textLg, styles.fontBold, styles.textWhite)}>
-                  Select City
-                </Text>
-                <TouchableOpacity onPress={() => setShowCitiesModal(false)}>
-                  <Icon name="close" size={24} color={colors.white} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={clsx(styles.p4)}>
-                <View style={clsx(
-                  styles.flexRow,
-                  styles.itemsCenter,
-                  styles.bgGrayLight,
-                  styles.rounded,
-                  styles.px3,
-                  styles.py2
-                )}>
-                  <Icon name="search" size={20} color={colors.textMuted} />
-                  <TextInput
-                    style={clsx(styles.flex1, styles.ml2, styles.textBase)}
-                    placeholder="Search cities..."
-                    value={citySearchQuery}
-                    onChangeText={setCitySearchQuery}
-                    placeholderTextColor={colors.textMuted}
-                    autoFocus={true}
-                  />
-                  {citySearchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setCitySearchQuery('')}>
-                      <Icon name="clear" size={20} color={colors.textMuted} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-
-              <FlatList
-                keyboardShouldPersistTaps="handled"
-                data={filteredCities}
-                keyExtractor={(item) => item._id}
-                style={clsx(styles.px4)}
-                contentContainerStyle={clsx(styles.pb4)}
-                showsVerticalScrollIndicator={false}
-                renderItem={({ item }) => {
-                  const isSelected = formData.cityId === item._id;
-                  return (
-                    <TouchableOpacity
-                      style={clsx(
-                        styles.flexRow,
-                        styles.itemsCenter,
-                        styles.py3,
-                        styles.borderB,
-                        styles.borderGrayLight
-                      )}
-                      onPress={() => handleCitySelect(item._id)}
-                    >
-                      <View style={clsx(
-                        styles.w6,
-                        styles.h6,
-                        styles.roundedFull,
-                        styles.border2,
-                        styles.mr3,
-                        isSelected ? clsx(styles.bgPrimary, styles.borderPrimary) : clsx(styles.borderGray)
-                      )}>
-                        {isSelected && (
-                          <Icon name="check" size={16} color={colors.white} />
-                        )}
-                      </View>
-                      <View style={clsx(styles.flex1)}>
-                        <Text style={clsx(
-                          styles.textBase,
-                          styles.fontMedium,
-                          isSelected ? styles.textPrimary : styles.textBlack
-                        )}>
-                          {item.name}
-                        </Text>
-                        {(item.state || item.country) && (
-                          <Text style={clsx(styles.textSm, styles.textMuted, styles.mt1)}>
-                            {item.state && item.country ? `${item.state}, ${item.country}` : (item.state || item.country)}
-                          </Text>
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                }}
-                ListEmptyComponent={
-                  <View style={clsx(styles.py6, styles.itemsCenter)}>
-                    <Icon name="location-off" size={40} color={colors.textMuted} />
-                    <Text style={clsx(styles.textBase, styles.textMuted, styles.mt2)}>
-                      No cities found
-                    </Text>
-                  </View>
-                }
-              />
-
-              <View style={clsx(
-                styles.flexRow,
-                styles.justifyEnd,
-                styles.p4,
-                styles.borderT,
-                styles.borderGrayLight
-              )}>
-                <TouchableOpacity
-                  style={clsx(styles.bgGray, styles.px4, styles.py2, styles.rounded, styles.mr2)}
-                  onPress={() => setShowCitiesModal(false)}
-                >
-                  <Text style={clsx(styles.textBase, styles.textBlack, styles.fontMedium)}>
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={clsx(styles.bgPrimary, styles.px4, styles.py2, styles.rounded)}
-                  onPress={() => setShowCitiesModal(false)}
-                >
-                  <Text style={clsx(styles.textBase, styles.textWhite, styles.fontMedium)}>
-                    Select
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
+        
+        {errors.city && (
+          <Text style={clsx(styles.textSm, styles.textError, styles.mt1)}>
+            {errors.city}
+          </Text>
+        )}
       </View>
     );
   };
@@ -1269,7 +1217,7 @@ const ProfileUpdateScreen = ({ route }) => {
     >
       <Header
         title="Profile"
-        showBack={type=='new'?false:true}
+        showBack={type == 'new' ? false : true}
         showNotification={false}
         type="white"
         rightAction={false}
@@ -1310,11 +1258,11 @@ const ProfileUpdateScreen = ({ route }) => {
               <Image
                 source={{ uri: formData.profileImage.uri }}
                 style={[
-                  {width: 128, height: 128},
-                  styles.roundedFull, 
-                  styles.border2,  
-                  styles.borderWhite, 
-                  styles.shadowMd 
+                  { width: 128, height: 128 },
+                  styles.roundedFull,
+                  styles.border2,
+                  styles.borderWhite,
+                  styles.shadowMd
                 ]}
                 resizeMode="cover"
               />
@@ -1350,7 +1298,7 @@ const ProfileUpdateScreen = ({ route }) => {
           
           <View style={clsx(styles.flexRow, styles.mt2)}>
             <TouchableOpacity
-              style={clsx(styles.flexRow, styles.itemsCenter,styles.mr4, styles.p2, styles.bgPrimary, styles.rounded)}
+              style={clsx(styles.flexRow, styles.itemsCenter, styles.mr4, styles.p2, styles.bgPrimary, styles.rounded)}
               onPress={selectProfileImage}
             >
               <Icon name="photo-library" size={20} color={colors.white} />
@@ -1360,7 +1308,7 @@ const ProfileUpdateScreen = ({ route }) => {
             </TouchableOpacity>
             
             <TouchableOpacity
-              style={clsx(styles.flexRow, styles.itemsCenter,styles.mr4, styles.p2, styles.bgPrimary, styles.rounded)}
+              style={clsx(styles.flexRow, styles.itemsCenter, styles.mr4, styles.p2, styles.bgPrimary, styles.rounded)}
               onPress={captureProfileImage}
             >
               <Icon name="camera-alt" size={20} color={colors.white} />
@@ -1377,21 +1325,11 @@ const ProfileUpdateScreen = ({ route }) => {
             Personal Information
           </Text>
 
-          {/* Service Category */}
-          {renderSingleCategorySelection()}
-          {/* {errors.category && (
-            <Text style={clsx(styles.textSm, styles.textError, styles.mt1)}>
-              {errors.category}
-            </Text>
-          )} */}
+          {/* Service Category with Subcategories */}
+          {renderCategorySelection()}
 
           {/* City Selection */}
           {renderSingleCitySelection()}
-          {/* {errors.city && (
-            <Text style={clsx(styles.textSm, styles.textError, styles.mt1)}>
-              {errors.city}
-            </Text>
-          )} */}
 
           {renderInputField('Full Name', 'name', 'Enter your full name')}
 
@@ -1402,7 +1340,7 @@ const ProfileUpdateScreen = ({ route }) => {
           {/* Date of Birth */}
           <View style={clsx(styles.mb4)}>
             <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
-              Date of Birth
+              Date of Birth <Text style={clsx(styles.textError)}>*</Text>
             </Text>
             <TouchableOpacity
               style={clsx(
@@ -1410,20 +1348,24 @@ const ProfileUpdateScreen = ({ route }) => {
                 styles.flexRow,
                 styles.justifyBetween,
                 styles.itemsCenter,
+                styles.p3,
                 errors.dob && styles.borderError
               )}
               onPress={() => setShowDatePicker(true)}
             >
-              <Text style={clsx(styles.textBase, formData.dob ? styles.textBlack : styles.textMuted)}>
-                {formatDate(formData.dob)}
-              </Text>
-              <Icon name="calendar-today" size={20} color={colors.textMuted} />
+              <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+                <Icon name="calendar-today" size={20} color={colors.primary} style={clsx(styles.mr2)} />
+                <Text style={clsx(styles.textBase, formData.dob ? styles.textBlack : styles.textMuted)}>
+                  {formatDate(formData.dob)}
+                </Text>
+              </View>
+              <Icon name="arrow-drop-down" size={28} color={colors.primary} />
             </TouchableOpacity>
-            {/* {errors.dob && (
+            {errors.dob && (
               <Text style={clsx(styles.textSm, styles.textError, styles.mt1)}>
                 {errors.dob}
               </Text>
-            )} */}
+            )}
           </View>
 
           {showDatePicker && (
@@ -1446,7 +1388,7 @@ const ProfileUpdateScreen = ({ route }) => {
           {/* Experience Level */}
           <View style={clsx(styles.mb4)}>
             <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
-              Experience Level
+              Experience Level <Text style={clsx(styles.textError)}>*</Text>
             </Text>
             <View style={clsx(styles.flexRow, styles.flexWrap)}>
               {['Fresher', 'Experience'].map((level) => (
@@ -1480,7 +1422,7 @@ const ProfileUpdateScreen = ({ route }) => {
 
           <View style={clsx(styles.mb4)}>
             <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
-              Gender
+              Gender <Text style={clsx(styles.textError)}>*</Text>
             </Text>
             <View style={clsx(styles.flexRow, styles.flexWrap)}>
               {['Male', 'Female', 'Other'].map((genderOption) => (
@@ -1515,18 +1457,18 @@ const ProfileUpdateScreen = ({ route }) => {
                 </TouchableOpacity>
               ))}
             </View>
-            {/* {errors.gender && (
+            {errors.gender && (
               <Text style={clsx(styles.textSm, styles.textError, styles.mt1)}>
                 {errors.gender}
               </Text>
-            )} */}
+            )}
           </View>
 
           {/* Experience Fields */}
           {showExperienceFields && (
             <View style={clsx(styles.mb4)}>
               <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
-                Professional Experience
+                Professional Experience <Text style={clsx(styles.textError)}>*</Text>
               </Text>
               
               <View style={clsx(styles.flexRow, styles.mb4)}>
@@ -1567,11 +1509,11 @@ const ProfileUpdateScreen = ({ route }) => {
                       </TouchableOpacity>
                     ))}
                   </View>
-                  {/* {errors.yearOfExperience && (
+                  {errors.yearOfExperience && (
                     <Text style={clsx(styles.textSm, styles.textError, styles.mt1)}>
                       {errors.yearOfExperience}
                     </Text>
-                  )} */}
+                  )}
                 </View>
                 
                 <View style={clsx(styles.flex1)}>
@@ -1617,7 +1559,7 @@ const ProfileUpdateScreen = ({ route }) => {
         {/* Address Information */}
         <View style={clsx(styles.mt6)}>
           <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb4)}>
-            Address Information
+            Address Information <Text style={clsx(styles.textError)}>*</Text>
           </Text>
 
           {renderInputField('Permanent Address', 'permanentAddress', 'Enter permanent address', {
@@ -1632,25 +1574,27 @@ const ProfileUpdateScreen = ({ route }) => {
         {/* References */}
         <View style={clsx(styles.mt6)}>
           <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb4)}>
-            References (At least one required)
+            References <Text style={clsx(styles.textError)}>*</Text>
+          </Text>
+          <Text style={clsx(styles.textSm, styles.textMuted, styles.mb3)}>
+            At least one reference is required
           </Text>
 
-          {/* {errors.references && (
+          {errors.references && (
             <Text style={clsx(styles.textSm, styles.textError, styles.mb2)}>
               {errors.references}
             </Text>
-          )} */}
+          )}
 
           <View style={clsx(styles.mb4)}>
             <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
               Reference 1
             </Text>
-            <View style={clsx(styles.flexRow, styles.mb2)}>
+            <View style={clsx(styles.mb2)}>
               <TextInput
                 style={clsx(
                   styles.input,
-                  styles.flex1,
-                  styles.mr2
+                  styles.mb2
                 )}
                 placeholder="Reference Name"
                 placeholderTextColor={colors.textMuted}
@@ -1665,7 +1609,6 @@ const ProfileUpdateScreen = ({ route }) => {
               <TextInput
                 style={clsx(
                   styles.input,
-                  styles.flex1,
                   errors.referenceMobile1 && styles.borderError
                 )}
                 placeholder="Mobile Number"
@@ -1681,38 +1624,33 @@ const ProfileUpdateScreen = ({ route }) => {
                 maxLength={10}
               />
             </View>
-            {/* {errors.referenceMobile1 && (
+            {errors.referenceMobile1 && (
               <Text style={clsx(styles.textSm, styles.textError)}>
                 {errors.referenceMobile1}
               </Text>
-            )} */}
+            )}
           </View>
 
           <View style={clsx(styles.mb6)}>
             <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
-              Reference 2
+              Reference 2 (Optional)
             </Text>
-            <View style={clsx(styles.flexRow)}>
+            <View style={clsx(styles.mb2)}>
               <TextInput
                 style={clsx(
                   styles.input,
-                  styles.flex1,
-                  styles.mr2
+                  styles.mb2
                 )}
                 placeholder="Reference Name"
                 placeholderTextColor={colors.textMuted}
                 value={formData.referenceName2}
                 onChangeText={(text) => {
                   setFormData({ ...formData, referenceName2: text });
-                  if (errors.references) {
-                    setErrors({ ...errors, references: '' });
-                  }
                 }}
               />
               <TextInput
                 style={clsx(
                   styles.input,
-                  styles.flex1,
                   errors.referenceMobile2 && styles.borderError
                 )}
                 placeholder="Mobile Number"
@@ -1728,11 +1666,11 @@ const ProfileUpdateScreen = ({ route }) => {
                 maxLength={10}
               />
             </View>
-            {/* {errors.referenceMobile2 && (
+            {errors.referenceMobile2 && (
               <Text style={clsx(styles.textSm, styles.textError)}>
                 {errors.referenceMobile2}
               </Text>
-            )} */}
+            )}
           </View>
         </View>
 
@@ -1755,6 +1693,514 @@ const ProfileUpdateScreen = ({ route }) => {
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Categories & Subcategories Modal - IMPROVED UI */}
+      <Modal
+        visible={showCategoriesModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowCategoriesModal(false)}
+      >
+        <View style={[
+          clsx(styles.flex1, styles.justifyCenter, styles.itemsCenter),
+          { backgroundColor: 'rgba(0,0,0,0.5)' }
+        ]}>
+          <View style={[
+            clsx(styles.bgWhite, styles.roundedLg, styles.w11_12),
+            { maxHeight: '90%' }
+          ]}>
+            {/* Modal Header */}
+            <View style={clsx(
+              styles.bgPrimary,
+              styles.p4,
+              styles.roundedTLg,
+              styles.roundedTRg,
+              styles.flexRow,
+              styles.justifyBetween,
+              styles.itemsCenter
+            )}>
+              <View>
+                <Text style={clsx(styles.textLg, styles.fontBold, styles.textWhite)}>
+                  Select Services
+                </Text>
+                <Text style={clsx(styles.textSm, styles.textWhite, styles.mt1)}>
+                  Choose categories and subcategories
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowCategoriesModal(false)}>
+                <Icon name="close" size={24} color={colors.white} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Search Bar */}
+            <View style={clsx(styles.p4)}>
+              <View style={clsx(
+                styles.flexRow,
+                styles.itemsCenter,
+                styles.bgGrayLight,
+                styles.rounded,
+                styles.px3,
+                styles.py2
+              )}>
+                <Icon name="search" size={20} color={colors.textMuted} />
+                <TextInput
+                  style={clsx(styles.flex1, styles.ml2, styles.textBase)}
+                  placeholder="Search categories or subcategories..."
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholderTextColor={colors.textMuted}
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <Icon name="clear" size={20} color={colors.textMuted} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* Selection Summary with better UI */}
+            {formData.categoryIds.length > 0 && (
+              <View style={clsx(styles.px4, styles.py2, styles.mb2)}>
+                <View style={clsx(
+                  styles.flexRow, 
+                  styles.justifyBetween, 
+                  styles.itemsCenter,
+                  styles.bgPrimaryLight,
+                  styles.rounded,
+                  styles.px3,
+                  styles.py2
+                )}>
+                  <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+                    <Icon name="check-circle" size={20} color={colors.white} style={clsx(styles.mr2)} />
+                    <Text style={clsx(styles.textSm, styles.textWhite, styles.fontMedium)}>
+                      {formData.categoryIds.length} {formData.categoryIds.length === 1 ? 'item' : 'items'} selected
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setFormData({ ...formData, categoryIds: [] });
+                      setSelectedMainCategories([]);
+                    }}
+                    style={clsx(styles.bgWhite, styles.px2, styles.py1, styles.rounded)}
+                  >
+                    <Text style={clsx(styles.textSm, styles.textPrimary, styles.fontBold)}>Clear All</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Categories List with improved visual hierarchy */}
+            <FlatList
+              keyboardShouldPersistTaps="handled"
+              data={filteredCategories}
+              keyExtractor={(item) => item._id}
+              style={clsx(styles.px4)}
+              contentContainerStyle={clsx(styles.pb4)}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => {
+                const stats = getCategoryStats(item);
+                const isExpanded = expandedCategories[item._id];
+                const hasSubcategories = item.subcategories && item.subcategories.length > 0;
+                
+                return (
+                  <View style={clsx(
+                    styles.mb3, 
+                    styles.border, 
+                    styles.rounded,
+                    stats.isMainSelected ? styles.borderPrimary : styles.borderGrayLight,
+                    { borderWidth: stats.isMainSelected ? 2 : 1 }
+                  )}>
+                    {/* Category Header - redesigned for better UX */}
+                    <TouchableOpacity
+                      style={clsx(
+                        styles.flexRow,
+                        styles.itemsCenter,
+                        styles.p3,
+                        stats.isMainSelected && styles.bgPrimaryLight
+                      )}
+                      onPress={() => {
+                        if (hasSubcategories) {
+                          toggleCategory(item._id);
+                        } else {
+                          handleMainCategorySelect(item._id, item);
+                        }
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      {/* Selection Indicator with better visual feedback */}
+                      <TouchableOpacity
+                        onPress={() => handleMainCategorySelect(item._id, item)}
+                        style={clsx(styles.mr3)}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <View style={clsx(
+                          styles.w6,
+                          styles.h6,
+                          styles.rounded,
+                          styles.justifyCenter,
+                          styles.itemsCenter,
+                          stats.isMainSelected ? 
+                            clsx(styles.bgPrimary, styles.borderPrimary) : 
+                            clsx(styles.border2, styles.borderGray)
+                        )}>
+                          {stats.isMainSelected && (
+                            <Icon name="check" size={16} color={colors.white} />
+                          )}
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* Category Info with progress indicator */}
+                      <View style={clsx(styles.flex1)}>
+                        <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween)}>
+                          <Text style={clsx(
+                            styles.textBase,
+                            styles.fontBold,
+                            stats.isMainSelected ? styles.textPrimary : styles.textBlack
+                          )}>
+                            {item.name}
+                          </Text>
+                          {hasSubcategories && stats.selectedSubs > 0 && (
+                            <View style={clsx(
+                              styles.bgPrimary,
+                              styles.rounded,
+                              styles.px2,
+                              styles.py1,
+                              styles.ml2
+                            )}>
+                              <Text style={clsx(styles.textXs, styles.textWhite, styles.fontBold)}>
+                                {stats.selectedSubs}/{stats.totalSubs}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        
+                        {hasSubcategories && (
+                          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt1)}>
+                            {/* Progress bar for subcategory selection */}
+                            {stats.totalSubs > 0 && (
+                              <View style={clsx(styles.flex1, styles.h1, styles.bgGrayLight, styles.rounded, styles.mr2)}>
+                                <View 
+                                  style={[
+                                    clsx(styles.h1, styles.bgPrimary, styles.rounded),
+                                    { width: `${(stats.selectedSubs / stats.totalSubs) * 100}%` }
+                                  ]} 
+                                />
+                              </View>
+                            )}
+                            <Text style={clsx(styles.textXs, styles.textMuted)}>
+                              {stats.selectedSubs} of {stats.totalSubs} selected
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+
+                      {/* Expand/Collapse Icon with badge for selected items */}
+                      <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+                        {hasSubcategories && (
+                          <>
+                            {stats.someSelected && !stats.allSelected && (
+                              <View style={clsx(styles.w2, styles.h2, styles.bgPrimary, styles.roundedFull, styles.mr2)} />
+                            )}
+                            <Icon 
+                              name={isExpanded ? "expand-less" : "expand-more"} 
+                              size={24} 
+                              color={stats.isMainSelected ? colors.primary : colors.textMuted} 
+                            />
+                          </>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Subcategories with improved layout */}
+                    {isExpanded && hasSubcategories && (
+                      <View style={clsx(styles.borderT, stats.isMainSelected ? styles.borderPrimary : styles.borderGrayLight)}>
+                        {/* Select All Option - moved to top for better accessibility */}
+                        <TouchableOpacity
+                          style={clsx(
+                            styles.flexRow,
+                            styles.itemsCenter,
+                            styles.p3,
+                            styles.bgGrayLight
+                          )}
+                          onPress={() => handleSelectAllSubcategories(item._id, item.subcategories)}
+                        >
+                          <View style={clsx(
+                            styles.w5,
+                            styles.h5,
+                            styles.rounded,
+                            styles.justifyCenter,
+                            styles.itemsCenter,
+                            styles.mr2,
+                            stats.allSelected ? 
+                              clsx(styles.bgPrimary, styles.borderPrimary) : 
+                              clsx(styles.border2, styles.borderGray)
+                          )}>
+                            {stats.allSelected && (
+                              <Icon name="check" size={14} color={colors.white} />
+                            )}
+                          </View>
+                          <Text style={clsx(
+                            styles.textSm, 
+                            styles.fontBold,
+                            stats.allSelected ? styles.textPrimary : styles.textBlack
+                          )}>
+                            {stats.allSelected ? 'Deselect All' : 'Select All'} Subcategories
+                          </Text>
+                          {stats.someSelected && !stats.allSelected && (
+                            <View style={clsx(styles.ml2, styles.bgPrimary, styles.px2, styles.py1, styles.rounded)}>
+                              <Text style={clsx(styles.textXs, styles.textWhite)}>
+                                {stats.selectedSubs} selected
+                              </Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+
+                        {/* Subcategory List with alternating background for better readability */}
+                        {item.subcategories.map((sub, index) => {
+                          const isSubSelected = formData.categoryIds.includes(sub._id);
+                          return (
+                            <TouchableOpacity
+                              key={sub._id}
+                              style={clsx(
+                                styles.flexRow,
+                                styles.itemsCenter,
+                                styles.p3,
+                                index % 2 === 0 ? styles.bgWhite : styles.bgGrayLight,
+                                isSubSelected && stats.isMainSelected && styles.bgPrimaryLight
+                              )}
+                              onPress={() => handleSubcategorySelect(sub._id, item._id, item.name)}
+                            >
+                              <View style={clsx(
+                                styles.w5,
+                                styles.h5,
+                                styles.rounded,
+                                styles.justifyCenter,
+                                styles.itemsCenter,
+                                styles.mr2,
+                                isSubSelected ? 
+                                  clsx(styles.bgPrimary, styles.borderPrimary) : 
+                                  clsx(styles.border2, styles.borderGray)
+                              )}>
+                                {isSubSelected && (
+                                  <Icon name="check" size={14} color={colors.white} />
+                                )}
+                              </View>
+                              <Text style={clsx(
+                                styles.textBase,
+                                styles.flex1,
+                                isSubSelected ? styles.textPrimary : styles.textBlack,
+                                isSubSelected && styles.fontMedium
+                              )}>
+                                {sub.name}
+                              </Text>
+                              {isSubSelected && (
+                                <Icon name="check-circle" size={20} color={colors.primary} />
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+                );
+              }}
+              ListEmptyComponent={
+                <View style={clsx(styles.py10, styles.itemsCenter)}>
+                  <Icon name="search-off" size={60} color={colors.textMuted} />
+                  <Text style={clsx(styles.textBase, styles.textMuted, styles.mt2, styles.textCenter)}>
+                    No categories or subcategories found
+                  </Text>
+                </View>
+              }
+            />
+
+            {/* Modal Footer with improved buttons */}
+            <View style={clsx(
+              styles.flexRow,
+              styles.justifyEnd,
+              styles.p4,
+              styles.borderT,
+              styles.borderGrayLight,
+              styles.bgWhite
+            )}>
+              <TouchableOpacity
+                style={clsx(styles.bgGray, styles.px6, styles.py3, styles.rounded, styles.mr2)}
+                onPress={() => setShowCategoriesModal(false)}
+              >
+                <Text style={clsx(styles.textBase, styles.textBlack, styles.fontMedium)}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={clsx(
+                  styles.bgPrimary, 
+                  styles.px6, 
+                  styles.py3, 
+                  styles.rounded,
+                  formData.categoryIds.length === 0 && styles.opacity50
+                )}
+                onPress={() => setShowCategoriesModal(false)}
+                disabled={formData.categoryIds.length === 0}
+              >
+                <Text style={clsx(styles.textBase, styles.textWhite, styles.fontBold)}>
+                  Done {formData.categoryIds.length > 0 ? `(${formData.categoryIds.length})` : ''}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Cities Modal - unchanged */}
+      <Modal
+        visible={showCitiesModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowCitiesModal(false)}
+      >
+        <View style={[
+          clsx(styles.flex1, styles.justifyCenter, styles.itemsCenter),
+          { backgroundColor: 'rgba(0,0,0,0.5)' }
+        ]}>
+          <View style={[
+            clsx(styles.bgWhite, styles.roundedLg, styles.w11_12),
+            { maxHeight: '80%' }
+          ]}>
+            <View style={clsx(
+              styles.bgPrimary,
+              styles.p4,
+              styles.roundedTLg,
+              styles.roundedTRg,
+              styles.flexRow,
+              styles.justifyBetween,
+              styles.itemsCenter
+            )}>
+              <Text style={clsx(styles.textLg, styles.fontBold, styles.textWhite)}>
+                Select City
+              </Text>
+              <TouchableOpacity onPress={() => setShowCitiesModal(false)}>
+                <Icon name="close" size={24} color={colors.white} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={clsx(styles.p4)}>
+              <View style={clsx(
+                styles.flexRow,
+                styles.itemsCenter,
+                styles.bgGrayLight,
+                styles.rounded,
+                styles.px3,
+                styles.py2
+              )}>
+                <Icon name="search" size={20} color={colors.textMuted} />
+                <TextInput
+                  style={clsx(styles.flex1, styles.ml2, styles.textBase)}
+                  placeholder="Search cities..."
+                  value={citySearchQuery}
+                  onChangeText={setCitySearchQuery}
+                  placeholderTextColor={colors.textMuted}
+                  autoFocus={true}
+                />
+                {citySearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setCitySearchQuery('')}>
+                    <Icon name="clear" size={20} color={colors.textMuted} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            <FlatList
+              keyboardShouldPersistTaps="handled"
+              data={filteredCities}
+              keyExtractor={(item) => item._id}
+              style={clsx(styles.px4)}
+              contentContainerStyle={clsx(styles.pb4)}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => {
+                const isSelected = formData.cityId === item._id;
+                return (
+                  <TouchableOpacity
+                    style={clsx(
+                      styles.flexRow,
+                      styles.itemsCenter,
+                      styles.py3,
+                      styles.borderB,
+                      styles.borderGrayLight,
+                      isSelected && styles.bgPrimaryLight
+                    )}
+                    onPress={() => handleCitySelect(item._id)}
+                  >
+                    <View style={clsx(
+                      styles.w6,
+                      styles.h6,
+                      styles.roundedFull,
+                      styles.border2,
+                      styles.mr3,
+                      styles.justifyCenter,
+                      styles.itemsCenter,
+                      isSelected ? clsx(styles.bgPrimary, styles.borderPrimary) : clsx(styles.borderGray)
+                    )}>
+                      {isSelected && (
+                        <Icon name="check" size={16} color={colors.white} />
+                      )}
+                    </View>
+                    <View style={clsx(styles.flex1)}>
+                      <Text style={clsx(
+                        styles.textBase,
+                        styles.fontMedium,
+                        isSelected ? styles.textPrimary : styles.textBlack
+                      )}>
+                        {item.name}
+                      </Text>
+                      {(item.state || item.country) && (
+                        <Text style={clsx(styles.textSm, styles.textMuted, styles.mt1)}>
+                          {item.state && item.country ? `${item.state}, ${item.country}` : (item.state || item.country)}
+                        </Text>
+                      )}
+                    </View>
+                    {isSelected && (
+                      <Icon name="check-circle" size={24} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <View style={clsx(styles.py10, styles.itemsCenter)}>
+                  <Icon name="location-off" size={60} color={colors.textMuted} />
+                  <Text style={clsx(styles.textBase, styles.textMuted, styles.mt2)}>
+                    No cities found
+                  </Text>
+                </View>
+              }
+            />
+
+            <View style={clsx(
+              styles.flexRow,
+              styles.justifyEnd,
+              styles.p4,
+              styles.borderT,
+              styles.borderGrayLight
+            )}>
+              <TouchableOpacity
+                style={clsx(styles.bgGray, styles.px4, styles.py2, styles.rounded, styles.mr2)}
+                onPress={() => setShowCitiesModal(false)}
+              >
+                <Text style={clsx(styles.textBase, styles.textBlack, styles.fontMedium)}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={clsx(styles.bgPrimary, styles.px4, styles.py2, styles.rounded)}
+                onPress={() => setShowCitiesModal(false)}
+              >
+                <Text style={clsx(styles.textBase, styles.textWhite, styles.fontMedium)}>
+                  Select
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };

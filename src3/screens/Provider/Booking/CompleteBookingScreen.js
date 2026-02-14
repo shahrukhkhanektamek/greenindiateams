@@ -336,30 +336,50 @@ const CompleteBookingScreen = () => {
           Additional Parts
         </Text>
         
-        {additionalParts.map((part, index) => ( 
-          <View key={index} style={clsx(
-            styles.flexRow,
-            styles.justifyBetween,
-            styles.itemsCenter,
-            styles.mb2,
-            styles.p2,
-            styles.bgWhite,
-            styles.rounded
-          )}>
-            <View style={clsx(styles.flex1)}>
-              <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack)}>
-                {part.description}
-              </Text>
-              <Text style={clsx(styles.textXs, styles.textMuted)}>
-                {part.groupTitle} | Qty: {part.quantity} × ₹{part.unitPrice}
-                {/* {part.discount > 0 && ` | Discount: ₹${part.discount}`} */}
+        {additionalParts.map((part, index) => {
+          // Extract brand name safely from brandId object
+          const brandName = part.brandId?.name || 'No Brand';
+          const brandCode = part.brandId?.code || '';
+          
+          return (
+            <View key={index} style={clsx(
+              styles.flexRow,
+              styles.justifyBetween,
+              styles.itemsCenter,
+              styles.mb2,
+              styles.p2,
+              styles.bgWhite,
+              styles.rounded
+            )}>
+              <View style={clsx(styles.flex1)}>
+                <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack)}>
+                  {part.description}
+                </Text>
+                
+                {/* Brand Name Display */}
+                <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt1)}>
+                  <Icon name="branding-watermark" size={12} color={colors.primary} />
+                  <Text style={clsx(styles.textXs, styles.textPrimary, styles.ml1, styles.fontMedium)}>
+                    {brandName}
+                  </Text>
+                  {brandCode ? (
+                    <Text style={clsx(styles.textXs, styles.textMuted, styles.ml1)}>
+                      ({brandCode})
+                    </Text>
+                  ) : null}
+                </View>
+                
+                <Text style={clsx(styles.textXs, styles.textMuted, styles.mt1)}>
+                  {part.groupTitle} | Qty: {part.quantity} × ₹{part.unitPrice}
+                  {/* {part.discount > 0 && ` | Discount: ₹${part.discount}`} */}
+                </Text>
+              </View>
+              <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
+                ₹{((part.unitPrice || 0) * (part.quantity || 1)).toFixed(2)}
               </Text>
             </View>
-            <Text style={clsx(styles.textSm, styles.fontMedium, styles.textPrimary)}>
-              ₹{part.unitPrice*part.quantity || 0}
-            </Text>
-          </View>
-        ))}
+          );
+        })}
         
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mt2, styles.pt2, styles.borderTop, styles.borderGray300)}>
           <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>

@@ -11,6 +11,8 @@ import {
   Dimensions,
   RefreshControl,
   Modal,
+  TextInput,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../../styles/globalStyles';
@@ -18,17 +20,20 @@ import { colors } from '../../../styles/colors';
 import { AppContext } from '../../../Context/AppContext';
 import MovableButton from '../../../components/Common/MovableButton';
 import { navigate } from '../../../navigation/navigationService';
+import socketService from '../../../components/Common/SocketService';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const BookingDetailScreen = ({ navigation, route }) => {
   const bookingId = route.params.booking._id;
   
-  const { Toast, Urls, postData, UploadUrl, imageCheck } = useContext(AppContext);
+  const { Toast, Urls, postData, UploadUrl, socketUrl, imageCheck } = useContext(AppContext);
 
   const [refreshing, setRefreshing] = useState(false);
   const [bookingData, setBookingData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [connected, setConnected] = useState(true);
   
   // Item-wise media states
   const [itemMediaStates, setItemMediaStates] = useState({});
@@ -43,21 +48,109 @@ const BookingDetailScreen = ({ navigation, route }) => {
   const [isWaranty, setisWaranty] = useState(0);
   const [warantyOldId, setwarantyOldId] = useState(0);
 
+  // ========== HOLD MODAL STATES ==========
+  const [showHoldModal, setShowHoldModal] = useState(false);
+  const [holdDate, setHoldDate] = useState(new Date());
+  const [holdTime, setHoldTime] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [holdReason, setHoldReason] = useState('');
+  const [isHolding, setIsHolding] = useState(false);
+  // ========================================
   
   // Timer state for parts approval
-  const [approvalTimeLeft, setApprovalTimeLeft] = useState(300); // 5 minutes in seconds
+  const [approvalTimeLeft, setApprovalTimeLeft] = useState(300);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const timerRef = useRef(null);
 
   useEffect(() => {
     loadBookingDetails();
     return () => {
-      // Cleanup timer on unmount
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
     };
   }, []);
+
+  // ========== SOCKET SETUP ==========
+  useEffect(() => {
+    socketService.connect(socketUrl);
+    socketService.on('connectionStatus', (data) => {
+      setConnected(data.connected);
+      console.log('Socket:', data.connected ? 'Connected' : 'Disconnected');
+    });
+    socketService.on('bookingUpdate', (data) => {
+      loadBookingDetails();
+    });
+    return () => {
+      socketService.disconnect();
+    };
+  }, [bookingId]);
+  // ========== SOCKET SETUP END ==========
+
+  // ========== HOLD BOOKING FUNCTION ==========
+  const handleHoldBooking = async () => {
+    if (!holdReason.trim()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Please enter a reason for holding',
+      });
+      return;
+    }
+
+    try {
+      setIsHolding(true);
+
+      const formattedDate = holdDate.toISOString().split('T')[0];
+      const formattedTime = holdTime.toLocaleTimeString('en-US', { 
+        hour12: false, 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+
+      const response = await postData(
+        {
+          bookingId: bookingData?.booking?._id,
+          servicemanBookingId: bookingData?._id,
+          holdDate: formattedDate,
+          holdTime: formattedTime,
+          holdReason: holdReason.trim(),
+        },
+        `${Urls.holdBooking}`,
+        'POST'
+      );
+
+      if (response?.success) {
+        Toast.show({
+          type: 'success',
+          text1: 'Success',
+          text2: 'Booking put on hold successfully',
+        });
+        setShowHoldModal(false);
+        setHoldReason('');
+        setHoldDate(new Date());
+        setHoldTime(new Date());
+        loadBookingDetails();
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: response?.message || 'Failed to put booking on hold',
+        });
+      }
+    } catch (error) {
+      console.error('Error holding booking:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to put booking on hold',
+      });
+    } finally {
+      setIsHolding(false);
+    }
+  };
+  // ===========================================
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
@@ -79,15 +172,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
         const data = response.data;
         setBookingData(data);
         
-        // Process booking items media
-
-        setisWaranty(data?.isWaranty || 0);
-        setwarantyOldId(data?.warantyOldId || 0);
-
-        setisWaranty(1);
-        setwarantyOldId(data?._id);
-
-
         const bookingItems = data.booking?.bookingItems || [];
         const newItemMediaData = {};
         const newItemMediaStates = {};
@@ -95,15 +179,12 @@ const BookingDetailScreen = ({ navigation, route }) => {
         bookingItems.forEach((item, index) => {
           const itemId = item._id || `item_${index}`;
           
-          // Get media for this item from bookingMedia
           const bookingMedia = item.bookingMedia || [];
           
-          // Separate before media (mediaTimeline == 1)
           const beforeMedia = bookingMedia.filter(media => media.mediaTimeline === 1);
           const beforeImages = beforeMedia.filter(media => media.mediaType === 'image').map(m => m.media);
           const beforeVideos = beforeMedia.filter(media => media.mediaType === 'video').map(m => m.media);
           
-          // Separate after media (mediaTimeline == 2 or other)
           const afterMedia = bookingMedia.filter(media => media.mediaTimeline !== 1);
           const afterImages = afterMedia.filter(media => media.mediaType === 'image').map(m => m.media);
           const afterVideos = afterMedia.filter(media => media.mediaType === 'video').map(m => m.media);
@@ -127,28 +208,11 @@ const BookingDetailScreen = ({ navigation, route }) => {
         setItemMediaStates(newItemMediaStates);
         
         calculateOriginalAmount(data);
-          setPartsAmount(data?.booking?.additionalPartAmount);
-        // Set additional parts from the new parts array
-        // if (data.parts && data.parts.length > 0) {
-        //   setAdditionalParts(data.parts);
-        //   let partsTotal = 0;
-        //   data.parts.forEach(part => {
-        //     partsTotal += parseFloat(part.unitPrice || 0);
-        //   });
-        //   setPartsAmount(partsTotal);
-        // } else if (data.additionalParts && data.additionalParts.length > 0) {
-        //   setAdditionalParts(data.additionalParts);
-        //   let partsTotal = 0;
-        //   data.additionalParts.forEach(part => {
-        //     partsTotal += (part.unitPrice || 0) * (part.quantity || 1);
-        //   });
-        //   setPartsAmount(partsTotal);
-        // }
+        setPartsAmount(data?.booking?.additionalPartAmount);
+        setisWaranty(data?.isWarranty || 0);
+        setwarantyOldId(data?.warrantyOldId || 0);
         
-        // Check for captured media to show upload button
         checkAndShowUploadButton();
-        
-        // Setup approval timer if needed
         setupApprovalTimer(data);
         
       } else {
@@ -173,43 +237,28 @@ const BookingDetailScreen = ({ navigation, route }) => {
   const calculateOriginalAmount = (data) => {
     try {
       const booking = data.booking || {};
-      const bookingItems = booking.bookingItems || [];
-      
-      // let total = booking?.amount || 0 - booking?.additionalPartAmount || 0;
       let total = 0;
-      if(booking?.amount > booking?.additionalPartAmount)
-      {
+      if(booking?.amount > booking?.additionalPartAmount) {
         total = booking?.amount - booking?.additionalPartAmount;
+      } else {
+        total = booking?.additionalPartAmount - booking?.amount;        
       }
-      else{
-        total = booking?.additionalPartAmount-booking?.amount;        
-      }
-      // bookingItems.forEach(item => {
-      //   const itemPrice = item.salePrice || 0;
-      //   const itemQuantity = item.quantity || 1;
-      //   total += itemPrice * itemQuantity;
-      // });
-      
       setOriginalAmount(total);
     } catch (error) {
       console.error('Error calculating original amount:', error);
     }
   };
 
-  // Setup approval timer
   const setupApprovalTimer = (data) => {
     const status = data.status;
     
-    // Stop any existing timer
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
       setIsTimerRunning(false);
     }
     
-    // Start timer only for parts pending approval
     if (status === 'partstatusnew' || status === 'partstatusconfirm') {
-      // Check if we have a timestamp for approval deadline
       if (data.timer || data.booking?.timer) {
         const timer = data.timer || data.booking.timer;
         const deadlineTime = new Date(timer).getTime();
@@ -217,7 +266,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
         const currentTime = now.getTime() + (5.5 * 60 * 60 * 1000);
         const remainingSeconds = Math.max(0, Math.floor((deadlineTime - currentTime) / 1000));
         
-        // If there's no time left, don't start timer
         if (remainingSeconds <= 0) {
           setApprovalTimeLeft(0);
           setIsTimerRunning(false);
@@ -238,7 +286,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
           });
         }, 1000);
       } else {
-        // Fallback to timer value if no timestamp
         const approvalTime = data.timer || data.booking?.timer || 300;
         setApprovalTimeLeft(approvalTime);
         setIsTimerRunning(true);
@@ -257,7 +304,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
     }
   };
 
-  // Format time from seconds to MM:SS
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -298,7 +344,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
     let formattedTime = booking.scheduleTime || '';
     const formattedAddress = `${address.houseNumber || ''} ${address.landmark || ''}`.trim();
 
-    // Format start and end dates if available
     let formattedStartDate = '';
     if (data.startDate) {
       const date = new Date(data.startDate);
@@ -318,7 +363,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
         year: 'numeric',
       });
     }
-
 
     return {
       id: data._id,
@@ -340,7 +384,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
       originalBookingAmount: booking.amount || 0,
       payableAmount: booking.payableAmount || 0,
       originalData: data,
-      // New fields from the response
       selfie: data.selfie ? `${UploadUrl}${data.selfie}` : null,
       startDate: formattedStartDate,
       startTime: data.startTime || '',
@@ -351,7 +394,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
       assignedDate: data.assignedDate ? new Date(data.assignedDate).toLocaleDateString('en-IN') : '',
       assignedTime: data.assignedTime || '',
       paymentMode: data.paymentMode || booking.paymentMode || '',
-      // Additional booking fields
       additionalPartAmount: booking.additionalPartAmount || 0,
       gstPercent: booking.gstPercent || '0',
       gstAmount: booking.gstAmount || 0,
@@ -417,6 +459,8 @@ const BookingDetailScreen = ({ navigation, route }) => {
         return { label: 'Rejected', color: colors.error, bgColor: colors.errorLight };
       case 'ongoing':
         return { label: 'In Progress', color: colors.info, bgColor: colors.infoLight };
+      case 'hold':
+        return { label: 'On Hold', color: colors.warning, bgColor: colors.warningLight };
       default:
         return {
           label: status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown',
@@ -463,7 +507,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
     return (data?.parts && data.parts.length > 0) || (data?.additionalParts && data.additionalParts.length > 0);
   };
 
-  // Check if all required before media is uploaded for all items
   const isAllRequiredBeforeMediaUploaded = (data = bookingData) => {
     const bookingItems = data?.booking?.bookingItems || [];
     
@@ -487,24 +530,21 @@ const BookingDetailScreen = ({ navigation, route }) => {
 
   const isItemRequiredBeforeMediaUploaded = (itemId) => {
     const item = bookingData?.booking?.bookingItems?.find(item => item._id === itemId);
-    if (!item) return true; // Item not found, consider as uploaded
+    if (!item) return true;
     
     const itemData = itemMediaData[itemId] || {};
     const isMediaRequired = item.isMediaUpload === 1;
     
-    // If media is NOT required, return true (considered as uploaded)
     if (isMediaRequired === 0 || !isMediaRequired) {
       return true;
     }
     
-    // If media IS required (1), check if uploaded
     const hasBeforeImages = (itemData.beforeImages?.length || 0) > 0;
     const hasBeforeVideos = (itemData.beforeVideos?.length || 0) > 0;
     
     return hasBeforeImages || hasBeforeVideos;
   };
 
-  // Check if before media is uploaded for an item
   const isBeforeMediaUploaded = (itemId) => {
     const itemData = itemMediaData[itemId] || {};
     return (itemData.beforeImages?.length || 0) > 0 || (itemData.beforeVideos?.length || 0) > 0;
@@ -515,7 +555,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
     return (itemData.afterImages?.length || 0) > 0 || (itemData.afterVideos?.length || 0) > 0;
   };
 
-  // Check if all required after media is uploaded for all items
   const isAllRequiredAfterMediaUploaded = (data = bookingData) => {
     const bookingItems = data?.booking?.bookingItems || [];
     
@@ -536,30 +575,24 @@ const BookingDetailScreen = ({ navigation, route }) => {
     
     return true;
   };
-
-
-  
   
   const isItemRequiredAfterMediaUploaded = (itemId) => {
     const item = bookingData?.booking?.bookingItems?.find(item => item._id === itemId);
-    if (!item) return true; // Item not found, consider as uploaded
+    if (!item) return true;
     
     const itemData = itemMediaData[itemId] || {};
     const isMediaRequired = item.isMediaUpload === 1;
     
-    // If media is NOT required, return true (considered as uploaded)
     if (isMediaRequired === 0 || !isMediaRequired) {
       return true;
     }
     
-    // If media IS required (1), check if uploaded
     const hasAfterImages = (itemData.afterImages?.length || 0) > 0;
     const hasAfterVideos = (itemData.afterVideos?.length || 0) > 0;
     
     return hasAfterImages || hasAfterVideos;
   };
 
-  // Check if user has captured but not uploaded media for any item
   const hasUnuploadedCapturedMedia = () => {
     for (const itemState of Object.values(itemMediaStates)) {
       if ((itemState.capturedBeforeImages?.length || 0) > 0 ||
@@ -572,7 +605,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
     return false;
   };
 
-  // Check if other items have captured but not uploaded media
   const hasUnuploadedCapturedMediaInOtherItems = (currentItemId) => {
     for (const [itemId, itemState] of Object.entries(itemMediaStates)) {
       if (itemId !== currentItemId) {
@@ -628,9 +660,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
     );
   };
 
-  // OPEN MEDIA MODAL - SUPPORTS MULTIPLE MEDIA
   const openMediaModal = (itemId, mediaType, isMandatory, isAfterMedia = false) => {
-    // Check if parts are pending for after media
     if (isAfterMedia && isPartsPending()) {
       Toast.show({
         type: 'info',
@@ -640,7 +670,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
       return;
     }
     
-    // For after media, check if parts are approved or not needed
     if (isAfterMedia) {
       if (hasPartsBeenAdded() && !isPartsApproved() && !isPartsRejected()) {
         Toast.show({
@@ -652,7 +681,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
       }
     }
     
-    // Check if OTHER items have captured but not uploaded media
     if (hasUnuploadedCapturedMediaInOtherItems(itemId)) {
       Toast.show({
         type: 'error',
@@ -702,7 +730,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
     });
   };
 
-  // CHECK AND SHOW UPLOAD BUTTON
   const checkAndShowUploadButton = () => {
     let hasCapturedMedia = false;
     
@@ -715,11 +742,9 @@ const BookingDetailScreen = ({ navigation, route }) => {
       }
     });
     
-    console.log('Upload button should show:', hasCapturedMedia);
     setShowUploadButton(hasCapturedMedia);
   };
 
-  // UPLOAD ALL CAPTURED MEDIA
   const uploadAllCapturedMedia = async () => {
     try {
       setUploadingMedia(true);
@@ -728,7 +753,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
       let totalMediaCount = 0;
       
       for (const [itemId, itemState] of Object.entries(itemMediaStates)) {
-        // Upload before media
         if (itemState.capturedBeforeImages?.length > 0 || itemState.capturedBeforeVideos?.length > 0) {
           const beforeImagesCount = itemState.capturedBeforeImages?.length || 0;
           const beforeVideosCount = itemState.capturedBeforeVideos?.length || 0;
@@ -743,9 +767,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
           );
         }
         
-        // Upload after media (only if parts are approved or not needed)
         if (itemState.capturedAfterImages?.length > 0 || itemState.capturedAfterVideos?.length > 0) {
-          // Check if parts are approved or not needed
           if (!hasPartsBeenAdded() || isPartsApproved() || isPartsRejected()) {
             const afterImagesCount = itemState.capturedAfterImages?.length || 0;
             const afterVideosCount = itemState.capturedAfterVideos?.length || 0;
@@ -776,7 +798,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
       const allSuccess = results.every(result => result === true);
       
       if (allSuccess) {
-        // Clear captured media
         const clearedStates = {};
         Object.keys(itemMediaStates).forEach(key => {
           clearedStates[key] = {
@@ -788,10 +809,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
         });
         setItemMediaStates(clearedStates);
         setShowUploadButton(false);
-        
-        // Reload data
         loadBookingDetails();
-        
       } else {
         Toast.show({
           type: 'error',
@@ -812,13 +830,11 @@ const BookingDetailScreen = ({ navigation, route }) => {
     }
   };
 
-  // UPLOAD MEDIA BATCH FOR AN ITEM - SUPPORTS MULTIPLE MEDIA
   const uploadMediaBatch = async (itemId, images, videos, type) => {
     try {
       const formData = new FormData();
       formData.append('bookingItemId', itemId);
       
-      // Add ALL images
       images.forEach((image, index) => {
         formData.append('images', {
           uri: image.uri,
@@ -827,7 +843,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
         });
       });
       
-      // Add ALL videos
       videos.forEach((video, index) => {
         formData.append('videos', {
           uri: video.uri,
@@ -855,7 +870,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
     }
   };
 
-  // UPLOAD CAPTURED MEDIA FOR SPECIFIC ITEM
   const uploadCapturedMediaForItem = async (itemId, type) => {
     try {
       setUploadingMedia(true);
@@ -868,7 +882,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
         images = itemState.capturedBeforeImages || [];
         videos = itemState.capturedBeforeVideos || [];
       } else {
-        // For after media, check if parts are approved or not needed
         if (hasPartsBeenAdded() && !isPartsApproved() && !isPartsRejected()) {
           Toast.show({
             type: 'info',
@@ -896,7 +909,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
       const success = await uploadMediaBatch(itemId, images, videos, type);
       
       if (success) {
-        // Clear captured media for this item and type
         setItemMediaStates(prev => {
           const currentState = { ...prev[itemId] };
           
@@ -915,8 +927,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
         });
         
         checkAndShowUploadButton();
-        
-        // Reload data
         loadBookingDetails();
       } else {
         Toast.show({
@@ -938,7 +948,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
     }
   };
 
-  // DELETE CAPTURED MEDIA
   const deleteCapturedMedia = (itemId, index, mediaType) => {
     Alert.alert(
       'Delete Media',
@@ -975,7 +984,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
     );
   };
 
-  // DELETE UPLOADED MEDIA
   const deleteMedia = async (itemId, mediaUri, mediaType) => {
     Alert.alert(
       'Delete Media',
@@ -1002,7 +1010,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
               const response = await postData(requestBody, endpoint, 'DELETE');
               
               if (response?.success) {
-                // Update local state
                 setItemMediaData(prev => ({
                   ...prev,
                   [itemId]: {
@@ -1046,9 +1053,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
     });
   };
 
-
   const renderWarrantyCard = () => {
-    // Agar warranty nahi hai to kuch mat dikhao
     if (isWaranty !== 1) return null;
     
     return (
@@ -1061,7 +1066,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
           styles.borderLeftWidth4,
           { borderLeftColor: colors.warning }
         )}>
-          {/* Warranty Header */}
           <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
             <View style={[clsx(styles.roundedFull, styles.p2, styles.mr3), 
               { backgroundColor: colors.warning + '20' }
@@ -1078,7 +1082,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
             </View>
           </View>
 
-          {/* View Original Booking Button */}
           <TouchableOpacity
             style={clsx(
               styles.flexRow,
@@ -1092,7 +1095,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
               styles.mt2
             )}
             onPress={() => {
-              // Navigate to old booking details
               navigation.navigate('BookingDetailShow', {
                 bookingId: warantyOldId,
                 fromWarranty: true
@@ -1110,7 +1112,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
     );
   };
 
-  // RENDER MEDIA SECTION FOR EACH ITEM
   const renderItemMediaSection = (item, index) => {
     const itemId = item._id || `item_${index}`;
     const itemData = itemMediaData[itemId] || {};
@@ -1127,15 +1128,11 @@ const BookingDetailScreen = ({ navigation, route }) => {
     const hasCapturedAfterMedia = (itemState.capturedAfterImages?.length || 0) > 0 || 
                                 (itemState.capturedAfterVideos?.length || 0) > 0;
     
-    // Check if OTHER items have captured but not uploaded media
     const otherItemsHaveCapturedMedia = hasUnuploadedCapturedMediaInOtherItems(itemId);
-    
-    // Check if current item can capture media
     const canCaptureMedia = !otherItemsHaveCapturedMedia;
     
     return (
       <View key={itemId} style={clsx(styles.mb6, styles.p4, styles.bgWhite, styles.roundedLg, styles.shadowSm)}>
-        {/* Item Header */}
         <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb4)}>
           <View style={[clsx(styles.roundedFull, styles.p2, styles.mr3), 
             { backgroundColor: colors.primary + '20' }
@@ -1155,7 +1152,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
           </View>
         </View>
         
-        {/* BEFORE MEDIA SECTION */}
         {(!isBeforeMediaUploaded(itemId) && !isAfterMediaUploaded(itemId))?(
           <View style={clsx(styles.mb0)}>
             <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb2)}>
@@ -1175,7 +1171,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
               </View>
             </View>
             
-            {/* Action Buttons for Before Media */}
             <View style={clsx(styles.flexRow, styles.gap2, styles.mb0)}>
               <TouchableOpacity
                 style={clsx(
@@ -1230,17 +1225,14 @@ const BookingDetailScreen = ({ navigation, route }) => {
               </Text>
             )}
             
-            {/* Captured Before Media Preview */}
             {hasCapturedBeforeMedia && (
               <View style={clsx(styles.mb4, styles.p3, styles.bgWarningLight, styles.roundedLg)}>
                 <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb2)}>
                   <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack)}>
                     Captured (Not Uploaded)
                   </Text>
-                  
                 </View>
                 
-                {/* Images */}
                 {itemState.capturedBeforeImages?.length > 0 && (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={clsx(styles.mb2)}>
                     {itemState.capturedBeforeImages.map((media, idx) => (
@@ -1267,7 +1259,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
                   </ScrollView>
                 )}
                 
-                {/* Videos */}
                 {itemState.capturedBeforeVideos?.length > 0 && (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     {itemState.capturedBeforeVideos.map((media, idx) => (
@@ -1327,14 +1318,12 @@ const BookingDetailScreen = ({ navigation, route }) => {
               </View>
             )}
             
-            {/* Uploaded Before Media */}
             {(itemData.beforeImages?.length > 0 || itemData.beforeVideos?.length > 0) ? (
               <View>
                 <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack, styles.mb2)}>
                   Uploaded Media
                 </Text>
                 
-                {/* Uploaded Images */}
                 {itemData.beforeImages?.length > 0 && (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={clsx(styles.mb2)}>
                     {itemData.beforeImages.map((uri, idx) => (
@@ -1361,7 +1350,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
                   </ScrollView>
                 )}
                 
-                {/* Uploaded Videos */}
                 {itemData.beforeVideos?.length > 0 && (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     {itemData.beforeVideos.map((uri, idx) => (
@@ -1410,7 +1398,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
           renderPartsSelectionSection()
         ):(null)}
         
-        {/* AFTER MEDIA SECTION */}
         {(item?.isMediaUpload!=1 || isBeforeMediaUploaded(itemId))?(
           <>
             {(!isAfterMediaUploaded(itemId))?(
@@ -1432,7 +1419,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
                   </View>
                 </View>
                 
-                {/* Action Buttons for After Media */}
                 <View style={clsx(styles.flexRow, styles.gap2, styles.mb3)}>
                   <TouchableOpacity
                     style={clsx(
@@ -1487,7 +1473,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
                   </Text>
                 )}
                 
-                {/* Captured After Media Preview */}
                 {hasCapturedAfterMedia && (
                   <View style={clsx(styles.mb4, styles.p3, styles.bgWarningLight, styles.roundedLg)}>
                     <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb2)}>
@@ -1496,7 +1481,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
                       </Text>
                     </View>
                     
-                    {/* Images */}
                     {itemState.capturedAfterImages?.length > 0 && (
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={clsx(styles.mb2)}>
                         {itemState.capturedAfterImages.map((media, idx) => (
@@ -1548,7 +1532,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
                         )}
                     </TouchableOpacity>
                     
-                    {/* Videos */}
                     {itemState.capturedAfterVideos?.length > 0 && (
                       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                         {itemState.capturedAfterVideos.map((media, idx) => (
@@ -1583,14 +1566,12 @@ const BookingDetailScreen = ({ navigation, route }) => {
                   </View>
                 )}
                 
-                {/* Uploaded After Media */}
                 {(itemData.afterImages?.length > 0 || itemData.afterVideos?.length > 0) ? (
                   <View>
                     <Text style={clsx(styles.textSm, styles.fontMedium, styles.textBlack, styles.mb2)}>
                       Uploaded Media
                     </Text>
                     
-                    {/* Uploaded Images */}
                     {itemData.afterImages?.length > 0 && (
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={clsx(styles.mb2)}>
                         {itemData.afterImages.map((uri, idx) => (
@@ -1617,7 +1598,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
                       </ScrollView>
                     )}
                     
-                    {/* Uploaded Videos */}
                     {itemData.afterVideos?.length > 0 && (
                       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                         {itemData.afterVideos.map((uri, idx) => (
@@ -1664,7 +1644,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
           </>
         ):(null)}
 
-        {/* PARTS SECTION FOR THIS ITEM */}
         {bookingData?.parts && bookingData.parts.length > 0 && (
           <View style={clsx(styles.mt4, styles.pt3, styles.borderTop, styles.borderLight)}>
             <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
@@ -1672,8 +1651,12 @@ const BookingDetailScreen = ({ navigation, route }) => {
             </Text>
             
             {bookingData.parts
-              .filter(part => part.serviceItemId === itemId)
-              .map((part, idx) => (
+            .filter(part => part.serviceItemId === itemId)
+            .map((part, idx) => {
+              const brandName = part.brandId?.name || 'No Brand';
+              const brandCode = part.brandId?.code || '';
+              
+              return (
                 <View key={idx} style={clsx(
                   styles.flexRow,
                   styles.justifyBetween,
@@ -1687,8 +1670,21 @@ const BookingDetailScreen = ({ navigation, route }) => {
                     <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
                       {part.description || 'Part'}
                     </Text>
+                    
+                    <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt1)}>
+                      <Icon name="branding-watermark" size={14} color={colors.primary} />
+                      <Text style={clsx(styles.textSm, styles.textPrimary, styles.ml1, styles.fontMedium)}>
+                        {brandName}
+                      </Text>
+                      {brandCode ? (
+                        <Text style={clsx(styles.textSm, styles.textMuted, styles.ml2)}>
+                          ({brandCode})
+                        </Text>
+                      ) : null}
+                    </View>
+                    
                     {part.groupTitle && (
-                      <Text style={clsx(styles.textSm, styles.textMuted)}>
+                      <Text style={clsx(styles.textSm, styles.textMuted, styles.mt1)}>
                         {part.groupTitle}
                       </Text>
                     )}
@@ -1700,18 +1696,18 @@ const BookingDetailScreen = ({ navigation, route }) => {
                   </View>
                   <View style={clsx(styles.itemsEnd)}>
                     <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
-                      ₹{part.unitPrice*part.quantity || 0}
+                      ₹{((part.unitPrice || 0) * (part.quantity || 1)).toFixed(2)}
                     </Text>
                   </View>
                 </View>
-              ))}
-          </View>
-        )}
+              );
+            })}
+        </View>
+      )}
       </View>
     );
   };
 
-  // ACTION BUTTON COMPONENT
   const ActionButton = ({ icon, label, color, onPress, outlined = false, disabled = false }) => (
     <TouchableOpacity
       style={clsx(
@@ -1747,7 +1743,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
     </TouchableOpacity>
   );
 
-  // INFO CARD COMPONENT
   const InfoCard = ({ title, value, icon, onPress, color = colors.primary }) => (
     <TouchableOpacity
       style={clsx(
@@ -1781,7 +1776,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
     </TouchableOpacity>
   );
 
-  // RENDER PARTS APPROVAL SECTION
   const renderPartsApprovalSection = () => {
     if (!isPartsApprovalInProgress()) return null;
     
@@ -1850,7 +1844,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
             )}
           </View>
           
-          {/* Timer for pending approval */}
           {isPartsPending() && isTimerRunning && approvalTimeLeft > 0 && (
             <View style={clsx(
               styles.p3,
@@ -1876,23 +1869,11 @@ const BookingDetailScreen = ({ navigation, route }) => {
     );
   };
 
-  // RENDER PARTS INFO IN SERVICE CARD
   const renderPartsInfoInServiceCard = () => {
-
     if(formattedData.status !== 'complete') return null;
 
     const parts = bookingData?.parts || [];
     if (parts.length === 0) return null;
-    
-    // Group parts by service item
-    const partsByItem = {};
-    parts.forEach(part => {
-      const itemId = part.serviceItemId || 'all';
-      if (!partsByItem[itemId]) {
-        partsByItem[itemId] = [];
-      }
-      partsByItem[itemId].push(part);
-    });
     
     return (
       <View style={clsx(styles.mt4, styles.p3, styles.bgInfoLight, styles.roundedLg)}>
@@ -1900,16 +1881,29 @@ const BookingDetailScreen = ({ navigation, route }) => {
           Additional Parts Added
         </Text>
         
-        {parts.map((part, index) => (
-          <View key={index} style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
-            <Text style={clsx(styles.textSm, styles.textMuted)} numberOfLines={1} style={clsx(styles.flex1)}>
-              {part.description || 'Part'} {part.quantity ? `(×${part.quantity})` : ''}
-            </Text>
-            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textPrimary)}>
-              ₹{part.unitPrice*part.quantity || 0}
-            </Text>
-          </View>
-        ))}
+        {parts.map((part, index) => {
+          const brandName = part.brandId?.name || 'No Brand';
+          const brandCode = part.brandId?.code || 'No Code';
+          
+          return (
+            <View key={index} style={clsx(styles.mb2)}>
+              <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb1)}>
+                <Text style={clsx(styles.textSm, styles.textMuted)} numberOfLines={1} style={clsx(styles.flex1)}>
+                  {part.description || 'Part'} {part.quantity ? `(×${part.quantity})` : ''}
+                </Text>
+                <Text style={clsx(styles.textBase, styles.fontMedium, styles.textPrimary)}>
+                  ₹{((part.unitPrice || 0) * (part.quantity || 1)).toFixed(2)}
+                </Text>
+              </View>
+              <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+                <Icon name="branding-watermark" size={12} color={colors.primary} />
+                <Text style={clsx(styles.textXs, styles.textPrimary, styles.ml1)}>
+                  {brandName} {brandCode}
+                </Text>
+              </View>
+            </View>
+          );
+        })}
         
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mt2, styles.pt2, styles.borderTop, styles.borderLight)}>
           <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack)}>Parts Total:</Text>
@@ -1921,9 +1915,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
     );
   };
 
-  // RENDER PARTS SELECTION BUTTON SECTION
   const renderPartsSelectionSection = () => {
-    // Parts button always shows when status is ongoing
     if (bookingData?.status !== 'ongoing' && !isPartsRejected()) return null;
     
     return (
@@ -1948,7 +1940,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
     );
   };
 
-  // RENDER PARTS MODAL
   const renderPartsModal = () => {
     if (!showPartsModal) return null;
     
@@ -2015,7 +2006,195 @@ const BookingDetailScreen = ({ navigation, route }) => {
     );
   };
 
-  // RENDER SELFIE SECTION
+  // ========== HOLD MODAL RENDER ==========
+  const renderHoldModal = () => {
+    if (!showHoldModal) return null;
+
+    return (
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showHoldModal}
+        onRequestClose={() => setShowHoldModal(false)}
+      >
+        <View style={clsx(styles.flex1, styles.justifyCenter, styles.itemsCenter, styles.bgBlack50)}>
+          <View style={clsx(
+            styles.bgWhite,
+            styles.roundedLg,
+            styles.p6,
+            styles.w90,
+            styles.shadowLg
+          )}>
+            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4)}>
+              <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)}>
+                Hold Booking
+              </Text>
+              <TouchableOpacity onPress={() => setShowHoldModal(false)}>
+                <Icon name="close" size={24} color={colors.gray600} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Date Selection */}
+            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
+              Hold Date
+            </Text>
+            <TouchableOpacity
+              style={clsx(
+                styles.flexRow,
+                styles.itemsCenter,
+                styles.justifyBetween,
+                styles.p3,
+                styles.bgGray100,
+                styles.roundedLg,
+                styles.mb4
+              )}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+                <Icon name="calendar-today" size={20} color={colors.primary} style={clsx(styles.mr2)} />
+                <Text style={clsx(styles.textBase, styles.textBlack)}>
+                  {holdDate.toLocaleDateString('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                  })}
+                </Text>
+              </View>
+              <Icon name="edit" size={20} color={colors.primary} />
+            </TouchableOpacity>
+
+            {/* Time Selection */}
+            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
+              Hold Time
+            </Text>
+            <TouchableOpacity
+              style={clsx(
+                styles.flexRow,
+                styles.itemsCenter,
+                styles.justifyBetween,
+                styles.p3,
+                styles.bgGray100,
+                styles.roundedLg,
+                styles.mb4
+              )}
+              onPress={() => setShowTimePicker(true)}
+            >
+              <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+                <Icon name="access-time" size={20} color={colors.primary} style={clsx(styles.mr2)} />
+                <Text style={clsx(styles.textBase, styles.textBlack)}>
+                  {holdTime.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: true 
+                  })}
+                </Text>
+              </View>
+              <Icon name="edit" size={20} color={colors.primary} />
+            </TouchableOpacity>
+
+            {/* Reason Input */}
+            <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack, styles.mb2)}>
+              Reason for Hold <Text style={clsx(styles.textError)}>*</Text>
+            </Text>
+            <TextInput
+              style={clsx(
+                styles.p3,
+                styles.bgGray100,
+                styles.roundedLg,
+                styles.mb4,
+                styles.textBlack,
+                { minHeight: 100, textAlignVertical: 'top' }
+              )}
+              placeholder="Enter reason for holding the booking..."
+              placeholderTextColor={colors.gray500}
+              multiline
+              numberOfLines={4}
+              value={holdReason}
+              onChangeText={setHoldReason}
+            />
+
+            {/* Action Buttons */}
+            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mt2)}>
+              <TouchableOpacity
+                style={clsx(
+                  styles.flex1,
+                  styles.border,
+                  styles.borderPrimary,
+                  styles.bgWhite,
+                  styles.roundedLg,
+                  styles.p4,
+                  styles.itemsCenter,
+                  styles.justifyCenter,
+                  styles.mr2
+                )}
+                onPress={() => setShowHoldModal(false)}
+              >
+                <Text style={clsx(styles.textPrimary, styles.fontBold, styles.textLg)}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={clsx(
+                  styles.flex1,
+                  styles.bgWarning,
+                  styles.roundedLg,
+                  styles.p4,
+                  styles.itemsCenter,
+                  styles.justifyCenter,
+                  styles.ml2,
+                  isHolding && styles.opacity50
+                )}
+                onPress={handleHoldBooking}
+                disabled={isHolding}
+              >
+                {isHolding ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
+                    Hold
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* Date Picker */}
+        {showDatePicker && (
+          <DateTimePicker
+            value={holdDate}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(event, selectedDate) => {
+              setShowDatePicker(false);
+              if (selectedDate) {
+                setHoldDate(selectedDate);
+              }
+            }}
+            minimumDate={new Date()}
+          />
+        )}
+
+        {/* Time Picker */}
+        {showTimePicker && (
+          <DateTimePicker
+            value={holdTime}
+            mode="time"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(event, selectedTime) => {
+              setShowTimePicker(false);
+              if (selectedTime) {
+                setHoldTime(selectedTime);
+              }
+            }}
+          />
+        )}
+      </Modal>
+    );
+  };
+  // ======================================
+
   const renderSelfieSection = () => {
     if (!formattedData?.selfie) return null;
     
@@ -2041,7 +2220,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
     );
   };
 
-  // RENDER COMPLETED SERVICE TIMELINE
   const renderServiceTimeline = () => {
     if (formattedData?.status !== 'complete') return null;
     
@@ -2091,10 +2269,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
     );
   };
 
-  // RENDER PAYMENT DETAILS
   const renderPaymentDetails = () => {
-    // if (formattedData?.status !== 'complete') return null;
-    
     return (
       <View style={clsx(styles.px4, styles.mt4)}>
         <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
@@ -2129,8 +2304,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
             </View>
           )}
           
-         
-          
           {formattedData.discountAmount > 0 && (
             <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mb2)}>
               <Text style={clsx(styles.textBase, styles.textMuted)}>Discount:</Text>
@@ -2149,19 +2322,11 @@ const BookingDetailScreen = ({ navigation, route }) => {
               {formattedData.paymentMode === 'cash' ? 'Cash' : 'Online Payment'}
             </Text>
           </View>
-          
-          {formattedData.cashCollectedAmount > 0 && (
-            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mt2, styles.p3, styles.bgSuccessLight, styles.rounded)}>
-              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>Cash Collected:</Text>
-              <Text style={clsx(styles.textBase, styles.fontBold, styles.textSuccess)}>₹{formattedData.cashCollectedAmount.toFixed(2)}</Text>
-            </View>
-          )}
         </View>
       </View>
     );
   };
 
-  // CALCULATE MEDIA SUMMARY
   const calculateMediaSummary = () => {
     const bookingItems = bookingData?.booking?.bookingItems || [];
     let totalBefore = 0;
@@ -2223,16 +2388,17 @@ const BookingDetailScreen = ({ navigation, route }) => {
   const bookingItems = bookingData?.booking?.bookingItems || [];
   const mediaSummary = calculateMediaSummary();
   
-  // Check if booking can be completed
   const canCompleteBooking = 
     isAllRequiredBeforeMediaUploaded() && 
     isAllRequiredAfterMediaUploaded() &&
     !hasUnuploadedCapturedMedia();
 
+  // Check if booking is completed
+  const isBookingCompleted = formattedData.status === 'complete';
+
   return (
     <View style={clsx(styles.flex1, styles.bgSurface)}>
       
-      {/* Header */}
       <View style={clsx(styles.bgPrimary, styles.px4, styles.pt3, styles.pb2)}>
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb0)}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -2283,7 +2449,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
         }
       >
 
-        {/* Customer Information */}
         <View style={clsx(styles.px4, styles.mt4)}>
           <View style={clsx(
             styles.bgWhite,
@@ -2320,7 +2485,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
 
         {renderWarrantyCard()}
 
-        {/* Service Card */}
         <View style={clsx(styles.px4, styles.pt4, styles.mt4)}>
           <View style={clsx(
             styles.bgWhite,
@@ -2341,7 +2505,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
               </View>
             </View>
             
-            {/* Service Details */}
             {(bookingItems.length > 1) && (
               <View style={clsx(styles.mb4)}>
                 <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
@@ -2353,10 +2516,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
               </View>
             )}
 
-            {/* Parts Info */}
-           
-
-            {/* Media Status Summary - Only show for ongoing or parts approval */}
             {(formattedData.status === 'ongoing' || isPartsApprovalInProgress()) && (
               <View style={clsx(styles.mt4)}>
                 <Text style={clsx(styles.textBase, styles.fontBold, styles.textBlack, styles.mb2)}>
@@ -2385,7 +2544,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
                   </View>
                 </View>
                 
-                {/* Status Messages */}
                 {!isAllRequiredBeforeMediaUploaded() && (
                   <Text style={clsx(styles.textSm, styles.textError, styles.textCenter, styles.mt-3)}>
                     Before media required
@@ -2408,7 +2566,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        {/* Booking Details Section */}
         <View style={clsx(styles.px4, styles.mt4)}>
           <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
             Booking Details
@@ -2420,7 +2577,6 @@ const BookingDetailScreen = ({ navigation, route }) => {
             icon="calendar-today"
           />
 
-          {/* Show actual service dates for completed bookings */}
           {formattedData.startDate && (
             <InfoCard
               title="Service Started"
@@ -2496,10 +2652,8 @@ const BookingDetailScreen = ({ navigation, route }) => {
           />
         </View>
 
-        {/* Parts Approval Section */}
         {renderPartsApprovalSection()}
 
-        {/* Item-wise Media Sections - Only show for ongoing or parts approval */}
         {(formattedData.status === 'ongoing' || isPartsApprovalInProgress()) && (
           <View style={clsx(styles.px4, styles.mt4)}>
             <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack, styles.mb3)}>
@@ -2510,20 +2664,13 @@ const BookingDetailScreen = ({ navigation, route }) => {
           </View>
         )}
 
-        {/* Serviceman Selfie */}
-        {/* {renderSelfieSection()} */}
-
-        {/* Service Timeline for Completed Bookings */}
         {renderServiceTimeline()}
-
-        {/* Payment Details for Completed Bookings */}
         
         {renderPaymentDetails()}
 
         <View style={clsx(styles.h24)} />
       </ScrollView>
 
-      {/* Bottom Action Buttons */}
       <View style={[
         clsx(
           styles.bgWhite,
@@ -2565,37 +2712,9 @@ const BookingDetailScreen = ({ navigation, route }) => {
               </Text>
             </TouchableOpacity>
           </View>
-        ):(null)}
-        {formattedData.status === 'accept' || formattedData.status === 'new' ? (
-          <ActionButton
-            icon="play-arrow"
-            label="Start Now"
-            color={colors.primary}
-            onPress={handleStartService}
-          />
-        ) : formattedData.status === 'ongoing' ? (
-          <View style={clsx(styles.flexRow, styles.wFull)}>
-            <TouchableOpacity
-                style={clsx(
-                  styles.flexRow,
-                  styles.itemsCenter,
-                  styles.justifyCenter,
-                  styles.px4,
-                  styles.py3,
-                  styles.bgInfo,
-                  styles.roundedLg,
-                  styles.ml2,
-                  styles.flex1,
-                )}
-                onPress={openPartsSelection}
-                // disabled={!canCompleteBooking}
-              >
-                <Icon name="build" size={20} color={colors.white} style={clsx(styles.mr2)} />
-                <Text style={clsx(styles.textWhite, styles.fontMedium)}>
-                  Parts
-                </Text>
-              </TouchableOpacity>
-            {/* Complete button - Only enabled when all media uploaded */}
+        ) : (
+          <>
+            {/* HOLD BUTTON - Always show when booking is not complete */}
             <TouchableOpacity
               style={clsx(
                 styles.flexRow,
@@ -2603,54 +2722,21 @@ const BookingDetailScreen = ({ navigation, route }) => {
                 styles.justifyCenter,
                 styles.px4,
                 styles.py3,
-                styles.bgSuccess,
+                styles.bgWarning,
                 styles.roundedLg,
-                styles.ml2,
-                styles.flex1,
-                !canCompleteBooking && styles.opacity50
+                styles.mr2,
+                styles.flex1
               )}
-              onPress={openCompleteModal}
-              disabled={!canCompleteBooking}
+              onPress={() => setShowHoldModal(true)}
             >
-              <Icon name="check-circle" size={20} color={colors.white} style={clsx(styles.mr2)} />
+              <Icon name="pause-circle-filled" size={20} color={colors.white} style={clsx(styles.mr2)} />
               <Text style={clsx(styles.textWhite, styles.fontMedium)}>
-                Complete
+                Hold
               </Text>
             </TouchableOpacity>
-          </View>
-        ) : isPartsApprovalInProgress() ? (
-          isPartsPending() ? (
-            <ActionButton
-              icon="schedule"
-              label="Pending Approval"
-              color={colors.warning}
-              outlined={true}
-              disabled={true}
-            />
-          ) : (
-            <View style={clsx(styles.flexRow, styles.wFull)}>              
-              <TouchableOpacity
-                style={clsx(
-                  styles.flexRow,
-                  styles.itemsCenter,
-                  styles.justifyCenter,
-                  styles.px4,
-                  styles.py3,
-                  styles.bgInfo,
-                  styles.roundedLg,
-                  styles.ml2,
-                  styles.flex1,
-                )}
-                onPress={openPartsSelection}
-                // disabled={!canCompleteBooking}
-              >
-                <Icon name="build" size={20} color={colors.white} style={clsx(styles.mr2)} />
-                <Text style={clsx(styles.textWhite, styles.fontMedium)}>
-                  Parts
-                </Text>
-              </TouchableOpacity>
 
-              {/* Complete button - Only enabled when all media uploaded */}
+            {/* Other buttons based on status */}
+            {formattedData.status === 'accept' || formattedData.status === 'new' ? (
               <TouchableOpacity
                 style={clsx(
                   styles.flexRow,
@@ -2658,27 +2744,138 @@ const BookingDetailScreen = ({ navigation, route }) => {
                   styles.justifyCenter,
                   styles.px4,
                   styles.py3,
-                  styles.bgSuccess,
+                  styles.bgPrimary,
                   styles.roundedLg,
                   styles.ml2,
-                  styles.flex1,
-                  !canCompleteBooking && styles.opacity50
+                  styles.flex1
                 )}
-                onPress={openCompleteModal}
-                disabled={!canCompleteBooking}
+                onPress={handleStartService}
               >
-                <Icon name="check-circle" size={20} color={colors.white} style={clsx(styles.mr2)} />
+                <Icon name="play-arrow" size={20} color={colors.white} style={clsx(styles.mr2)} />
                 <Text style={clsx(styles.textWhite, styles.fontMedium)}>
-                  Complete
+                  Start Now
                 </Text>
               </TouchableOpacity>
-            </View>
-          )
-        ) : null}
+            ) : formattedData.status === 'ongoing' ? (
+              <>
+                <TouchableOpacity
+                  style={clsx(
+                    styles.flexRow,
+                    styles.itemsCenter,
+                    styles.justifyCenter,
+                    styles.px4,
+                    styles.py3,
+                    styles.bgInfo,
+                    styles.roundedLg,
+                    styles.mx1,
+                    styles.flex1
+                  )}
+                  onPress={openPartsSelection}
+                >
+                  <Icon name="build" size={20} color={colors.white} style={clsx(styles.mr2)} />
+                  <Text style={clsx(styles.textWhite, styles.fontMedium)}>
+                    Parts
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={clsx(
+                    styles.flexRow,
+                    styles.itemsCenter,
+                    styles.justifyCenter,
+                    styles.px4,
+                    styles.py3,
+                    styles.bgSuccess,
+                    styles.roundedLg,
+                    styles.ml1,
+                    styles.flex1,
+                    !canCompleteBooking && styles.opacity50
+                  )}
+                  onPress={openCompleteModal}
+                  disabled={!canCompleteBooking}
+                >
+                  <Icon name="check-circle" size={20} color={colors.white} style={clsx(styles.mr2)} />
+                  <Text style={clsx(styles.textWhite, styles.fontMedium)}>
+                    Complete
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : isPartsApprovalInProgress() ? (
+              isPartsPending() ? (
+                <TouchableOpacity
+                  style={clsx(
+                    styles.flexRow,
+                    styles.itemsCenter,
+                    styles.justifyCenter,
+                    styles.px4,
+                    styles.py3,
+                    styles.border,
+                    styles.borderWarning,
+                    styles.bgWhite,
+                    styles.roundedLg,
+                    styles.ml2,
+                    styles.flex1,
+                    styles.opacity50
+                  )}
+                  disabled={true}
+                >
+                  <Icon name="schedule" size={20} color={colors.warning} style={clsx(styles.mr2)} />
+                  <Text style={clsx(styles.textWarning, styles.fontMedium)}>
+                    Pending Approval
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={clsx(
+                      styles.flexRow,
+                      styles.itemsCenter,
+                      styles.justifyCenter,
+                      styles.px4,
+                      styles.py3,
+                      styles.bgInfo,
+                      styles.roundedLg,
+                      styles.mx1,
+                      styles.flex1
+                    )}
+                    onPress={openPartsSelection}
+                  >
+                    <Icon name="build" size={20} color={colors.white} style={clsx(styles.mr2)} />
+                    <Text style={clsx(styles.textWhite, styles.fontMedium)}>
+                      Parts
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={clsx(
+                      styles.flexRow,
+                      styles.itemsCenter,
+                      styles.justifyCenter,
+                      styles.px4,
+                      styles.py3,
+                      styles.bgSuccess,
+                      styles.roundedLg,
+                      styles.ml1,
+                      styles.flex1,
+                      !canCompleteBooking && styles.opacity50
+                    )}
+                    onPress={openCompleteModal}
+                    disabled={!canCompleteBooking}
+                  >
+                    <Icon name="check-circle" size={20} color={colors.white} style={clsx(styles.mr2)} />
+                    <Text style={clsx(styles.textWhite, styles.fontMedium)}>
+                      Complete
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )
+            ) : null}
+          </>
+        )}
       </View>
 
-      {/* Parts Modal */}
       {renderPartsModal()}
+      {renderHoldModal()}
 
       <MovableButton 
         onPress={()=>{navigation.navigate('Support')}}

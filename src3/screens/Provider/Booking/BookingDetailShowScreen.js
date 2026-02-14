@@ -573,39 +573,59 @@ const BookingDetailShowScreen = ({ navigation, route }) => {
                   {itemName}
                 </Text>
                 
-                {itemParts.map((part, idx) => (
-                  <View key={part._id || idx} style={clsx(
-                    styles.flexRow,
-                    styles.justifyBetween,
-                    styles.itemsCenter,
-                    styles.p3,
-                    styles.bgGray50,
-                    styles.rounded,
-                    styles.mb2
-                  )}>
-                    <View style={clsx(styles.flex1)}>
-                      <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-                        {part.description || 'Part'}
-                      </Text>
-                      {part.groupTitle && (
-                        <Text style={clsx(styles.textSm, styles.textMuted)}>
-                          {part.groupTitle}
+                {itemParts.map((part, idx) => {
+                  const brandName = part.brandId?.name || 'No Brand';
+                  const brandCode = part.brandId?.code || '';
+                  
+                  return (
+                    <View key={part._id || idx} style={clsx(
+                      styles.flexRow,
+                      styles.justifyBetween,
+                      styles.itemsCenter,
+                      styles.p3,
+                      styles.bgGray50,
+                      styles.rounded,
+                      styles.mb2
+                    )}>
+                      <View style={clsx(styles.flex1)}>
+                        <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+                          {part.description || 'Part'}
                         </Text>
-                      )}
-                      <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt1)}>
-                        <Text style={clsx(styles.textSm, styles.textMuted)}>
-                          Qty: {part.quantity || 1}
+
+                        {/* Brand Name Display */}
+                        <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt1)}>
+                          <Icon name="branding-watermark" size={14} color={colors.primary} />
+                          <Text style={clsx(styles.textSm, styles.textPrimary, styles.ml1, styles.fontMedium)}>
+                            {brandName}
+                          </Text>
+                          {brandCode ? (
+                            <Text style={clsx(styles.textSm, styles.textMuted, styles.ml2)}>
+                              ({brandCode})
+                            </Text>
+                          ) : null}
+                        </View>
+                        
+                        {part.groupTitle && (
+                          <Text style={clsx(styles.textSm, styles.textMuted, styles.mt1)}>
+                            {part.groupTitle}
+                          </Text>
+                        )}
+                        
+                        <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mt1)}>
+                          <Text style={clsx(styles.textSm, styles.textMuted)}>
+                            Qty: {part.quantity || 1}
+                          </Text>
+                        </View>
+                      </View>
+                      
+                      <View style={clsx(styles.itemsEnd)}>
+                        <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
+                          ₹{((part.unitPrice || 0) * (part.quantity || 1)).toFixed(2)}
                         </Text>
                       </View>
                     </View>
-                    <View style={clsx(styles.itemsEnd)}>
-                      <Text style={clsx(styles.textBase, styles.fontBold, styles.textPrimary)}>
-                        ₹{part.unitPrice*part.quantity || 0}
-                      </Text>
-                      
-                    </View>
-                  </View>
-                ))}
+                  );
+                })}
               </View>
             );
           })}
@@ -729,24 +749,7 @@ const BookingDetailShowScreen = ({ navigation, route }) => {
             </View>
           </View>
 
-          {booking.cashColletedAmount > 0 && (
-            <View style={clsx(
-              styles.flexRow,
-              styles.justifyBetween,
-              styles.itemsCenter,
-              styles.mt2,
-              styles.p3,
-              styles.bgSuccessLight,
-              styles.rounded
-            )}>
-              <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
-                Cash Collected
-              </Text>
-              <Text style={clsx(styles.textLg, styles.fontBold, styles.textSuccess)}>
-                ₹{parseFloat(booking.cashColletedAmount, 2).toFixed(2)}
-              </Text>
-            </View>
-          )}
+          
         </View>
       </View>
     );

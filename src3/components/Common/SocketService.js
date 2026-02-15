@@ -30,10 +30,31 @@ class SocketService {
       this.emit('connectionStatus', { connected: false });
     });
 
-    // Listen for booking updates - YAHI SE API CALL HOGA
+    // Listen for booking updates
     this.socket.on('bookingUpdated', (data) => {
       console.log('📢 Booking update received:', data);
       this.emit('bookingUpdate', data);
+    });
+
+    // NEW: Listen for booking list updates - API CALL YAHAN SE HOGA
+    this.socket.on('bookingUpdatedList', (data) => {
+      console.log('📋 Booking list update received:', data);
+      this.emit('bookingUpdatedList', data);
+      
+      // Agar specific action ho toh alag se emit karo
+      if (data.action === 'new') {
+        this.emit('newBookingAdded', data.booking);
+      } else if (data.action === 'update') {
+        this.emit('bookingListItemUpdated', data.booking);
+      } else if (data.action === 'delete') {
+        this.emit('bookingRemoved', data.bookingId);
+      }
+    });
+
+    // NEW: Listen for bulk booking updates
+    this.socket.on('bookingsBulkUpdated', (data) => {
+      console.log('📦 Bulk booking update received:', data);
+      this.emit('bookingsBulkUpdate', data);
     });
   }
 
@@ -66,6 +87,49 @@ class SocketService {
     return true;
   }
 
+  // NEW: Request booking list
+  requestBookingList(filters = {}) {
+    if (!this.socket?.connected) return false;
+    this.socket.emit('requestBookingList', filters);
+    return true;
+  }
+
+  // NEW: Send booking list update
+  sendBookingListUpdate(action, data) {
+    if (!this.socket?.connected) return false;
+    this.socket.emit('updateBookingList', { action, data });
+    return true;
+  }
+
+  // NEW: Add new booking to list
+  addNewBooking(bookingData) {
+    if (!this.socket?.connected) return false;
+    this.socket.emit('addBookingToList', bookingData);
+    return true;
+  }
+
+  // NEW: Remove booking from list
+  removeBookingFromList(bookingId) {
+    if (!this.socket?.connected) return false;
+    this.socket.emit('removeBookingFromList', { bookingId });
+    return true;
+  }
+
+  // NEW: Request specific booking details
+  requestBookingDetails(bookingId) {
+    if (!this.socket?.connected) return false;
+    this.socket.emit('requestBookingDetails', { bookingId });
+    return true;
+  }
+
+  // NEW: Listen for specific booking details
+  onBookingDetails(callback) {
+    this.socket?.on('bookingDetails', (data) => {
+      console.log('📄 Booking details received:', data);
+      callback(data);
+    });
+  }
+
   // Disconnect
   disconnect() {
     if (this.socket) {
@@ -79,6 +143,25 @@ class SocketService {
   // Check connection
   isConnected() {
     return this.connected;
+  }
+
+  // NEW: Get socket ID
+  getSocketId() {
+    return this.socket?.id;
+  }
+
+  // NEW: Join booking room
+  joinBookingRoom(bookingId) {
+    if (!this.socket?.connected) return false;
+    this.socket.emit('joinBookingRoom', { bookingId });
+    return true;
+  }
+
+  // NEW: Leave booking room
+  leaveBookingRoom(bookingId) {
+    if (!this.socket?.connected) return false;
+    this.socket.emit('leaveBookingRoom', { bookingId });
+    return true;
   }
 }
 

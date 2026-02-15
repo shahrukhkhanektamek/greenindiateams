@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useCallback } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,13 +11,15 @@ import {
   ActivityIndicator,
   Dimensions,
   Alert,
+  Animated,
+  PanResponder
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import { AppContext } from '../../../Context/AppContext';
 import Header from '../../../components/Common/Header';
-import { Picker } from '@react-native-picker/picker';
+import socketService from '../../../components/Common/SocketService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -25,6 +27,7 @@ const BookingListScreen = ({ navigation }) => {
   const {
     Toast,
     Urls,
+    socketUrl,
     postData,
   } = useContext(AppContext);
 
@@ -103,12 +106,14 @@ const BookingListScreen = ({ navigation }) => {
     priceRange: '',
   });
 
+  
+
   const fetchBookings = async (page = 1, isLoadMore = false) => {
     try {
       if (!isLoadMore) setLoading(true);
       if (isLoadMore) setLoadingMore(true);
 
-      const params = {
+      const params = { 
         page,
         limit: 10,
       };
@@ -121,7 +126,7 @@ const BookingListScreen = ({ navigation }) => {
       if (apiFilters.minPrice) params.minPrice = apiFilters.minPrice;
       if (apiFilters.maxPrice) params.maxPrice = apiFilters.maxPrice;
 
-      console.log('Fetching with params:', params);
+
 
       const response = await postData(params, Urls.booking, 'GET', {
         showErrorMessage: false, 
@@ -548,18 +553,132 @@ const BookingListScreen = ({ navigation }) => {
     );
   };
 
-  
+  const SwipeableAcceptButton = ({ onAccept, isLoading, bookingId }) => {
+    const [swipeCompleted, setSwipeCompleted] = useState(false);
+    const pan = useRef(new Animated.Value(0)).current;
+    const buttonWidth = 300; // Total button width
+    const swipeThreshold = buttonWidth * 0.6; // Swipe 60% to activate
+    const sliderWidth = 40; // Width of the sliding thumb
+    
+    const panResponder = useRef(
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+          return Math.abs(gestureState.dx) > 5;
+        },
+        onPanResponderMove: (_, gestureState) => {
+          if (!swipeCompleted && !isLoading) {
+            // Constrain movement between 0 and buttonWidth - sliderWidth
+            const newX = Math.max(0, Math.min(gestureState.dx, buttonWidth - sliderWidth));
+            pan.setValue(newX);
+          }
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          if (!swipeCompleted && !isLoading) {
+            if (gestureState.dx > swipeThreshold) {
+              // Complete the swipe
+              Animated.timing(pan, {
+                toValue: buttonWidth - sliderWidth,
+                duration: 200,
+                useNativeDriver: false,
+              }).start(() => {
+                setSwipeCompleted(true);
+                onAccept(); // Call the accept function
+              });
+            } else {
+              // Reset back to start
+              Animated.spring(pan, {
+                toValue: 0,
+                useNativeDriver: false,
+                friction: 7,
+              }).start();
+            }
+          }
+        },
+        onPanResponderTerminate: () => {
+          // Reset if gesture is interrupted
+          Animated.spring(pan, {
+            toValue: 0,
+            useNativeDriver: false,
+          }).start();
+        },
+      })
+    ).current;
+
+    // Reset swipe state when booking changes or loading completes
+    useEffect(() => {
+      if (!isLoading) {
+        setSwipeCompleted(false);
+        Animated.spring(pan, {
+          toValue: 0,
+          useNativeDriver: false,
+          friction: 7,
+        }).start();
+      }
+    }, [isLoading, bookingId]);
+
+    return (
+      <View style={{
+        width: buttonWidth,
+        height: 44,
+        backgroundColor: colors.success + '20', // Light green background
+        borderRadius: 22,
+        overflow: 'hidden',
+      }}>
+        {/* Background Text */}
+        <View style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+          <Text style={clsx(styles.textSuccess, styles.fontMedium)}>
+            {isLoading ? 'Accepting...' : 'Swipe to Accept'}
+          </Text>
+        </View>
+
+        {/* Sliding Thumb */}
+        <Animated.View
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: sliderWidth,
+            backgroundColor: colors.success,
+            borderRadius: 22,
+            justifyContent: 'center',
+            alignItems: 'center',
+            transform: [{
+              translateX: pan
+            }]
+          }}
+          {...panResponder.panHandlers}
+        >
+          {isLoading ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <>
+            <Icon 
+              name={swipeCompleted ? "check" : "chevron-right"} 
+              size={24} 
+              color={colors.white} 
+            />
+            </>
+          )}
+        </Animated.View>
+      </View>
+    );
+  };
   const renderBookingCard = ({ item: booking }) => {
     const isActionLoading = actionLoading[booking.id];
-    
-    // Check if booking has warranty - booking.originalData mein isWaranty check karo
     const hasWarranty = booking.originalData?.isWarranty === 1;
-    // const hasWarranty = true;
     
-    // Function to handle card press
     const handleCardPress = () => {
       if (booking.status === 'new') {
-        // Show confirmation for accept
         Alert.alert(
           'Accept Booking',
           'Are you sure you want to accept this booking?',
@@ -568,18 +687,19 @@ const BookingListScreen = ({ navigation }) => {
             { 
               text: 'Accept', 
               style: 'default',
-              onPress: () => {
-                handleStatusUpdate(booking.id, 'accept', booking.originalData);
-              }
+              onPress: () => handleStatusUpdate(booking.id, 'accept', booking.originalData)
             }
           ]
         );
       } else {
-        // For other statuses, directly navigate to detail
         navigation.navigate('BookingDetail', { booking: booking.originalData });
       }
     };
-    
+
+    const handleAccept = () => {
+      handleStatusUpdate(booking.id, 'accept', booking.originalData);
+    };
+
     return (
       <TouchableOpacity
         style={clsx(
@@ -589,15 +709,14 @@ const BookingListScreen = ({ navigation }) => {
           styles.mb3,
           styles.shadowSm,
           isActionLoading && styles.opacity50,
-          // Warranty card ke liye border left add karo
           hasWarranty && {
             borderLeftWidth: 4,
             borderLeftColor: colors.warning,
           }
         )}
         onPress={handleCardPress}
-        disabled={isActionLoading}
-        activeOpacity={0.7}
+        disabled={isActionLoading || booking.status == 'new'} // Disable card press for non-new bookings
+        activeOpacity={booking.status === 'new' ? 0.7 : 1}
       >
         {/* Top Section - Service & Status */}
         <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsStart, styles.mb3)}>
@@ -615,9 +734,8 @@ const BookingListScreen = ({ navigation }) => {
             </View>
           </View>
           
-          {/* Status aur Warranty badge ek saath */}
+          {/* Status aur Warranty badge */}
           <View style={clsx(styles.flexRow, styles.itemsCenter)}>
-            {/* 🔥 WARRANTY BADGE - AGAR WARRANTY HAI TO YEH DIKHEGA */}
             {hasWarranty && (
               <View style={clsx(
                 styles.flexRow,
@@ -657,7 +775,7 @@ const BookingListScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Customer Details - same rahega */}
+        {/* Customer Details */}
         <View style={clsx(styles.mb3)}>
           <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
             <Icon name="person" size={16} color={colors.textMuted} style={clsx(styles.mr2)} />
@@ -683,27 +801,35 @@ const BookingListScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Bottom Section - same rahega */}
-        <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
-          <View>
-            {/* Amount section agar dikhana hai to */}
-          </View>
-          
+        {/* Bottom Section - Swipeable Accept Button for new bookings */}
+        <View style={clsx(styles.flexRow, styles.justifyEnd, styles.itemsCenter)}>
           {booking.status === 'new' ? (
-            <View style={clsx(
-              styles.flexRow,
-              styles.itemsCenter,
-              styles.px3,
-              styles.py2,
-              styles.bgInfoLight,
-              styles.roundedFull
-            )}>
-              <Icon name="touch-app" size={16} color={colors.info} />
-              <Text style={clsx(styles.textInfo, styles.fontMedium, styles.ml1)}>
-                Tap to Accept
-              </Text>
-            </View>
-          ) : null}
+            <SwipeableAcceptButton 
+              onAccept={handleAccept}
+              isLoading={isActionLoading}
+              bookingId={booking.id}
+            />
+          ) : (
+            <>
+              {/* <TouchableOpacity 
+                style={clsx(
+                  styles.flexRow,
+                  styles.itemsCenter,
+                  styles.px4,
+                  styles.py2,
+                  styles.bgPrimary,
+                  styles.roundedFull
+                )}
+                onPress={() => navigation.navigate('BookingDetail', { booking: booking.originalData })}
+                activeOpacity={0.7}
+              >
+                <Text style={clsx(styles.textWhite, styles.fontMedium, styles.mr1)}>
+                  View Details
+                </Text>
+                <Icon name="chevron-right" size={16} color={colors.white} />
+              </TouchableOpacity> */}
+            </>
+          )}
         </View>
       </TouchableOpacity>
     );

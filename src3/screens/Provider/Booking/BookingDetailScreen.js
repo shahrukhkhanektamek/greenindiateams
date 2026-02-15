@@ -2715,7 +2715,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
         ) : (
           <>
             {/* HOLD BUTTON - Always show when booking is not complete */}
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={clsx(
                 styles.flexRow,
                 styles.itemsCenter,
@@ -2733,7 +2733,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
               <Text style={clsx(styles.textWhite, styles.fontMedium)}>
                 Hold
               </Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             {/* Other buttons based on status */}
             {formattedData.status === 'accept' || formattedData.status === 'new' ? (

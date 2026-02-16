@@ -57,6 +57,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
   const [holdReason, setHoldReason] = useState('');
   const [isHolding, setIsHolding] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
+  const [isCalling, setIsCalling] = useState(false);
   // ========================================
   
   // Timer state for parts approval
@@ -175,6 +176,55 @@ const BookingDetailScreen = ({ navigation, route }) => {
       setIsHolding(false);
     }
   };
+
+  const handleMaskedCall = async () => {
+
+    try {
+  
+      setIsCalling(true);
+  
+      const response = await postData({}, `${Urls.maskedCall}/${bookingData?._id}`,
+        'GET'
+      );
+  
+      if (response?.success) {
+  
+        // Toast.show({
+        //   type: 'success',
+        //   text1: 'Calling...',
+        //   text2: 'Connecting customer securely',
+        // });
+
+        const phoneNumber = response.data.mobile;
+        Linking.openURL(`tel:${phoneNumber}`);
+
+  
+      } else {
+  
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: response?.message || 'Call Failed',
+        });
+  
+      }
+  
+    } catch (error) {
+  
+      console.log('Masked Call Error:', error);
+  
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Call Failed',
+      });
+  
+    } finally {
+      setIsCalling(false);
+    }
+  };
+  
+
   const handleRestartHoldBooking = async () => {
     Alert.alert(
       'Restart Booking',
@@ -2531,15 +2581,20 @@ const BookingDetailScreen = ({ navigation, route }) => {
         }
       >
 
-        <View style={clsx(styles.px4, styles.mt4)}>
-          <View style={clsx(
-            styles.bgWhite,
-            styles.roundedLg,
-            styles.p4,
-            styles.shadowSm
-          )}>
-            <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
-              <View style={[clsx(styles.roundedFull, styles.overflowHidden, styles.mr2), 
+      <View style={clsx(styles.px4, styles.mt4)}>
+        <View style={clsx(
+          styles.bgWhite,
+          styles.roundedLg,
+          styles.p4,
+          styles.shadowSm
+        )}>
+          
+          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyBetween)}>
+
+            {/* LEFT SIDE (IMAGE + NAME) */}
+            <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+              <View style={[
+                clsx(styles.roundedFull, styles.overflowHidden, styles.mr2), 
                 { width: 60, height: 60, backgroundColor: colors.gray200 }
               ]}>
                 {formattedData.profileImage ? (
@@ -2553,17 +2608,39 @@ const BookingDetailScreen = ({ navigation, route }) => {
                   </View>
                 )}
               </View>
-              <View style={clsx(styles.ml2, styles.flex1)}>
+
+              <View style={clsx(styles.ml2)}>
                 <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)}>
                   {formattedData.customerName}
                 </Text>
-                {/* <Text style={clsx(styles.textBase, styles.textMuted)}>
-                  {formattedData.mobile}
-                </Text> */}
               </View>
             </View>
+
+            {/* RIGHT SIDE (CALL ICON) */}
+            <TouchableOpacity
+              onPress={handleMaskedCall}
+              disabled={isCalling}
+              style={{
+                width: 45,
+                height: 45,
+                borderRadius: 50,
+                backgroundColor: "#22c55e",
+                justifyContent: "center",
+                alignItems: "center"
+              }}
+            >
+              {
+                isCalling 
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Icon name="call" size={22} color="#fff" />
+              }
+            </TouchableOpacity>
+
           </View>
+
         </View>
+      </View>
+
 
         {renderWarrantyCard()}
 

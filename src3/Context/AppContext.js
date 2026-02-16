@@ -9,7 +9,7 @@ import CustomSidebar from '../components/Provider/CustomSidebar';
 import { reset } from "../navigation/navigationService";  
  
 export const AppContext = createContext();
-const ENVIRONMENT = "production"; // production or development 
+const ENVIRONMENT = "development"; // production or development 
 
 
 
@@ -131,6 +131,7 @@ export const AppProvider = ({ children }) => {
       bookingReject: `${serviceManUrl}booking/reject`,
       getBookingDetail: `${serviceManUrl}booking`,
       holdBooking: `${serviceManUrl}booking/hold`,
+      restartHoldBooking: `${serviceManUrl}booking/hold-relase`,
       sendOtp: `${serviceManUrl}booking/booking-start-otp`,
       verifyOtpAndStart: `${serviceManUrl}booking/booking-start-otp-verify`,
       getDistence: `${serviceManUrl}nearby`,

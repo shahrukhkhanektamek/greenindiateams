@@ -56,6 +56,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [holdReason, setHoldReason] = useState('');
   const [isHolding, setIsHolding] = useState(false);
+  const [isRestarting, setIsRestarting] = useState(false);
   // ========================================
   
   // Timer state for parts approval
@@ -71,6 +72,30 @@ const BookingDetailScreen = ({ navigation, route }) => {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (bookingData?.status === 'hold' && bookingData) {
+      // Pre-populate hold modal with existing data
+      const holdDetails = bookingData;
+      
+      if (holdDetails.holdDate) {
+        setHoldDate(new Date(holdDetails.holdDate));
+      }
+      
+      if (holdDetails.holdTime) {
+        // Parse time string to Date object
+        const [hours, minutes] = holdDetails.holdTime.split(':');
+        const timeDate = new Date();
+        timeDate.setHours(parseInt(hours, 10));
+        timeDate.setMinutes(parseInt(minutes, 10));
+        setHoldTime(timeDate);
+      }
+      
+      if (holdDetails.holdReason) {
+        setHoldReason(holdDetails.holdReason);
+      }
+    }
+  }, [bookingData]);
 
   // ========== SOCKET SETUP ==========
   useEffect(() => {
@@ -149,6 +174,62 @@ const BookingDetailScreen = ({ navigation, route }) => {
     } finally {
       setIsHolding(false);
     }
+  };
+  const handleRestartHoldBooking = async () => {
+    Alert.alert(
+      'Restart Booking',
+      'Are you sure you want to restart this booking from hold?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes, Restart',
+          style: 'default',
+          onPress: async () => {
+            try {
+              setIsRestarting(true);
+              
+              const response = await postData(
+                {
+                  bookingId: bookingData?.booking?._id,
+                  servicemanBookingId: bookingData?._id,
+                },
+                `${Urls.restartHoldBooking}`,
+                'POST'
+              );
+
+              if (response?.success) {
+                // Toast.show({
+                //   type: 'success',
+                //   text1: 'Success',
+                //   text2: 'Booking restarted successfully',
+                // });
+                
+                // Refresh booking details
+                loadBookingDetails();
+                
+                // Close the hold modal if it's open
+                setShowHoldModal(false);
+              } else {
+                Toast.show({
+                  type: 'error',
+                  text1: 'Error',
+                  text2: response?.message || 'Failed to restart booking',
+                });
+              }
+            } catch (error) {
+              console.error('Error restarting booking:', error);
+              Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to restart booking',
+              });
+            } finally {
+              setIsRestarting(false);
+            }
+          }
+        }
+      ]
+    );
   };
   // ===========================================
 
@@ -2025,7 +2106,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
             styles.w90,
             styles.shadowLg
           )}>
-            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4)}>
+            <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter, styles.mb4, styles.w11_12)}>
               <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)}>
                 Hold Booking
               </Text>
@@ -2103,7 +2184,8 @@ const BookingDetailScreen = ({ navigation, route }) => {
                 styles.roundedLg,
                 styles.mb4,
                 styles.textBlack,
-                { minHeight: 100, textAlignVertical: 'top' }
+                
+                { minHeight: 100, textAlignVertical: 'top', with:'100%' }
               )}
               placeholder="Enter reason for holding the booking..."
               placeholderTextColor={colors.gray500}
@@ -2715,7 +2797,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
         ) : (
           <>
             {/* HOLD BUTTON - Always show when booking is not complete */}
-            {/* <TouchableOpacity
+            <TouchableOpacity
               style={clsx(
                 styles.flexRow,
                 styles.itemsCenter,
@@ -2733,7 +2815,29 @@ const BookingDetailScreen = ({ navigation, route }) => {
               <Text style={clsx(styles.textWhite, styles.fontMedium)}>
                 Hold
               </Text>
-            </TouchableOpacity> */}
+            </TouchableOpacity>
+
+            {formattedData.status === 'hold' ? (
+              <TouchableOpacity
+                style={clsx(
+                  styles.flexRow,
+                  styles.itemsCenter,
+                  styles.justifyCenter,
+                  styles.px4,
+                  styles.py3,
+                  styles.bgSuccess,
+                  styles.roundedLg,
+                  styles.mr2,
+                  styles.flex1
+                )}
+                onPress={() => handleRestartHoldBooking()}
+              >
+                <Icon name="play-circle-filled" size={20} color={colors.white} style={clsx(styles.mr2)} />
+                <Text style={clsx(styles.textWhite, styles.fontMedium)}>
+                  Hold Restart
+                </Text>
+              </TouchableOpacity>
+            ):(null)}
 
             {/* Other buttons based on status */}
             {formattedData.status === 'accept' || formattedData.status === 'new' ? (

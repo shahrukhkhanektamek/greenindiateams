@@ -13,6 +13,7 @@ import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import Header from '../../../components/Common/Header';
 import { AppContext } from '../../../Context/AppContext';
+import { reset } from '../../../navigation/navigationService';
 
 const TrainingStatusScreen = ({ navigation, route }) => {
   const {
@@ -23,20 +24,20 @@ const TrainingStatusScreen = ({ navigation, route }) => {
   } = useContext(AppContext);
 
   const type = route?.params?.type || rootType;
-  useEffect(() => {
-    const backAction = () => {
-        if(type=='new')
-        {
-          BackHandler.exitApp()
-          return true;
-        }
-    };  
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      backAction
-    );  
-    return () => backHandler.remove();
-  }, []);
+  // useEffect(() => {
+  //   const backAction = () => {
+  //       if(type=='new')
+  //       {
+  //         BackHandler.exitApp()
+  //         return true;
+  //       }
+  //   };  
+  //   const backHandler = BackHandler.addEventListener(
+  //     "hardwareBackPress",
+  //     backAction
+  //   );  
+  //   return () => backHandler.remove();
+  // }, []);
 
   const id = route.params?.trainingId?route.params?.trainingId:"";
 
@@ -218,7 +219,7 @@ const TrainingStatusScreen = ({ navigation, route }) => {
         
         if(apiData.trainingScheduleStatus=='Complete' && type=='new')
         {
-          navigation.navigate('ProviderDashboard',{type:type});
+          reset('ProviderDashboard');
         }
 
         return { success: true, data: formattedData };

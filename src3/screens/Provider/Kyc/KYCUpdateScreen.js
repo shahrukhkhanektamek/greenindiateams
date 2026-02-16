@@ -32,20 +32,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
   } = useContext(AppContext);
 
   const type = route?.params?.type;
-  useEffect(() => {
-    const backAction = () => {
-        if(type=='new')
-        {
-          BackHandler.exitApp()
-          return true;
-        }
-    };  
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      backAction
-    );  
-    return () => backHandler.remove();
-  }, []);
+ 
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -548,7 +535,7 @@ const KYCUpdateScreen = ({ navigation, route }) => {
 
         await fetchProfile();
       
-        navigate('KYCStatus',{type:type});
+        reset('KYCStatus',{type:type});
       } else {
         Alert.alert('Error', response?.message || 'Failed to update KYC');
       }

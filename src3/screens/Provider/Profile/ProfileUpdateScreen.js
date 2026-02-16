@@ -36,22 +36,6 @@ const ProfileUpdateScreen = ({ route }) => {
 
   const type = route?.params?.type;
   
-  useEffect(() => {
-    const backAction = () => {
-      if (type == 'new') {
-        BackHandler.exitApp();
-        return true;
-      }
-    };
-
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      backAction
-    );
-
-    return () => backHandler.remove();
-  }, [type]);
-
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -953,7 +937,7 @@ const ProfileUpdateScreen = ({ route }) => {
         });
 
         if (!user.kyc) {
-          navigate('KycScreen', { type: type });
+          reset('KycScreen', { type: type });
         } else {
           goBack();
         }
@@ -1828,7 +1812,7 @@ const ProfileUpdateScreen = ({ route }) => {
                       activeOpacity={0.7}
                     >
                       {/* Selection Indicator with better visual feedback */}
-                      <TouchableOpacity
+                      {/* <TouchableOpacity
                         onPress={() => handleMainCategorySelect(item._id, item)}
                         style={clsx(styles.mr3)}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -1847,7 +1831,7 @@ const ProfileUpdateScreen = ({ route }) => {
                             <Icon name="check" size={16} color={colors.white} />
                           )}
                         </View>
-                      </TouchableOpacity>
+                      </TouchableOpacity> */}
 
                       {/* Category Info with progress indicator */}
                       <View style={clsx(styles.flex1)}>

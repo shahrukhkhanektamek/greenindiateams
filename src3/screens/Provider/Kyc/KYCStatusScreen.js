@@ -13,6 +13,7 @@ import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import Header from '../../../components/Common/Header';
 import { AppContext } from '../../../Context/AppContext';
+import { navigate, reset } from '../../../navigation/navigationService';
 
 const KYCStatusScreen = ({ navigation, route }) => {
   const {
@@ -24,20 +25,20 @@ const KYCStatusScreen = ({ navigation, route }) => {
   } = useContext(AppContext);
 
   const type = route?.params?.type;
-  useEffect(() => {
-    const backAction = () => {
-        if(type=='new')
-        {
-          BackHandler.exitApp()
-          return true;
-        }
-    };  
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      backAction
-    );  
-    return () => backHandler.remove();
-  }, []);
+  // useEffect(() => {
+  //   const backAction = () => {
+  //       if(type=='new')
+  //       {
+  //         BackHandler.exitApp()
+  //         return true;
+  //       }
+  //   };  
+  //   const backHandler = BackHandler.addEventListener(
+  //     "hardwareBackPress",
+  //     backAction
+  //   );  
+  //   return () => backHandler.remove();
+  // }, []);
   
 
   const [loading, setLoading] = useState(true);
@@ -112,7 +113,9 @@ const KYCStatusScreen = ({ navigation, route }) => {
         else if(!user?.trainingScheduleSubmit){
           buttonText = 'Go To Training';          
           buttonNavigate = 'Training';
-          navigation.navigate(buttonNavigate,{type:type});
+          if(type=='new') reset(buttonNavigate,{type:type});
+          else navigate(buttonNavigate,{type:type});
+          return;
         }
         else{
           buttonText = 'View Documents';
@@ -202,7 +205,7 @@ const KYCStatusScreen = ({ navigation, route }) => {
           styles.p6,
           styles.roundedXl,
           styles.itemsCenter,
-          { backgroundColor: statusConfig.bgColor }
+          { backgroundColor: statusConfig?.bgColor }
         )}>
           {/* Status Icon */}
           <View style={clsx(

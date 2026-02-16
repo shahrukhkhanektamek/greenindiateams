@@ -15,7 +15,7 @@ import styles, { clsx } from '../../../styles/globalStyles';
 import { colors } from '../../../styles/colors';
 import Header from '../../../components/Common/Header';
 import { AppContext } from '../../../Context/AppContext';
-import { navigate } from '../../../navigation/navigationService';
+import { navigate, reset } from '../../../navigation/navigationService';
 
 const TrainingScheduleScreen = ({ navigation, route }) => {
   const {
@@ -28,21 +28,20 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
   } = useContext(AppContext);
 
   const type = route?.params?.type;
-  console.log(type)
-  useEffect(() => {
-    const backAction = () => {
-        if(type=='new')
-        {
-          BackHandler.exitApp()
-          return true;
-        }
-    };  
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      backAction
-    );  
-    return () => backHandler.remove();
-  }, []);
+  // useEffect(() => {
+  //   const backAction = () => {
+  //       if(type=='new')
+  //       {
+  //         BackHandler.exitApp()
+  //         return true;
+  //       }
+  //   };  
+  //   const backHandler = BackHandler.addEventListener(
+  //     "hardwareBackPress",
+  //     backAction
+  //   );  
+  //   return () => backHandler.remove();
+  // }, []);
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -402,7 +401,8 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
         }
         
         await fetchProfile();
-        navigate('TrainingStatus',{type:type});
+        if(type=='new') reset('TrainingStatus',{type:type});
+        else navigate('TrainingStatus',{type:type});
       } else {
         Toast.show({
           type: 'error',

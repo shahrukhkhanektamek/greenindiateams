@@ -369,6 +369,7 @@ function ProviderNavigator() {
     <Stack.Navigator
       initialRouteName={rootScreen}
       screenOptions={commonScreenOptions}
+      initialParams={{type:rootType}}
     >
       <Stack.Screen 
         name="ProviderOTPLogin" 

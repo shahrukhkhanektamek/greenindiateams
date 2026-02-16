@@ -119,11 +119,11 @@ export function canGoBack() {
 }
 
 // Reset navigation stack
-export function reset(name) {
+export function reset(name, params = {}) {
   if (navigationRef.isReady()) {
     navigationRef.reset({
       index: 0,
-      routes: [{ name }],
+      routes: [{ name, params }],
     });
   } else {
     console.log('Navigation not ready for reset, will retry...');
@@ -131,7 +131,7 @@ export function reset(name) {
       if (navigationRef.isReady()) {
         navigationRef.reset({
           index: 0,
-          routes: [{ name }],
+          routes: [{ name, params }],
         });
       } else {
         setTimeout(tryReset, 100);
@@ -141,9 +141,15 @@ export function reset(name) {
   }
 }
 
+
+
 // Reset to specific stack
 export function resetToStack(stackName, routes = []) {
   if (navigationRef.isReady()) {
+    // Debug log
+    console.log('Resetting to stack:', stackName);
+    console.log('Routes:', routes);
+    
     navigationRef.reset({
       index: routes.length - 1,
       routes: routes.map(route => ({
@@ -152,6 +158,15 @@ export function resetToStack(stackName, routes = []) {
       })),
     });
   }
+}
+
+
+// Reset to resetToStackForLogout stack
+export function resetToStackForLogout(stackName, routes = []) {
+ navigationRef.reset({
+    index: 0,
+    routes: [{ name: 'Home' },{ name: 'Language' }], 
+  });
 }
 
 // Pop to top of current stack

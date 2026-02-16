@@ -178,6 +178,21 @@ const EarningScreen = ({ navigation }) => {
       : '46, 125, 50'; // Default to primary color RGB
   };
 
+  const darkenHexColor = (hex, percent = 30) => {
+    let num = parseInt(hex.replace("#", ""), 16);
+    let r = (num >> 16) - Math.round(2.55 * percent);
+    let g = ((num >> 8) & 0x00FF) - Math.round(2.55 * percent);
+    let b = (num & 0x0000FF) - Math.round(2.55 * percent);
+
+    r = r < 0 ? 0 : r;
+    g = g < 0 ? 0 : g;
+    b = b < 0 ? 0 : b;
+
+    return `${r}, ${g}, ${b}`;
+  };
+
+  const darkPrimaryRgb = darkenHexColor(colors.primary, 35);
+
   const primaryRgb = hexToRgb(colors.primary);
 
     // Chart configuration - Remove left Y-axis labels
@@ -186,30 +201,37 @@ const EarningScreen = ({ navigation }) => {
       backgroundGradientFrom: colors.white,
       backgroundGradientTo: colors.white,
       decimalPlaces: 0,
-      color: (opacity = 1) => `rgba(${primaryRgb || '30, 136, 229'}, ${opacity})`,
+
+      color: (opacity = 1) => `rgba(${darkPrimaryRgb}, ${opacity})`,
       labelColor: (opacity = 1) => colors.textMuted,
+
       style: {
         borderRadius: 16,
       },
+
       propsForDots: {
         r: '6',
         strokeWidth: '2',
-        stroke: colors.primary,
+        stroke: `rgba(${darkPrimaryRgb},1)`,
       },
+
       propsForBackgroundLines: {
         strokeDasharray: '',
-        stroke: colors.grayLight,
+        stroke: `rgba(${darkPrimaryRgb},0.2)`,
       },
-      fillShadowGradient: colors.primary,
-      fillShadowGradientOpacity: 0.1,
-      formatYLabel: () => '', // Empty string to hide Y-axis labels
+
+      fillShadowGradient: `rgba(${darkPrimaryRgb},1)`,
+      fillShadowGradientOpacity: 0.5,
+
+      formatYLabel: () => '',
       propsForVerticalLabels: {
         fontSize: 11,
       },
       propsForHorizontalLabels: {
-        fontSize: 0, // Hide horizontal labels (Y-axis)
+        fontSize: 0,
       },
     };
+
 
     const data = {
       labels: monthLabels,

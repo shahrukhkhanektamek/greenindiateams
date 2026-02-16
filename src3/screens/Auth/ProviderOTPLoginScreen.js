@@ -92,7 +92,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
           mobile: phone 
         }, Urls.login, 'POST');
         
-        console.log('Login response:', response);
+        // console.log('Login response:', response);
         
         if (response?.success) {
           setIsOtpSent(true);
@@ -207,7 +207,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
           fcmToken:await AsyncStorage.getItem('fcm_token')
         }, Urls.verifyOtp, 'POST');
         
-        console.log('Verify OTP response:', response);
+        // console.log('Verify OTP response:', response);
         
         if (response?.success) {
           // Store user data and token
@@ -260,7 +260,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
     let Goscreen = '';
     if(user)
     {
-      if(isNew==0)
+      if(isNew==1)
       {
         Goscreen = 'IntroEarning';
       }
@@ -282,7 +282,7 @@ const ProviderOTPLoginScreen = ({ navigation, route }) => {
         }
         else if(user?.trainingScheduleSubmit)
         {
-          console.log(user?.trainingScheduleSubmit)
+          // console.log(user?.trainingScheduleSubmit)
           // "New", "Confirm", "Reject", "Complete"  
           if(
             user?.trainingScheduleSubmit.trainingScheduleStatus=='New' ||

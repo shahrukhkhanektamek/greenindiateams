@@ -2772,18 +2772,20 @@ const BookingDetailScreen = ({ navigation, route }) => {
             />
           )}
           
-          <InfoCard
-            title="Address"
-            value={formattedData.address}
-            icon="location-on"
-            onPress={() => { 
-              if (formattedData?.originalData?.booking?.addressId?.lat && formattedData?.originalData?.booking?.addressId?.long) {
-                Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${formattedData.originalData.booking.addressId.lat},${formattedData.originalData.booking.addressId.long}`);
-              } else if (formattedData.address) {
-                Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formattedData.address)}`);
-              }
-            }}
-          />
+          {formattedData.status!='complete' && (
+            <InfoCard
+              title="Address"
+              value={formattedData.address}
+              icon="location-on"
+              onPress={() => { 
+                if (formattedData?.originalData?.booking?.addressId?.lat && formattedData?.originalData?.booking?.addressId?.long) {
+                  Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${formattedData.originalData.booking.addressId.lat},${formattedData.originalData.booking.addressId.long}`);
+                } else if (formattedData.address) {
+                  Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formattedData.address)}`);
+                }
+              }}
+            />
+          )}
 
           <InfoCard
             title="Payment Status"

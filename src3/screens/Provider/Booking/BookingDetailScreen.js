@@ -2557,9 +2557,9 @@ const BookingDetailScreen = ({ navigation, route }) => {
                 <Text style={clsx(styles.textXl, styles.fontBold, styles.textBlack)}>
                   {formattedData.customerName}
                 </Text>
-                <Text style={clsx(styles.textBase, styles.textMuted)}>
+                {/* <Text style={clsx(styles.textBase, styles.textMuted)}>
                   {formattedData.mobile}
-                </Text>
+                </Text> */}
               </View>
             </View>
           </View>

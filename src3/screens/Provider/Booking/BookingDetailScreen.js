@@ -574,6 +574,14 @@ const BookingDetailScreen = ({ navigation, route }) => {
         isPartsRejected: true
       };
     }
+    if (status === 'hold') {
+      return {
+        label: '⏸️ On Hold',
+        color: colors.warning,
+        bgColor: colors.warningLight,
+        isOnHold: true
+      };
+    }
     
     switch (status) {
       case 'complete':
@@ -2137,6 +2145,109 @@ const BookingDetailScreen = ({ navigation, route }) => {
     );
   };
 
+  const renderHoldDetails = () => {
+    // Check karo ki booking hold pe hai ya hold history hai
+    const isOnHold = bookingData?.status === 'hold';
+    const hasHoldData = bookingData?.holdDate || bookingData?.holdReason || bookingData?.holdTime;
+    
+    if (!hasHoldData) return null;
+    
+    // Hold date ko format karo
+    const formatHoldDate = (dateString) => {
+      if (!dateString) return 'N/A';
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+    };
+    
+    return (
+      <View style={clsx(styles.px4, styles.mt4)}>
+        <View style={clsx(
+          styles.bgWhite,
+          styles.roundedLg,
+          styles.p4,
+          styles.shadowSm,
+          isOnHold && [styles.borderLeftWidth4, { borderLeftColor: colors.warning }]
+        )}>
+          {/* Header with icon */}
+          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
+            <View style={[clsx(styles.roundedFull, styles.p2, styles.mr3), 
+              { backgroundColor: isOnHold ? colors.warning + '20' : colors.info + '20' }
+            ]}>
+              <Icon 
+                name={isOnHold ? "pause-circle-filled" : "history"} 
+                size={24} 
+                color={isOnHold ? colors.warning : colors.info} 
+              />
+            </View>
+            <View style={clsx(styles.flex1)}>
+              <Text style={clsx(styles.textLg, styles.fontBold, styles.textBlack)}>
+                {isOnHold ? '⏸️ Booking On Hold' : '📋 Hold History'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Hold Details Card */}
+          <View style={clsx(
+            styles.bgGray50,
+            styles.roundedLg,
+            styles.p4,
+            isOnHold && [styles.border, { borderColor: colors.warning + '40' }]
+          )}>
+            
+            {/* Date and Time Row */}
+            {(bookingData?.holdDate || bookingData?.holdTime) && (
+              <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb3)}>
+                <Icon 
+                  name="event" 
+                  size={20} 
+                  color={isOnHold ? colors.warning : colors.info} 
+                  style={clsx(styles.mr3)} 
+                />
+                <View>
+                  <Text style={clsx(styles.textSm, styles.textMuted)}>Hold Date & Time</Text>
+                  <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+                    {formatHoldDate(bookingData?.holdDate)}
+                    {bookingData?.holdTime && ` at ${bookingData.holdTime}`}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Reason Row */}
+            {bookingData?.holdReason && (
+              <View style={clsx(styles.flexRow, styles.itemsStart)}>
+                <Icon 
+                  name="info" 
+                  size={20} 
+                  color={isOnHold ? colors.warning : colors.info} 
+                  style={clsx(styles.mr3, styles.mt1)} 
+                />
+                <View style={clsx(styles.flex1)}>
+                  <Text style={clsx(styles.textSm, styles.textMuted)}>Hold Reason</Text>
+                  <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>
+                    {bookingData.holdReason}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Additional info for hold history */}
+          {!isOnHold && bookingData?.lastStatus === 'hold' && (
+            <View style={clsx(styles.mt3, styles.p3, styles.bgInfoLight, styles.roundedLg)}>
+              <Text style={clsx(styles.textSm, styles.textInfo, styles.textCenter)}>
+                ⏱️ Booking was on hold and has been restarted
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
   // ========== HOLD MODAL RENDER ==========
   const renderHoldModal = () => {
     if (!showHoldModal) return null;
@@ -2448,12 +2559,12 @@ const BookingDetailScreen = ({ navigation, route }) => {
             <Text style={clsx(styles.textXl, styles.fontBold, styles.textPrimary)}>₹{formattedData.payableAmount.toFixed(2)}</Text>
           </View>
           
-          <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mt3, styles.p3, styles.bgInfoLight, styles.rounded)}>
+          {/* <View style={clsx(styles.flexRow, styles.justifyBetween, styles.mt3, styles.p3, styles.bgInfoLight, styles.rounded)}>
             <Text style={clsx(styles.textBase, styles.fontMedium, styles.textBlack)}>Payment Method:</Text>
             <Text style={clsx(styles.textBase, styles.fontBold, styles.textInfo)}>
-              {formattedData.paymentMode === 'cash' ? 'Cash' : 'Online Payment'}
+              {formattedData.paymentMode === 'cod' ? 'Cash' : 'Online Payment'}
             </Text>
-          </View>
+          </View> */}
         </View>
       </View>
     );
@@ -2643,6 +2754,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
 
 
         {renderWarrantyCard()}
+        {renderHoldDetails()}
 
         <View style={clsx(styles.px4, styles.pt4, styles.mt4)}>
           <View style={clsx(

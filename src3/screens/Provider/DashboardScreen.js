@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   Dimensions,
   Alert,
   Modal,
+  Animated,
+  PanResponder
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
@@ -33,6 +35,7 @@ const DashboardScreen = ({ navigation }) => {
 
   const [refreshing, setRefreshing] = useState(false);
   const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState({}); // Track individual booking actions
   const [stats, setStats] = useState({
     totalBookings: 0,
     newBookings: 0,
@@ -246,6 +249,60 @@ const DashboardScreen = ({ navigation }) => {
       });
     } finally {
       setDashboardLoading(false);
+    }
+  };
+
+  // Function to handle booking status update
+  const handleStatusUpdate = async (bookingId, action, bookingOData) => {
+    try {
+      // Set loading for this specific booking
+      setActionLoading(prev => ({ ...prev, [bookingId]: true }));
+
+      const endpoint = action === 'accept' ? Urls.bookingAccept + '/' + bookingId : Urls.bookingReject + '/' + bookingId;
+      const actionText = action === 'accept' ? 'accept' : 'reject';
+
+      const response = await postData(
+        { bookingId },
+        endpoint,
+        'POST'
+      );
+
+      if (response?.success) {
+        // Update local state
+        setTodayBookings(prev => prev.map(booking => {
+          if (booking.id === bookingId) {
+            return {
+              ...booking,
+              status: action === 'accept' ? 'accept' : 'reject'
+            };
+          }
+          return booking;
+        }));
+
+        // Navigate to booking detail after acceptance
+        if (action === 'accept') {
+          navigation.navigate('BookingDetail', { booking: bookingOData });
+        }
+
+        // Refresh dashboard data
+        await fetchDashboardData();
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: response?.message || `Failed to ${actionText} booking`,
+        });
+      }
+    } catch (error) {
+      console.error(`Error ${action}ing booking:`, error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: `Failed to ${action} booking. Please try again.`,
+      });
+    } finally {
+      // Clear loading for this booking
+      setActionLoading(prev => ({ ...prev, [bookingId]: false }));
     }
   };
 
@@ -492,38 +549,135 @@ const DashboardScreen = ({ navigation }) => {
     return 'home-repair-service';
   };
 
-  // Function to handle accept booking
-  const handleAcceptBooking = async (bookingId, job) => {
-    try {
-      setLoading(true);
-      
-      const response = await postData(
-        { bookingId },
-        Urls.bookingAccept + '/' + bookingId,
-        'POST'
-      );
+  // Swipeable Accept Button Component
+  const SwipeableAcceptButton = ({ onAccept, isLoading, bookingId }) => {
+    const [swipeCompleted, setSwipeCompleted] = useState(false);
+    const pan = useRef(new Animated.Value(0)).current;
+    const buttonWidth = 300; // Total button width
+    const swipeThreshold = buttonWidth * 0.6; // Swipe 60% to activate
+    const sliderWidth = 40; // Width of the sliding thumb
+    
+    const panResponder = useRef(
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+          return Math.abs(gestureState.dx) > 5;
+        },
+        onPanResponderMove: (_, gestureState) => {
+          if (!swipeCompleted && !isLoading) {
+            // Constrain movement between 0 and buttonWidth - sliderWidth
+            const newX = Math.max(0, Math.min(gestureState.dx, buttonWidth - sliderWidth));
+            pan.setValue(newX);
+          }
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          if (!swipeCompleted && !isLoading) {
+            if (gestureState.dx > swipeThreshold) {
+              // Complete the swipe
+              Animated.timing(pan, {
+                toValue: buttonWidth - sliderWidth,
+                duration: 200,
+                useNativeDriver: false,
+              }).start(() => {
+                setSwipeCompleted(true);
+                onAccept(); // Call the accept function
+              });
+            } else {
+              // Reset back to start
+              Animated.spring(pan, {
+                toValue: 0,
+                useNativeDriver: false,
+                friction: 7,
+              }).start();
+            }
+          }
+        },
+        onPanResponderTerminate: () => {
+          // Reset if gesture is interrupted
+          Animated.spring(pan, {
+            toValue: 0,
+            useNativeDriver: false,
+          }).start();
+        },
+      })
+    ).current;
 
-      if (response?.success) {
-        navigation.navigate('BookingDetail', { booking: job.originalData });
-        
-        // Refresh dashboard data
-        await fetchDashboardData();
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Error',
-          text2: response?.message || 'Failed to accept booking',
-        });
+    // Reset swipe state when booking changes or loading completes
+    useEffect(() => {
+      if (!isLoading) {
+        setSwipeCompleted(false);
+        Animated.spring(pan, {
+          toValue: 0,
+          useNativeDriver: false,
+          friction: 7,
+        }).start();
       }
-    } catch (error) {
-      console.error('Error accepting booking:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to accept booking. Please try again.',
-      });
-    } finally {
-      setLoading(false);
+    }, [isLoading, bookingId]);
+
+    return (
+      <View style={{
+        width: buttonWidth,
+        height: 44,
+        backgroundColor: colors.success + '20', // Light green background
+        borderRadius: 22,
+        overflow: 'hidden',
+      }}>
+        {/* Background Text */}
+        <View style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+          <Text style={clsx(styles.textSuccess, styles.fontMedium)}>
+            {isLoading ? 'Accepting...' : 'Swipe to Accept'}
+          </Text>
+        </View>
+
+        {/* Sliding Thumb */}
+        <Animated.View
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: sliderWidth,
+            backgroundColor: colors.success,
+            borderRadius: 22,
+            justifyContent: 'center',
+            alignItems: 'center',
+            transform: [{
+              translateX: pan
+            }]
+          }}
+          {...panResponder.panHandlers}
+        >
+          {isLoading ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <Icon 
+              name={swipeCompleted ? "check" : "chevron-right"} 
+              size={24} 
+              color={colors.white} 
+            />
+          )}
+        </Animated.View>
+      </View>
+    );
+  };
+
+  // Function to handle card press
+  const handleCardPress = (job) => {
+    if (job.status === 'new') {
+      // For new bookings, don't do anything on card press
+      // Swipe button will handle the acceptance
+      return;
+    } else {
+      // For other statuses, directly navigate to detail
+      navigation.navigate('BookingDetail', { booking: job.originalData });
     }
   };
 
@@ -877,31 +1031,6 @@ const DashboardScreen = ({ navigation }) => {
           {todayBookings.length > 0 ? (
             todayBookings.slice(0, 3).map((job) => {
               var originalData2 = job.originalData;
-              // console.log('job',job)
-              // Function to handle card press
-              const handleCardPress = () => {
-                if (job.status === 'new') {
-                  // Show confirmation for accept
-                  Alert.alert(
-                    'Accept Booking',
-                    'Are you sure you want to accept this booking?',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { 
-                        text: 'Accept', 
-                        style: 'default',
-                        onPress: () => {
-                          // First accept the booking
-                          handleAcceptBooking(job.id, job);
-                        }
-                      }
-                    ]
-                  );
-                } else {
-                  // For other statuses, directly navigate to detail
-                  navigation.navigate('BookingDetail', { booking: job.originalData });
-                }
-              };
 
               return (
                 <TouchableOpacity
@@ -913,7 +1042,9 @@ const DashboardScreen = ({ navigation }) => {
                     styles.mb3,
                     styles.shadowSm
                   )}
-                  onPress={handleCardPress}
+                  onPress={() => handleCardPress(job)}
+                  disabled={job.status === 'new'}
+                  activeOpacity={job.status === 'new' ? 0.7 : 1}
                 >
                   {/* Top Section - Service & Status */}
                   <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsStart, styles.mb3)}>
@@ -967,13 +1098,6 @@ const DashboardScreen = ({ navigation }) => {
                       </Text>
                     </View>
 
-                    {/* <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
-                      <Icon name="phone" size={16} color={colors.textMuted} style={clsx(styles.mr2)} />
-                      <Text style={clsx(styles.textSm, styles.textBlack, styles.flex1)} numberOfLines={1}>
-                        {job.mobile}
-                      </Text>
-                    </View> */}
-
                     {job.time && (
                       <View style={clsx(styles.flexRow, styles.itemsCenter, styles.mb2)}>
                         <Icon name="schedule" size={16} color={colors.textMuted} style={clsx(styles.mr2)} />
@@ -991,32 +1115,14 @@ const DashboardScreen = ({ navigation }) => {
                     </View>
                   </View>
 
-                  {/* Bottom Section - Amount & Action Info */}
-                  <View style={clsx(styles.flexRow, styles.justifyBetween, styles.itemsCenter)}>
-                    <View>
-                      {/* <Text style={clsx(styles.textSm, styles.textMuted, styles.mb1)}>
-                        Total Amount
-                      </Text>
-                      <Text style={clsx(styles.textXl, styles.fontBold, styles.textPrimary)}>
-                        ₹{job.amount}
-                      </Text> */}
-                    </View>
-                    
-                    {/* Status based instruction text */}
+                  {/* Bottom Section - Swipeable Accept Button for new bookings */}
+                  <View style={clsx(styles.flexRow, styles.justifyEnd, styles.itemsCenter)}>
                     {job.status === 'new' ? (
-                      <View style={clsx(
-                        styles.flexRow,
-                        styles.itemsCenter,
-                        styles.px3,
-                        styles.py2,
-                        styles.bgInfoLight,
-                        styles.roundedFull
-                      )}>
-                        <Icon name="touch-app" size={16} color={colors.info} />
-                        <Text style={clsx(styles.textInfo, styles.fontMedium, styles.ml1)}>
-                          Tap to Accept
-                        </Text>
-                      </View>
+                      <SwipeableAcceptButton 
+                        onAccept={() => handleStatusUpdate(job.id, 'accept', job.originalData)}
+                        isLoading={actionLoading[job.id]}
+                        bookingId={job.id}
+                      />
                     ) : (
                       <>
                         {/* <View style={clsx(
@@ -1037,7 +1143,6 @@ const DashboardScreen = ({ navigation }) => {
                       </>
                     )}
                   </View>
-                  
                 </TouchableOpacity>
               );
             })

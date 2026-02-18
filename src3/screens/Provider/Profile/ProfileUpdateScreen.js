@@ -305,9 +305,36 @@ const ProfileUpdateScreen = ({ route }) => {
     }
   }, [allCategories, formData.categoryIds]);
 
+  // Update the handleCitySelect function with better error handling
   const handleCitySelect = (cityId) => {
-    setFormData({ ...formData, cityId });
-    setShowCitiesModal(false);
+    try {
+      // Validate that the city exists
+      const selectedCity = allCities.find(city => city._id === cityId);
+      
+      if (selectedCity) {
+        setFormData({ ...formData, cityId: selectedCity._id });
+        setShowCitiesModal(false);
+        
+        // Clear any city errors if they exist
+        if (errors.city) {
+          setErrors({ ...errors, city: '' });
+        }
+      } else {
+        console.warn('Selected city not found in cities list:', cityId);
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Invalid city selected',
+        });
+      }
+    } catch (error) {
+      console.error('Error in handleCitySelect:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to select city',
+      });
+    }
   };
 
   const handleExperienceLevelChange = (level) => {
@@ -382,19 +409,24 @@ const ProfileUpdateScreen = ({ route }) => {
     }
   };
 
-  // Fetch cities data
+  // Fetch cities data 
   const fetchCities = async () => {
     try {
+      console.log('Fetching cities...');
       const citiesResponse = await postData({}, Urls.cityList, 'GET', { 
         showErrorMessage: false, showSuccessMessage: false
       });
+      
+      console.log('Cities response:', citiesResponse);
       
       if (citiesResponse?.success && citiesResponse?.data) {
         let cities = [];
         
         if (Array.isArray(citiesResponse.data)) {
           cities = extractCitiesFromResponse(citiesResponse.data);
+          console.log('Extracted cities:', cities.length);
         } else {
+          console.warn('Cities data is not an array:', citiesResponse.data);
           Toast.show({
             type: 'error',
             text1: 'Error',
@@ -406,20 +438,11 @@ const ProfileUpdateScreen = ({ route }) => {
         setAllCities(cities);
         return true;
       } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Error',
-          text2: 'Failed to load cities',
-        });
+        console.warn('Cities API failed:', citiesResponse);
         return false;
       }
     } catch (error) {
       console.error('Error fetching cities:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to load cities',
-      });
       return false;
     }
   };
@@ -1020,8 +1043,19 @@ const ProfileUpdateScreen = ({ route }) => {
   // Get selected city name for display
   const getSelectedCityName = () => {
     if (!formData.cityId) return null;
-    const selectedCity = allCities.find(city => city._id === formData.cityId);
-    return selectedCity ? selectedCity.name : null;
+    
+    try {
+      // Ensure allCities is an array and has items
+      if (!Array.isArray(allCities) || allCities.length === 0) {
+        return null;
+      }
+      
+      const selectedCity = allCities.find(city => city && city._id === formData.cityId);
+      return selectedCity ? selectedCity.name : null;
+    } catch (error) {
+      console.error('Error in getSelectedCityName:', error);
+      return null;
+    }
   };
 
   // Get selection stats for a category
@@ -2101,7 +2135,11 @@ const ProfileUpdateScreen = ({ route }) => {
               contentContainerStyle={clsx(styles.pb4)}
               showsVerticalScrollIndicator={false}
               renderItem={({ item }) => {
-                const isSelected = formData.cityId === item._id;
+                // Ensure item exists before using it
+                if (!item || !item._id) return null;
+                
+                const isSelected = formData.cityId && formData.cityId === item._id;
+                
                 return (
                   <TouchableOpacity
                     style={clsx(
@@ -2134,7 +2172,7 @@ const ProfileUpdateScreen = ({ route }) => {
                         styles.fontMedium,
                         isSelected ? styles.textPrimary : styles.textBlack
                       )}>
-                        {item.name}
+                        {item.name || 'Unknown City'}
                       </Text>
                       {(item.state || item.country) && (
                         <Text style={clsx(styles.textSm, styles.textMuted, styles.mt1)}>

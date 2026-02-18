@@ -52,7 +52,7 @@ const ProfileUpdateScreen = ({ route }) => {
   // Track selected main categories separately for UI
   const [selectedMainCategories, setSelectedMainCategories] = useState([]);
 
-  // Initial profile data - SEPARATED categoryIds and subCategoryIds
+  // Initial profile data
   const initialProfileData = {
     name: '',
     email: '',
@@ -70,8 +70,7 @@ const ProfileUpdateScreen = ({ route }) => {
     referenceName2: '',
     referenceMobile2: '',
     userId: '',
-    categoryIds: [],      // Stores ONLY main category IDs
-    subCategoryIds: [],   // Stores ONLY subcategory IDs
+    categoryIds: [], // Stores both category and subcategory IDs
     cityId: '',
     profileImage: null,
   };
@@ -141,179 +140,174 @@ const ProfileUpdateScreen = ({ route }) => {
     }));
   };
 
-  // Check if a main category is selected
+  // Check if a main category is selected (based on its subcategories or itself)
   const isMainCategorySelected = (categoryId) => {
-    return formData.categoryIds.includes(categoryId); // Only checks categoryIds
+    return selectedMainCategories.includes(categoryId);
   };
 
   // Check if a subcategory is selected
   const isSubcategorySelected = (subcategoryId) => {
-    return formData.subCategoryIds.includes(subcategoryId); // Only checks subCategoryIds
+    return formData.categoryIds.includes(subcategoryId);
   };
 
   // Check if all subcategories of a category are selected
   const areAllSubcategoriesSelected = (category) => {
     if (!category.subcategories || category.subcategories.length === 0) return false;
-    return category.subcategories.every(sub => 
-      formData.subCategoryIds.includes(sub._id) // Only check subCategoryIds
-    );
+    return category.subcategories.every(sub => formData.categoryIds.includes(sub._id));
   };
 
   // Check if some subcategories are selected
   const areSomeSubcategoriesSelected = (category) => {
     if (!category.subcategories || category.subcategories.length === 0) return false;
-    return category.subcategories.some(sub => formData.subCategoryIds.includes(sub._id)) && 
+    return category.subcategories.some(sub => formData.categoryIds.includes(sub._id)) && 
            !areAllSubcategoriesSelected(category);
   };
 
-  // UPDATED: Handle subcategory selection - ONLY modifies subCategoryIds
+  // Handle subcategory selection - THIS IS THE KEY FIX
   const handleSubcategorySelect = (subcategoryId, categoryId, categoryName) => {
-    const newSubCategoryIds = [...formData.subCategoryIds];
-    const subcategoryIndex = newSubCategoryIds.indexOf(subcategoryId);
+    const newCategoryIds = [...formData.categoryIds];
+    const subcategoryIndex = newCategoryIds.indexOf(subcategoryId);
     
     if (subcategoryIndex > -1) {
       // Remove subcategory
-      newSubCategoryIds.splice(subcategoryIndex, 1);
+      newCategoryIds.splice(subcategoryIndex, 1);
       
       // Check if this was the last subcategory of this category
       const category = allCategories.find(c => c._id === categoryId);
       if (category) {
-        const remainingSubsFromThisCat = newSubCategoryIds.filter(id => 
+        const remainingSubsFromThisCat = newCategoryIds.filter(id => 
           category.subcategories.some(sub => sub._id === id)
         );
         
-        // If no subcategories remain from this category, remove the main category
+        // If no subcategories remain from this category, remove the main category from selectedMainCategories
         if (remainingSubsFromThisCat.length === 0) {
-          setFormData(prev => ({
-            ...prev,
-            categoryIds: prev.categoryIds.filter(id => id !== categoryId), // Remove main category
-            subCategoryIds: newSubCategoryIds // Only subcategories
-          }));
-        } else {
-          setFormData(prev => ({ 
-            ...prev, 
-            subCategoryIds: newSubCategoryIds // Only update subcategories
-          }));
+          setSelectedMainCategories(prev => prev.filter(id => id !== categoryId));
         }
       }
     } else {
       // Add subcategory
-      newSubCategoryIds.push(subcategoryId);
+      newCategoryIds.push(subcategoryId);
       
       // Auto-select the main category if not already selected
-      if (!formData.categoryIds.includes(categoryId)) {
-        setFormData(prev => ({
-          ...prev,
-          categoryIds: [...prev.categoryIds, categoryId], // Add main category
-          subCategoryIds: newSubCategoryIds // Add subcategory
-        }));
-      } else {
-        setFormData(prev => ({ 
-          ...prev, 
-          subCategoryIds: newSubCategoryIds // Only add subcategory
-        }));
+      if (!selectedMainCategories.includes(categoryId)) {
+        setSelectedMainCategories(prev => [...prev, categoryId]);
+      }
+      
+      // Also ensure main category ID is in categoryIds if we want to store it
+      // Comment this out if you DON'T want to store main category IDs
+      if (!newCategoryIds.includes(categoryId)) {
+        newCategoryIds.push(categoryId);
       }
     }
+    
+    setFormData({ ...formData, categoryIds: newCategoryIds });
   };
 
-  // UPDATED: Handle main category selection - modifies categoryIds, never adds main to subCategoryIds
+  // Handle main category selection (manual toggle)
   const handleMainCategorySelect = (categoryId, category) => {
-    const isSelected = formData.categoryIds.includes(categoryId);
+    const isSelected = selectedMainCategories.includes(categoryId);
     let newCategoryIds = [...formData.categoryIds];
-    let newSubCategoryIds = [...formData.subCategoryIds];
+    let newSelectedMainCategories;
     
     if (isSelected) {
       // Deselect main category and all its subcategories
-      newCategoryIds = newCategoryIds.filter(id => id !== categoryId);
-      newSubCategoryIds = newSubCategoryIds.filter(id => 
-        !category.subcategories.some(sub => sub._id === id)
+      newSelectedMainCategories = selectedMainCategories.filter(id => id !== categoryId);
+      
+      // Remove main category and all its subcategories from categoryIds
+      newCategoryIds = newCategoryIds.filter(id => 
+        id !== categoryId && !category.subcategories.some(sub => sub._id === id)
       );
     } else {
-      // Select main category - add to categoryIds ONLY
-      newCategoryIds.push(categoryId);
+      // Select main category and all its subcategories
+      newSelectedMainCategories = [...selectedMainCategories, categoryId];
       
-      // Add all subcategories - add to subCategoryIds ONLY
+      // Add main category if not present
+      if (!newCategoryIds.includes(categoryId)) {
+        newCategoryIds.push(categoryId);
+      }
+      
+      // Add all subcategories
       category.subcategories.forEach(sub => {
-        if (!newSubCategoryIds.includes(sub._id)) {
-          newSubCategoryIds.push(sub._id);
+        if (!newCategoryIds.includes(sub._id)) {
+          newCategoryIds.push(sub._id);
         }
       });
     }
     
-    setFormData({
-      ...formData,
-      categoryIds: newCategoryIds,      // Only main categories
-      subCategoryIds: newSubCategoryIds // Only subcategories
-    });
+    setSelectedMainCategories(newSelectedMainCategories);
+    setFormData({ ...formData, categoryIds: newCategoryIds });
   };
 
-  // UPDATED: Handle select/deselect all subcategories
+  // Handle select/deselect all subcategories
   const handleSelectAllSubcategories = (categoryId, subcategories) => {
     const category = allCategories.find(c => c._id === categoryId);
     if (!category) return;
     
-    let newCategoryIds = [...formData.categoryIds];
-    let newSubCategoryIds = [...formData.subCategoryIds];
+    const newCategoryIds = [...formData.categoryIds];
     const subcategoryIds = subcategories.map(sub => sub._id);
     
     // Check if all subcategories are selected
-    const allSelected = subcategoryIds.every(id => newSubCategoryIds.includes(id));
+    const allSelected = subcategoryIds.every(id => newCategoryIds.includes(id));
     
     if (allSelected) {
-      // Deselect all subcategories - remove from subCategoryIds ONLY
-      newSubCategoryIds = newSubCategoryIds.filter(id => !subcategoryIds.includes(id));
+      // Deselect all subcategories
+      const filteredIds = newCategoryIds.filter(id => !subcategoryIds.includes(id));
       
-      // If no subcategories remain from this category, remove main category
-      const remainingSubsFromThisCat = newSubCategoryIds.filter(id => 
-        category.subcategories.some(sub => sub._id === id)
-      );
+      // Also remove main category if no subcategories remain
+      setSelectedMainCategories(prev => prev.filter(id => id !== categoryId));
       
-      if (remainingSubsFromThisCat.length === 0) {
-        newCategoryIds = newCategoryIds.filter(id => id !== categoryId);
-      }
+      // Remove main category as well
+      const finalIds = filteredIds.filter(id => id !== categoryId);
+      setFormData({ ...formData, categoryIds: finalIds });
     } else {
-      // Select all subcategories - add to subCategoryIds ONLY
-      subcategoryIds.forEach(id => {
-        if (!newSubCategoryIds.includes(id)) {
-          newSubCategoryIds.push(id);
+      // Select all subcategories
+      const idsToAdd = subcategoryIds.filter(id => !newCategoryIds.includes(id));
+      
+      // Ensure main category is selected
+      if (!selectedMainCategories.includes(categoryId)) {
+        setSelectedMainCategories(prev => [...prev, categoryId]);
+      }
+      
+      // Add main category if not present
+      if (!newCategoryIds.includes(categoryId)) {
+        newCategoryIds.push(categoryId);
+      }
+      
+      // Add all subcategories
+      setFormData({ 
+        ...formData, 
+        categoryIds: [...newCategoryIds, ...idsToAdd] 
+      });
+    }
+  };
+
+  // Update selectedMainCategories whenever categoryIds changes (for initial load)
+  useEffect(() => {
+    if (allCategories.length > 0 && formData.categoryIds.length > 0) {
+      // Find which main categories should be selected based on subcategories
+      const mainsToSelect = [];
+      
+      allCategories.forEach(category => {
+        // Check if any subcategory of this category is selected
+        const hasSelectedSubcategory = category.subcategories.some(sub => 
+          formData.categoryIds.includes(sub._id)
+        );
+        
+        // Check if main category itself is selected
+        const isMainSelected = formData.categoryIds.includes(category._id);
+        
+        if (hasSelectedSubcategory || isMainSelected) {
+          mainsToSelect.push(category._id);
         }
       });
       
-<<<<<<< HEAD
       setSelectedMainCategories(mainsToSelect);
     }
   }, [allCategories, formData.categoryIds]);
 
-  // Update the handleCitySelect function with better error handling
   const handleCitySelect = (cityId) => {
-    try {
-      // Validate that the city exists
-      const selectedCity = allCities.find(city => city._id === cityId);
-      
-      if (selectedCity) {
-        setFormData({ ...formData, cityId: selectedCity._id });
-        setShowCitiesModal(false);
-        
-        // Clear any city errors if they exist
-        if (errors.city) {
-          setErrors({ ...errors, city: '' });
-        }
-      } else {
-        console.warn('Selected city not found in cities list:', cityId);
-        Toast.show({
-          type: 'error',
-          text1: 'Error',
-          text2: 'Invalid city selected',
-        });
-      }
-    } catch (error) {
-      console.error('Error in handleCitySelect:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to select city',
-      });
-    }
+    setFormData({ ...formData, cityId });
+    setShowCitiesModal(false);
   };
 
   const handleExperienceLevelChange = (level) => {
@@ -326,19 +320,16 @@ const ProfileUpdateScreen = ({ route }) => {
       setShowExperienceFields(false);
     } else {
       setShowExperienceFields(true);
-=======
-      // Ensure main category is selected (add to categoryIds ONLY)
-      if (!newCategoryIds.includes(categoryId)) {
-        newCategoryIds.push(categoryId);
-      }
->>>>>>> e251e59f6b7a98a5d260b57b6789ece20fd3e546
     }
     
-    setFormData({
-      ...formData,
-      categoryIds: newCategoryIds,      // Only main categories
-      subCategoryIds: newSubCategoryIds // Only subcategories
-    });
+    setFormData(updatedFormData);
+    
+    if (errors.yearOfExperience) {
+      setErrors({ ...errors, yearOfExperience: '' });
+    }
+    if (errors.companyName) {
+      setErrors({ ...errors, companyName: '' });
+    }
   };
 
   // Fetch categories data
@@ -391,24 +382,19 @@ const ProfileUpdateScreen = ({ route }) => {
     }
   };
 
-  // Fetch cities data 
+  // Fetch cities data
   const fetchCities = async () => {
     try {
-      console.log('Fetching cities...');
       const citiesResponse = await postData({}, Urls.cityList, 'GET', { 
         showErrorMessage: false, showSuccessMessage: false
       });
-      
-      console.log('Cities response:', citiesResponse);
       
       if (citiesResponse?.success && citiesResponse?.data) {
         let cities = [];
         
         if (Array.isArray(citiesResponse.data)) {
           cities = extractCitiesFromResponse(citiesResponse.data);
-          console.log('Extracted cities:', cities.length);
         } else {
-          console.warn('Cities data is not an array:', citiesResponse.data);
           Toast.show({
             type: 'error',
             text1: 'Error',
@@ -420,16 +406,25 @@ const ProfileUpdateScreen = ({ route }) => {
         setAllCities(cities);
         return true;
       } else {
-        console.warn('Cities API failed:', citiesResponse);
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Failed to load cities',
+        });
         return false;
       }
     } catch (error) {
       console.error('Error fetching cities:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to load cities',
+      });
       return false;
     }
   };
 
-  // UPDATED: Fetch profile data and separate categoryIds and subCategoryIds
+  // Fetch profile data
   const fetchProfileData = async () => {
     try {
       const response = await postData({}, Urls.profileDetail, 'GET', { 
@@ -446,47 +441,25 @@ const ProfileUpdateScreen = ({ route }) => {
           dob = new Date(apiData.dob);
         }
         
-        // SEPARATE categoryIds and subCategoryIds - STRICT SEPARATION
+        // Handle categoryIds (including subcategories)
         let categoryIds = [];
-        let subCategoryIds = [];
         
         if (apiData.categoryIds && apiData.categoryIds.length > 0) {
-          let allIds = [];
           if (Array.isArray(apiData.categoryIds)) {
-            allIds = apiData.categoryIds;
+            categoryIds = apiData.categoryIds;
           } else if (typeof apiData.categoryIds === 'string') {
             try {
               const parsed = JSON.parse(apiData.categoryIds);
-              allIds = Array.isArray(parsed) ? parsed : [];
+              categoryIds = Array.isArray(parsed) ? parsed : [];
             } catch (e) {
               const split = apiData.categoryIds.split(',').map(id => id.trim());
-              allIds = split;
+              categoryIds = split;
             }
           }
-          
-          // Separate into categories and subcategories based on allCategories data
-          if (allCategories.length > 0) {
-            allIds.forEach(id => {
-              const isMainCategory = allCategories.some(cat => cat._id === id);
-              const isSubCategory = allCategories.some(cat => 
-                cat.subcategories.some(sub => sub._id === id)
-              );
-              
-              if (isMainCategory) {
-                categoryIds.push(id); // Only main categories go here
-              } else if (isSubCategory) {
-                subCategoryIds.push(id); // Only subcategories go here
-              }
-              // Ignore if neither (invalid ID)
-            });
-          } else {
-            // If categories not loaded yet, store in temp and separate later
-            // But ensure we don't accidentally put main categories in subCategoryIds
-            setFormData(prev => ({ 
-              ...prev, 
-              tempIds: allIds // Use a temp field if needed
-            }));
-          }
+        } else if (apiData.category_id) {
+          categoryIds = [apiData.category_id];
+        } else if (apiData.categories && Array.isArray(apiData.categories)) {
+          categoryIds = apiData.categories.map(cat => cat._id || cat.id);
         }
         
         // Handle cityId
@@ -534,7 +507,7 @@ const ProfileUpdateScreen = ({ route }) => {
         const updatedFormData = {
           name: apiData.name || '',
           email: apiData.email || '',
-          mobile: apiData.user.mobile || '',
+          mobile: apiData.mobile || apiData.phone || '',
           dob: dob || '',
           gender: apiData.gender || '',
           experienceLevel: experienceLevel,
@@ -548,12 +521,10 @@ const ProfileUpdateScreen = ({ route }) => {
           referenceName2: apiData.referenceName2 || '',
           referenceMobile2: apiData.referenceMobile2 || '',
           userId: apiData.userId || apiData._id || '',
-          categoryIds: apiData.categoryIds,      // Only main categories
-          subCategoryIds: apiData.subCategoryIds, // Only subcategories
+          categoryIds: categoryIds,
           cityId: cityId,
           profileImage: profileImage,
         };
-
         
         setFormData(updatedFormData);
         setShowExperienceFields(showExpFields);
@@ -575,42 +546,6 @@ const ProfileUpdateScreen = ({ route }) => {
       return false;
     }
   };
-
-  // UPDATED: Effect to separate category and subcategory IDs when allCategories loads
-  useEffect(() => {
-    if (allCategories.length > 0 && formData.tempIds?.length > 0) {
-      // Separate the temporary IDs into proper categories and subcategories
-      const newCategoryIds = [];
-      const newSubCategoryIds = [];
-      
-      formData.tempIds.forEach(id => {
-        const isMainCategory = allCategories.some(cat => cat._id === id);
-        const isSubCategory = allCategories.some(cat => 
-          cat.subcategories.some(sub => sub._id === id)
-        );
-        
-        if (isMainCategory) {
-          newCategoryIds.push(id); // Only main categories
-        } else if (isSubCategory) {
-          newSubCategoryIds.push(id); // Only subcategories
-        }
-      });
-      
-      setFormData(prev => ({
-        ...prev,
-        categoryIds: [...new Set([...prev.categoryIds, ...newCategoryIds])], // Ensure unique
-        subCategoryIds: newSubCategoryIds, // Only subcategories
-        tempIds: undefined // Clear temp data
-      }));
-    }
-  }, [allCategories]);
-
-
-
-  // Update selectedMainCategories for UI whenever categoryIds changes
-  useEffect(() => {
-    setSelectedMainCategories(formData.categoryIds);
-  }, [formData.categoryIds]);
 
   // Initial load
   useEffect(() => {
@@ -659,7 +594,7 @@ const ProfileUpdateScreen = ({ route }) => {
 
     ImagePicker.launchImageLibrary(options, (response) => {
       if (response.didCancel) {
-        // console.log('User cancelled image picker');
+        console.log('User cancelled image picker');
       } else if (response.error) {
         Toast.show({
           type: 'error',
@@ -702,7 +637,7 @@ const ProfileUpdateScreen = ({ route }) => {
 
     ImagePicker.launchCamera(options, (response) => {
       if (response.didCancel) {
-        // console.log('User cancelled camera');
+        console.log('User cancelled camera');
       } else if (response.error) {
         Toast.show({
           type: 'error',
@@ -738,11 +673,11 @@ const ProfileUpdateScreen = ({ route }) => {
     let errorMessage = '';
     let errorField = '';
   
-    // 1. Service Category validation - check both categoryIds and subCategoryIds
-    if (formData.categoryIds.length === 0 && formData.subCategoryIds.length === 0) {
-      newErrors.category = 'At least one service category or subcategory is required';
+    // 1. Service Category validation
+    if (formData.categoryIds.length === 0) {
+      newErrors.category = 'At least one service category is required';
       if (!errorMessage) {
-        errorMessage = 'Please select at least one service category or subcategory';
+        errorMessage = 'Please select at least one service category';
         errorField = 'category';
       }
     }
@@ -917,7 +852,6 @@ const ProfileUpdateScreen = ({ route }) => {
     }
   };
 
-  // UPDATED: Handle update profile with separate categoryIds and subCategoryIds
   const handleUpdateProfile = async () => {
     const validation = validateForm();
   
@@ -966,14 +900,9 @@ const ProfileUpdateScreen = ({ route }) => {
       formDataToSend.append('referenceMobile2', formData.referenceMobile2);
       formDataToSend.append('userId', formData.userId);
       
-      // Add categoryIds (ONLY main categories)
+      // Add categoryIds (including both categories and subcategories)
       formData.categoryIds.forEach((categoryId, index) => {
         formDataToSend.append(`categoryIds[${index}]`, categoryId);
-      });
-
-      // Add subCategoryIds (ONLY subcategories)
-      formData.subCategoryIds.forEach((subCategoryId, index) => {
-        formDataToSend.append(`subCategoryIds[${index}]`, subCategoryId);
       });
       
       // Add cityId
@@ -1063,52 +992,45 @@ const ProfileUpdateScreen = ({ route }) => {
     );
   };
 
-  // UPDATED: Get selected items summary for display
+  // Get selected items summary for display
   const getSelectedItemsSummary = () => {
-    if (formData.categoryIds.length === 0 && formData.subCategoryIds.length === 0) {
+    if (formData.categoryIds.length === 0) {
       return { text: 'No categories selected', count: 0 };
     }
     
-    // Get category names for better display
-    const categoryNames = formData.categoryIds.map(id => {
-      const cat = allCategories.find(c => c._id === id);
-      return cat ? cat.name : '';
-    }).filter(name => name).join(', ');
+    let mainCount = 0;
+    let subCount = 0;
     
-    const subCategoryCount = formData.subCategoryIds.length;
+    // Only count categories that are actually main categories
+    formData.categoryIds.forEach(id => {
+      const isMain = allCategories.some(cat => cat._id === id);
+      if (isMain) {
+        mainCount++;
+      } else {
+        subCount++;
+      }
+    });
     
     return {
-      text: `${formData.categoryIds.length} ${formData.categoryIds.length === 1 ? 'category' : 'categories'}${subCategoryCount > 0 ? `, ${subCategoryCount} ${subCategoryCount === 1 ? 'subcategory' : 'subcategories'}` : ''}`,
-      count: formData.categoryIds.length + formData.subCategoryIds.length,
-      categoryNames: categoryNames
+      text: `${mainCount} ${mainCount === 1 ? 'category' : 'categories'}, ${subCount} ${subCount === 1 ? 'subcategory' : 'subcategories'}`,
+      count: formData.categoryIds.length
     };
   };
 
   // Get selected city name for display
   const getSelectedCityName = () => {
     if (!formData.cityId) return null;
-    
-    try {
-      // Ensure allCities is an array and has items
-      if (!Array.isArray(allCities) || allCities.length === 0) {
-        return null;
-      }
-      
-      const selectedCity = allCities.find(city => city && city._id === formData.cityId);
-      return selectedCity ? selectedCity.name : null;
-    } catch (error) {
-      console.error('Error in getSelectedCityName:', error);
-      return null;
-    }
+    const selectedCity = allCities.find(city => city._id === formData.cityId);
+    return selectedCity ? selectedCity.name : null;
   };
 
-  // Get category stats - strict separation
+  // Get selection stats for a category
   const getCategoryStats = (category) => {
     const selectedSubs = category.subcategories?.filter(sub => 
-      formData.subCategoryIds.includes(sub._id) // Only check subCategoryIds
+      formData.categoryIds.includes(sub._id)
     ) || [];
     
-    const isMainSelected = formData.categoryIds.includes(category._id); // Only check categoryIds
+    const isMainSelected = selectedMainCategories.includes(category._id);
     
     return {
       totalSubs: category.subcategories?.length || 0,
@@ -1143,7 +1065,7 @@ const ProfileUpdateScreen = ({ route }) => {
           activeOpacity={0.7}
         >
           <View style={clsx(styles.flex1)}>
-            {formData.categoryIds.length > 0 || formData.subCategoryIds.length > 0 ? (
+            {formData.categoryIds.length > 0 ? (
               <>
                 <View style={clsx(styles.flexRow, styles.itemsCenter, styles.flexWrap)}>
                   <View style={clsx(styles.bgPrimaryLight, styles.rounded, styles.px2, styles.py1, styles.mr2)}>
@@ -1151,27 +1073,14 @@ const ProfileUpdateScreen = ({ route }) => {
                       {summary.count} Selected
                     </Text>
                   </View>
-                  {formData.categoryIds.length > 0 && (
+                  {selectedMainCategories.length > 0 && (
                     <Text style={clsx(styles.textSm, styles.textPrimary)}>
-                      {formData.categoryIds.length} {formData.categoryIds.length === 1 ? 'Category' : 'Categories'}
+                      {selectedMainCategories.length} {selectedMainCategories.length === 1 ? 'category' : 'categories'}
                     </Text>
                   )}
                 </View>
-                <Text style={clsx(styles.textSm, styles.textMuted, styles.mt1)} numberOfLines={2}>
-                  {formData.categoryIds.length > 0 && (
-                    <Text>
-                      Categories: {formData.categoryIds.map(id => {
-                        const cat = allCategories.find(c => c._id === id);
-                        return cat ? cat.name : '';
-                      }).filter(name => name).join(', ')}
-                    </Text>
-                  )}
-                  {formData.subCategoryIds.length > 0 && (
-                    <Text>
-                      {formData.categoryIds.length > 0 ? '\nSubcategories: ' : 'Subcategories: '}
-                      {formData.subCategoryIds.length} selected
-                    </Text>
-                  )}
+                <Text style={clsx(styles.textSm, styles.textMuted, styles.mt1)} numberOfLines={1}>
+                  {summary.text}
                 </Text>
               </>
             ) : (
@@ -1179,6 +1088,21 @@ const ProfileUpdateScreen = ({ route }) => {
                 Tap to select categories and subcategories...
               </Text>
             )}
+          </View>
+          <View style={clsx(styles.flexRow, styles.itemsCenter)}>
+            {formData.categoryIds.length > 0 && (
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setFormData({ ...formData, categoryIds: [] });
+                  setSelectedMainCategories([]);
+                }}
+                style={clsx(styles.mr2)}
+              >
+                <Icon name="close" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            )}
+            <Icon name="arrow-drop-down" size={28} color={colors.primary} />
           </View>
         </TouchableOpacity>
         
@@ -1754,7 +1678,7 @@ const ProfileUpdateScreen = ({ route }) => {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Categories & Subcategories Modal - UPDATED to use separate arrays */}
+      {/* Categories & Subcategories Modal - IMPROVED UI */}
       <Modal
         visible={showCategoriesModal}
         animationType="slide"
@@ -1819,7 +1743,7 @@ const ProfileUpdateScreen = ({ route }) => {
             </View>
 
             {/* Selection Summary with better UI */}
-            {(formData.categoryIds.length > 0 || formData.subCategoryIds.length > 0) && (
+            {formData.categoryIds.length > 0 && (
               <View style={clsx(styles.px4, styles.py2, styles.mb2)}>
                 <View style={clsx(
                   styles.flexRow, 
@@ -1833,16 +1757,13 @@ const ProfileUpdateScreen = ({ route }) => {
                   <View style={clsx(styles.flexRow, styles.itemsCenter)}>
                     <Icon name="check-circle" size={20} color={colors.white} style={clsx(styles.mr2)} />
                     <Text style={clsx(styles.textSm, styles.textWhite, styles.fontMedium)}>
-                      {formData.categoryIds.length + formData.subCategoryIds.length} {(formData.categoryIds.length + formData.subCategoryIds.length) === 1 ? 'item' : 'items'} selected
+                      {formData.categoryIds.length} {formData.categoryIds.length === 1 ? 'item' : 'items'} selected
                     </Text>
                   </View>
                   <TouchableOpacity
                     onPress={() => {
-                      setFormData({ 
-                        ...formData, 
-                        categoryIds: [], 
-                        subCategoryIds: [] 
-                      });
+                      setFormData({ ...formData, categoryIds: [] });
+                      setSelectedMainCategories([]);
                     }}
                     style={clsx(styles.bgWhite, styles.px2, styles.py1, styles.rounded)}
                   >
@@ -2020,7 +1941,7 @@ const ProfileUpdateScreen = ({ route }) => {
 
                         {/* Subcategory List with alternating background for better readability */}
                         {item.subcategories.map((sub, index) => {
-                          const isSubSelected = formData.subCategoryIds.includes(sub._id);
+                          const isSubSelected = formData.categoryIds.includes(sub._id);
                           return (
                             <TouchableOpacity
                               key={sub._id}
@@ -2100,13 +2021,13 @@ const ProfileUpdateScreen = ({ route }) => {
                   styles.px6, 
                   styles.py3, 
                   styles.rounded,
-                  (formData.categoryIds.length === 0 && formData.subCategoryIds.length === 0) && styles.opacity50
+                  formData.categoryIds.length === 0 && styles.opacity50
                 )}
                 onPress={() => setShowCategoriesModal(false)}
-                disabled={formData.categoryIds.length === 0 && formData.subCategoryIds.length === 0}
+                disabled={formData.categoryIds.length === 0}
               >
                 <Text style={clsx(styles.textBase, styles.textWhite, styles.fontBold)}>
-                  Done {formData.categoryIds.length + formData.subCategoryIds.length > 0 ? `(${formData.categoryIds.length + formData.subCategoryIds.length})` : ''}
+                  Done {formData.categoryIds.length > 0 ? `(${formData.categoryIds.length})` : ''}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -2180,11 +2101,7 @@ const ProfileUpdateScreen = ({ route }) => {
               contentContainerStyle={clsx(styles.pb4)}
               showsVerticalScrollIndicator={false}
               renderItem={({ item }) => {
-                // Ensure item exists before using it
-                if (!item || !item._id) return null;
-                
-                const isSelected = formData.cityId && formData.cityId === item._id;
-                
+                const isSelected = formData.cityId === item._id;
                 return (
                   <TouchableOpacity
                     style={clsx(
@@ -2217,7 +2134,7 @@ const ProfileUpdateScreen = ({ route }) => {
                         styles.fontMedium,
                         isSelected ? styles.textPrimary : styles.textBlack
                       )}>
-                        {item.name || 'Unknown City'}
+                        {item.name}
                       </Text>
                       {(item.state || item.country) && (
                         <Text style={clsx(styles.textSm, styles.textMuted, styles.mt1)}>

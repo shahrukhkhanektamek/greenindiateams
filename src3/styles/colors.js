@@ -53,6 +53,7 @@ export const colors = {
   textTertiary: '#9E9E9E',   // Light Gray
   textDisabled: '#BDBDBD',   // Disabled text
   textInverse: '#FFFFFF',    // White text on dark backgrounds
+  textMuted: '#9E9E9E',
   
   // Border colors
   border: '#E0E0E0',

@@ -342,6 +342,29 @@ const ProfileUpdateScreen = ({ route }) => {
     }
   };
 
+  const handleExperienceLevelChange = (level) => {
+    setFormData({ ...formData, experienceLevel: level });
+    setShowExperienceFields(level === 'Experience');
+    
+    // Clear experience-related errors when switching
+    if (level === 'Fresher') {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.yearOfExperience;
+        delete newErrors.companyName;
+        return newErrors;
+      });
+      
+      // Reset experience fields when switching to Fresher
+      setFormData(prev => ({
+        ...prev,
+        yearOfExperience: '',
+        monthOfExperience: '',
+        companyName: ''
+      }));
+    }
+  };
+
   // Fetch cities data
   const fetchCities = async () => {
     try {
@@ -912,13 +935,14 @@ const ProfileUpdateScreen = ({ route }) => {
       formDataToSend.append('experienceLevel', formData.experienceLevel);
       formDataToSend.append('companyName', formData.companyName);
       
-      let totalMonths = 0;
-      if (formData.experienceLevel === 'Experience') {
-        const years = parseInt(formData.yearOfExperience) || 0;
-        const months = parseInt(formData.monthOfExperience) || 0;
-        totalMonths = (years * 12) + months;
-      }
-      formDataToSend.append('yearOfExperience', totalMonths / 12);
+      // let totalMonths = 0;
+      // if (formData.experienceLevel === 'Experience') {
+      //   const years = parseInt(formData.yearOfExperience) || 0;
+      //   const months = parseInt(formData.monthOfExperience) || 0;
+      //   totalMonths = (years * 12) + months;
+      // }
+      formDataToSend.append('yearOfExperience', formData.yearOfExperience);
+      formDataToSend.append('monthOfExperience', formData.monthOfExperience);
       
       formDataToSend.append('permanentAddress', formData.permanentAddress);
       formDataToSend.append('currentAddress', formData.currentAddress);
@@ -951,7 +975,8 @@ const ProfileUpdateScreen = ({ route }) => {
           name: formData.profileImage.name || `profile_${Date.now()}.jpg`,
         });
       }
-
+      // console.log(formDataToSend)
+      // return false;
       const response = await postData(formDataToSend, Urls.profileUpdate, 'POST', { 
         showErrorMessage: true,
         isFileUpload: true,

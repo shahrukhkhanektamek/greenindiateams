@@ -82,12 +82,12 @@ const RateItem = memo(({
             </Text>
           )} */}
         
-        <Text style={clsx(styles.textSm, styles.fontBold, styles.textPrimary, styles.mt1)}>
+        <Text style={clsx(styles.textSm, styles.fontBold, styles.textBlack, styles.mt1)}>
           Unit Price: ₹{unitPrice}
         </Text>
         
         {isSelected && (
-          <Text style={clsx(styles.textSm, styles.fontBold, styles.textSuccess, styles.mt1)}>
+          <Text style={clsx(styles.textSm, styles.fontBold, styles.textBlack, styles.mt1)}>
             Total: ₹{itemTotalPrice}
           </Text>
         )}

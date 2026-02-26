@@ -1646,30 +1646,7 @@ const BookingDetailScreen = ({ navigation, route }) => {
                       </ScrollView>
                     )}
 
-                    <TouchableOpacity
-                        style={clsx(
-                          styles.bgSuccess,
-                          styles.roundedLg,
-                          styles.p3,
-                          styles.itemsCenter,
-                          styles.justifyCenter,
-                          styles.mt3,
-                          uploadingMedia && styles.opacity50
-                        )}
-                        onPress={() => uploadCapturedMediaForItem(itemId, 'after')}
-                        disabled={uploadingMedia}
-                      >
-                        {uploadingMedia ? (
-                          <ActivityIndicator size="small" color={colors.white} />
-                        ) : (
-                          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyCenter)}>
-                            <Icon name="cloud-upload" size={24} color={colors.white} style={clsx(styles.mr2)} />
-                            <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
-                              Upload All
-                            </Text>
-                          </View>
-                        )}
-                    </TouchableOpacity>
+                    
                     
                     {itemState.capturedAfterVideos?.length > 0 && (
                       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -1702,6 +1679,30 @@ const BookingDetailScreen = ({ navigation, route }) => {
                         ))}
                       </ScrollView>
                     )}
+                    <TouchableOpacity
+                        style={clsx(
+                          styles.bgSuccess,
+                          styles.roundedLg,
+                          styles.p3,
+                          styles.itemsCenter,
+                          styles.justifyCenter,
+                          styles.mt3,
+                          uploadingMedia && styles.opacity50
+                        )}
+                        onPress={() => uploadCapturedMediaForItem(itemId, 'after')}
+                        disabled={uploadingMedia}
+                      >
+                        {uploadingMedia ? (
+                          <ActivityIndicator size="small" color={colors.white} />
+                        ) : (
+                          <View style={clsx(styles.flexRow, styles.itemsCenter, styles.justifyCenter)}>
+                            <Icon name="cloud-upload" size={24} color={colors.white} style={clsx(styles.mr2)} />
+                            <Text style={clsx(styles.textWhite, styles.fontBold, styles.textLg)}>
+                              Upload All
+                            </Text>
+                          </View>
+                        )}
+                    </TouchableOpacity>
                   </View>
                 )}
                 

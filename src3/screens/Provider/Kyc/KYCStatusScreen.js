@@ -46,6 +46,7 @@ const KYCStatusScreen = ({ navigation, route }) => {
   const [kycData, setKycData] = useState(null);
   const [status, setStatus] = useState('pending'); // pending, approved, rejected
 
+  
   const fetchKYCStatus = async () => {
     try {
       const response = await postData({}, Urls.kycDetail, 'GET', { showErrorMessage: false, showSuccessMessage:false });
@@ -59,7 +60,8 @@ const KYCStatusScreen = ({ navigation, route }) => {
         const kycStatus = apiData.status || 'pending';
         // const kycStatus = 'approved';
 
-        await fetchProfile()
+        await fetchProfile();
+        
 
         setStatus(kycStatus);
         
@@ -212,12 +214,12 @@ const KYCStatusScreen = ({ navigation, route }) => {
             styles.p4,
             styles.roundedFull,
             styles.mb4,
-            { backgroundColor: `${statusConfig.iconColor}20` } // 20 = 12% opacity
+            { backgroundColor: `${statusConfig?.iconColor}20` } // 20 = 12% opacity
           )}>
             <Icon 
-              name={statusConfig.icon} 
+              name={statusConfig?.icon} 
               size={64} 
-              color={statusConfig.iconColor} 
+              color={statusConfig?.iconColor} 
             />
           </View>
 
@@ -226,9 +228,9 @@ const KYCStatusScreen = ({ navigation, route }) => {
             styles.text2xl,
             styles.fontBold,
             styles.mb3,
-            { color: statusConfig.textColor }
+            { color: statusConfig?.textColor }
           )}>
-            {statusConfig.title}
+            {statusConfig?.title}
           </Text>
 
           {/* Status Message */}
@@ -238,7 +240,7 @@ const KYCStatusScreen = ({ navigation, route }) => {
             styles.textGray,
             styles.mb6
           )}>
-            {statusConfig.message}
+            {statusConfig?.message}
           </Text>
 
           {/* Last Updated */}
@@ -262,13 +264,13 @@ const KYCStatusScreen = ({ navigation, route }) => {
             style={clsx(
               styles.button,
               styles.px6,
-              { backgroundColor: statusConfig.iconColor }
+              { backgroundColor: statusConfig?.iconColor }
             )}
-            onPress={statusConfig.buttonAction}
+            onPress={statusConfig?.buttonAction}
             disabled={refreshing}
           >
             <Text style={clsx(styles.buttonText)}>
-              {statusConfig.buttonText}
+              {statusConfig?.buttonText}
             </Text>
           </TouchableOpacity>
         </View>

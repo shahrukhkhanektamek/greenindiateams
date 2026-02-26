@@ -25,6 +25,7 @@ const TrainingScheduleScreen = ({ navigation, route }) => {
     fetchProfile,
     userProfile,
     user,
+    rootType
   } = useContext(AppContext);
 
   const type = route?.params?.type;

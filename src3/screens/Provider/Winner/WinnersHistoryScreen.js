@@ -433,6 +433,7 @@ const WinnersHistoryScreen = ({ navigation }) => {
                     key={month.value}
                     label={month.label}
                     value={month.value}
+                    color={colors.black}
                   />
                 ))}
               </Picker>
@@ -456,6 +457,7 @@ const WinnersHistoryScreen = ({ navigation }) => {
                     key={year}
                     label={year.toString()}
                     value={year}
+                    color={colors.black}
                   />
                 ))}
               </Picker>
@@ -544,11 +546,16 @@ const localStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.gray300,
     borderRadius: 8,
-    backgroundColor: colors.white,
+    backgroundColor: '#fff',
+    overflow: 'hidden',     // ⭐ MOST IMPORTANT
+    height: 55,
+    justifyContent: 'center',
   },
   picker: {
+    width: '100%',
     height: 55,
-    color: colors.textDark,
+    color: '#000',                // force text color
+    backgroundColor: 'transparent'
   },
   contentContainer: {
     padding: 16,

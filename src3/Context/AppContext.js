@@ -25,7 +25,8 @@ const RAZORPAY_WEBHOOK_SECRET='QUQ4d5ICOpQB4aD9WpF0BLlW'
 // API URLs configuration - Consider moving to environment variables
 const BASE_URLS = {
   // development: "http://192.168.1.25:8080/",
-  production: "https://oyekabadwale.com/",
+  // production: "https://oyekabadwale.com/",
+  production: "https://greenindiateam.com/",
   // production: "http://145.223.18.56:3001/",
   
   // development: "http://192.168.1.10:8080/",
@@ -572,7 +573,7 @@ export const AppProvider = ({ children }) => {
   }, [Urls.homeDetail, postData, setLoading]);
 
 
-
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
   const fetchProfile = async () => {
     try {
       const response = await postData({}, Urls.profileDetail, 'GET', { showErrorMessage: false, showSuccessMessage: false });
@@ -581,6 +582,8 @@ export const AppProvider = ({ children }) => {
         const apiData = response.data || {};      
         storage.set('user', apiData);
         setUser(apiData);
+        // await delay(3000);
+
         return true;
       } else {
         console.log('Profile API failed:', response); 
@@ -598,66 +601,81 @@ export const AppProvider = ({ children }) => {
 
   const profileStatus = async () => {
     
-    if(user)
-    {
-      if(!user.profile && !user.dob)
-      {
-        setrootScreen('ProfileUpdate');
-        setrootType('new');
-      }
-      else if(!user.kyc)  
-      {
-        setrootScreen('KycScreen');
-        setrootType('new');
-      } 
-      else if(user.kyc)  
-      {
-        if(user.kyc.status=='pending' || user.kyc.status=='rejected')
-        {
-          setrootScreen('KYCStatus');
-          setrootType('new');
-        }
-        else if(!user?.trainingScheduleSubmit)
-        {
-          setrootScreen('Training');
-          setrootType('new');
-        }
-        else if(user?.trainingScheduleSubmit)
-        {
-          // "New", "Confirm", "Reject", "Complete"  
-          if(
-            user?.trainingScheduleSubmit.trainingScheduleStatus=='New' ||
-            user?.trainingScheduleSubmit.trainingScheduleStatus=='Confirm' ||
-            user?.trainingScheduleSubmit.trainingScheduleStatus=='Present' ||
-            user?.trainingScheduleSubmit.trainingScheduleStatus=='Absent' || 
-            user?.trainingScheduleSubmit.trainingScheduleStatus=='Fail' || 
-            user?.trainingScheduleSubmit.trainingScheduleStatus=='Reject'
-          )
-          {
-            setrootScreen('TrainingStatus');
-            setrootType('new');
-          }
-          else{
-            setisheaderback(true) 
-            setrootScreen('ProviderDashboard');
-          }
-        }
-        else
-        { 
-          setisheaderback(true) 
-          setrootScreen('ProviderDashboard');
-        }
-      }
-      else
-      {
-        setisheaderback(true) 
-        setrootScreen('ProviderDashboard');
-      }
-    }
-    else
-    {
+    if(!user) {
       setrootScreen('Intro');
+      return {
+        screen: 'Intro',
+        type: null,
+        showBack: false
+      };
     }
+
+    // Profile check
+    if(!user.profile && !user.dob) {
+      setrootScreen('ProfileUpdate');
+      setrootType('new');
+      return {
+        screen: 'ProfileUpdate',
+        type: 'new',
+        showBack: false
+      };
+    }
+
+    // KYC check
+    if(!user.kyc) {
+      setrootScreen('KycScreen');
+      setrootType('new');
+      return {
+        screen: 'KycScreen',
+        type: 'new',
+        showBack: false
+      };
+    }
+
+    // KYC status check
+    if(user.kyc.status=='pending' || user.kyc.status=='rejected') {
+      setrootScreen('KYCStatus');
+      setrootType('new');
+      return {
+        screen: 'KYCStatus',
+        type: 'new',
+        showBack: false
+      };
+    }
+
+    // Training check
+    if(!user?.trainingScheduleSubmit) {
+      setrootScreen('Training');
+      setrootType('new');
+      return {
+        screen: 'Training',
+        type: 'new',
+        showBack: false
+      };
+    }
+
+    // Training status check
+    const trainingStatus = user?.trainingScheduleSubmit?.trainingScheduleStatus;
+    const pendingTrainingStatuses = ['New', 'Confirm', 'Present', 'Absent', 'Fail', 'Reject'];
+    
+    if(pendingTrainingStatuses.includes(trainingStatus)) {
+      setrootScreen('TrainingStatus');
+      setrootType('new');
+      return {
+        screen: 'TrainingStatus',
+        type: 'new',
+        showBack: false
+      };
+    }
+
+    // Sab kuch complete hai
+    setisheaderback(true);
+    setrootScreen('ProviderDashboard');
+    return {
+      screen: 'ProviderDashboard',
+      type: null,
+      showBack: true
+    };
   };
 
 

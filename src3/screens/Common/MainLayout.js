@@ -20,15 +20,21 @@ import {
 } from "../../navigation/navigationService"; 
 import MovableButton from '../../components/Common/MovableButton';
 
-const MainLayout = ({ children }) => {
+const MainLayout = ({ children, route }) => {
   const { 
     user, 
+    profileStatus,
+    rootType
   } = useContext(AppContext);
   
   const [currentScreen, setCurrentScreen] = useState('');
+  let type = '';
 
   // Get current screen from navigation service
   useEffect(() => {
+
+    const profileStatusvar = profileStatus();
+    type = profileStatusvar?.type;
     // Get initial screen
     const initialScreen = getCurrentRouteName();
     if (initialScreen) {
@@ -50,10 +56,53 @@ const MainLayout = ({ children }) => {
   // Check if footer should be shown
   const shouldShowFooter = () => {
     if (!user) return false;
+    if (type=='new') return false;
     
     const hideFooterOn = [
       'Intro',
-      'IntroEarning',
+      'IntroEarning', 
+      'ProviderLogin',
+      'ProviderOTPLogin',
+      'ProviderForgotPassword',
+      'ProviderSignup',
+      'Verification',
+      'SplashScreen',
+      'KYCStatus',
+      'TrainingStatus',
+      'Support',
+      'TermsCondition',
+      'KycScreen',
+      'KYCView',
+      'TrainingHistory',
+      'Training',
+      'ProfileUpdate',
+      'BookingDetail',
+      'OTPVerificationScreen',
+      'SelfieCaptureScreen',
+      'MediaCaptureScreen',
+      'CompleteBookingScreen',
+      'PartsSelectionScreen',
+      'EarningDetails',
+      'AddWallet',
+      'TransactionHistory',
+      'TransactionDetails',
+      'Schedule',
+      'Performance',
+      'Tools',
+      'JobDetails',
+    ];
+    
+    return !hideFooterOn.includes(currentScreen);
+  };
+
+  // Check if footer should be shown
+  const shouldShowSupport = () => {
+    if (!user) return false;
+    if (type=='new') return false;
+    
+    const hideFooterOn = [
+      'Intro',
+      'IntroEarning', 
       'ProviderLogin',
       'ProviderOTPLogin',
       'ProviderForgotPassword',
@@ -104,11 +153,13 @@ const MainLayout = ({ children }) => {
         <FooterMenu />
       )}
 
-      <MovableButton 
+      {shouldShowSupport() && (
+        <MovableButton 
         onPress={()=>{navigate('Support')}}
         buttonText="Help"
         initialPosition="right-bottom"
-      />
+        />
+      )}
       
     </>
   );

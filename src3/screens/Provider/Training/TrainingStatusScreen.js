@@ -855,7 +855,8 @@ const TrainingStatusScreen = ({ navigation, route }) => {
                   styles.itemsCenter,
                   styles.flexRow,
                   styles.justifyCenter,
-                  styles.mx2
+                  styles.mx2,
+                  styles.mb6
                 )}
                 onPress={() => navigation.navigate('Support')}
                 disabled={refreshing}

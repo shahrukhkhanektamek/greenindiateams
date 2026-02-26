@@ -320,8 +320,13 @@ function ProviderNavigator() {
   const { user, setrootScreen, rootScreen, rootType, profileStatus, fetchProfile } = useContext(AppContext);
   const [isSplashVisible, setIsSplashVisible] = useState(true);
 
-  useEffect(() => { 
-    fetchProfile();
+  let profileStatusvar = '';
+  useEffect(() => {
+    const loadProfile = async () => {
+      await fetchProfile();
+    };
+    
+    loadProfile();
   }, []);
 
   useEffect(() => { 
@@ -331,7 +336,8 @@ function ProviderNavigator() {
     };
  
     const checkRootAccess = async () => {
-      profileStatus();
+      profileStatusvar = await profileStatus();
+      await new Promise((resolve) => setTimeout(resolve, 500));
     };
 
     checkRootAccess();

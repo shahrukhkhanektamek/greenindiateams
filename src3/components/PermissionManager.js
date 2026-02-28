@@ -35,15 +35,6 @@ const getPermissionConfig = () => {
       androidPermission: PermissionsAndroid.PERMISSIONS.CAMERA,
     },
     {
-      key: 'storage',
-      title: 'Storage Access',
-      description: 'Needed to save and upload photos, documents, and reports.',
-      required: true,
-      androidPermission: androidVersion >= 33 
-        ? 'android.permission.READ_MEDIA_IMAGES' 
-        : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-    },
-    {
       key: 'phone',
       title: 'Phone Access',
       description: 'To make calls directly to customers from the app.',
